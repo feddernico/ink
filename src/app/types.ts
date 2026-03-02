@@ -1,0 +1,102 @@
+export interface PermissionCapableHandle {
+  queryPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<"granted" | "denied" | "prompt">;
+  requestPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<"granted" | "denied" | "prompt">;
+}
+
+export interface WritableLike {
+  write: (content: string) => Promise<void>;
+  close: () => Promise<void>;
+}
+
+export interface FileHandleLike extends PermissionCapableHandle {
+  kind: "file";
+  name: string;
+  getFile: () => Promise<File>;
+  createWritable: () => Promise<WritableLike>;
+}
+
+export interface DirectoryHandleLike extends PermissionCapableHandle {
+  kind: "directory";
+  name: string;
+  entries: () => AsyncIterableIterator<[string, FileSystemHandleLike]>;
+  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<FileHandleLike>;
+  getDirectoryHandle: (name: string, options?: { create?: boolean }) => Promise<DirectoryHandleLike>;
+}
+
+export type FileSystemHandleLike = FileHandleLike | DirectoryHandleLike;
+
+export interface NoteRecord {
+  handle: FileHandleLike;
+  name: string;
+  relPath: string;
+  lastModified: number;
+  size: number;
+  tags: Set<string>;
+}
+
+export interface FileNode {
+  type: "file";
+  name: string;
+  relPath: string;
+  handle: FileHandleLike;
+  noteRef: NoteRecord;
+}
+
+export interface DirectoryNode {
+  type: "dir";
+  name: string;
+  relPath: string;
+  children: TreeNode[];
+}
+
+export type TreeNode = FileNode | DirectoryNode;
+
+export interface AppState {
+  workspaceHandle: DirectoryHandleLike | null;
+  workspaceName: string;
+  fileTree: DirectoryNode | null;
+  notes: NoteRecord[];
+  currentFileHandle: FileHandleLike | null;
+  currentRelPath: string;
+  currentContent: string;
+  isDirty: boolean;
+  searchQuery: string;
+  tagFilter: string;
+  sortMode: "name" | "modified";
+  collapsedDirs: Set<string>;
+  autoRefreshMs: number;
+  autoRefreshTimer: ReturnType<typeof setInterval> | null;
+}
+
+export interface DomRefs {
+  openFolderBtn: HTMLButtonElement;
+  refreshBtn: HTMLButtonElement;
+  sortBtn: HTMLButtonElement;
+  searchInput: HTMLInputElement;
+  tree: HTMLElement;
+  tagRow: HTMLElement;
+  workspaceName: HTMLElement;
+  countsPill: HTMLElement;
+  editor: HTMLTextAreaElement;
+  preview: HTMLElement;
+  currentFilename: HTMLElement;
+  dirtyDot: HTMLElement;
+  saveBtn: HTMLButtonElement;
+  statusBadge: HTMLElement;
+  toast: HTMLElement;
+  toastMsg: HTMLElement;
+  toastCloseBtn: HTMLButtonElement;
+  newNoteBtn: HTMLButtonElement;
+  newFolderBtn: HTMLButtonElement;
+}
+
+declare global {
+  interface Window {
+    marked?: {
+      setOptions: (options: { mangle: boolean; headerIds: boolean; breaks: boolean }) => void;
+      parse: (markdown: string) => string;
+    };
+    showDirectoryPicker?: (options?: { id?: string; mode?: "read" | "readwrite" }) => Promise<DirectoryHandleLike>;
+    FileSystemHandle?: unknown;
+  }
+}

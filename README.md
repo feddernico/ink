@@ -7,8 +7,11 @@ The structure of the repo is as follows:
 
 ```
 src/
-  app.ts         (The app interaction logic in TypeScript)
+  app.ts         (Thin app entrypoint)
+  app/           (Feature modules: bootstrap, dom, fs-api, types)
   tags.ts        (Tag/frontmatter parsing utilities)
+  test-support/
+    storage-fixture.ts  (Test-only storage helpers)
   styles.scss    (The app styles, in SCSS)
 dist/
   app.min.js
@@ -16,10 +19,11 @@ dist/
 ink.template.html  (The HTML template source)
 ink-app.html       (The final single-page app, with inline <style> and <script>)
 build/
-  inject.js
-  build.js
+  assemble-single-file.js
+  compile-and-assemble.js
   watch.js
-  sync-from-ink-app.js
+  inject.js  (Compatibility alias)
+  build.js   (Compatibility alias)
 tests/
   qunit/
 cypress/
@@ -32,7 +36,6 @@ The workflow uses `esbuild` and `sass`.
 
 - Build once: `npm run build`
 - Build on file changes: `npm run watch`
-- Resync sources from current `ink-app.html`: `npm run sync:from-ink-app`
 - Makefile wrappers:
   - `make build`
   - `make watch`
@@ -57,12 +60,6 @@ If you want automatic rebuilds while editing:
 1. Run: `npm run watch`
 2. Keep editing source files
 3. `ink-app.html` will be regenerated after changes
-
-If `ink-app.html` is manually edited and you want to make it the source again:
-
-1. Run: `npm run sync:from-ink-app`
-2. This updates `src/app.ts`, `src/styles.scss`, and `ink.template.html`
-3. Run `npm run build` to regenerate minified outputs
 
 ## Testing
 
