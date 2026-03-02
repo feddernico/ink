@@ -1,8 +1,15 @@
-PHONY: esbuild
+.PHONY: build watch test test-qunit test-cypress
 
-esbuild:
-	npx esbuild src/app.ts \
-		--bundle \
-		--minify \
-		--target=es2018 \
-		--outfile=dist/app.min.js
+build:
+	npm run build
+
+watch:
+	npm run watch
+
+test: test-qunit test-cypress
+
+test-qunit:
+	npm run test:qunit
+
+test-cypress:
+	npm run test:cypress
