@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# OS/editor noise
+.DS_Store
+*.log
+
+# Local tool state
+.opencode/
+
+# Cypress artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
