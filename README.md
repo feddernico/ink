@@ -1,4 +1,8 @@
 # ink
+<p align="center">
+  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
+</p>
+
 Ink is a functional and minimalistic webapp to write documents in markdown and export them.
 
 ## Repo Structure
@@ -21,9 +25,14 @@ ink-app.html       (The final single-page app, with inline <style> and <script>)
 build/
   assemble-single-file.js
   compile-and-assemble.js
+  generate-favicons.js
   watch.js
   inject.js  (Compatibility alias)
   build.js   (Compatibility alias)
+assets/
+  branding/
+    logo.svg
+    favicon.svg
 tests/
   qunit/
 cypress/
@@ -41,6 +50,14 @@ The workflow uses `esbuild` and `sass`.
   - `make watch`
 
 The webapp is released as a single HTML file (`ink-app.html`).
+
+## Branding Assets
+
+- Canonical logo source: `assets/branding/logo.svg`
+- Generated favicon: `assets/branding/favicon.svg`
+- Regenerate favicon after logo updates: `npm run build:favicon`
+
+`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
 
 ## Workflow Cheat Sheet
 

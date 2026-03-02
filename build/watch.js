@@ -28,7 +28,7 @@ async function runBuild() {
 
 await runBuild();
 
-const watcher = chokidar.watch(["src/**/*.ts", "src/**/*.scss", "ink.template.html"], {
+const watcher = chokidar.watch(["src/**/*.ts", "src/**/*.scss", "ink.template.html", "assets/branding/logo.svg"], {
   ignoreInitial: true,
 });
 
