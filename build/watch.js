@@ -1,5 +1,5 @@
 import chokidar from "chokidar";
-import { buildAll } from "./build.js";
+import { buildAll } from "./compile-and-assemble.js";
 
 let inProgress = false;
 let queued = false;

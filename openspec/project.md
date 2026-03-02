@@ -62,6 +62,8 @@ Ink is a web application for writing and editing markdown documents with export 
 
 ## Additional Instructions
 
+Extracted from `https://burkeholland.github.io/posts/opus-4-5-change-everything/`
+
 Assume all code will be written and maintained by LLMs, not humans. Optimize for model reasoning, regeneration, and debugging — not human aesthetics.
 
 Your goal: produce code that is predictable, debuggable, and easy for future LLMs to rewrite or extend.

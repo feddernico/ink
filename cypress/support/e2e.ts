@@ -1,4 +1,3 @@
-import './commands'
+import "./commands";
 
-// Optional: Ignore errors
-Cypress.on('uncaught:exception', () => false)
+Cypress.on("uncaught:exception", () => false);

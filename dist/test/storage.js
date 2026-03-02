@@ -1,4 +1,4 @@
-// src/storage.ts
+// src/test-support/storage-fixture.ts
 var STORAGE_PREFIX = "ink.workspace.";
 function workspaceKey(name) {
   return `${STORAGE_PREFIX}${name}`;
