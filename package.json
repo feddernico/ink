@@ -17,6 +17,7 @@
   "scripts": {
     "build": "node build/compile-and-assemble.js",
     "watch": "node build/watch.js",
+    "build:favicon": "node build/generate-favicons.js",
     "build:test": "esbuild src/tags.ts --bundle --platform=node --format=esm --outfile=dist/test/tags.js && esbuild src/test-support/storage-fixture.ts --bundle --platform=node --format=esm --outfile=dist/test/storage.js",
     "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
     "serve:test": "http-server . -p 4173 -s",

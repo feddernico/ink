@@ -1,0 +1,25 @@
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
+
+  <!-- Ink drop -->
+  <path
+    d="M300 150
+       C330 200 360 260 330 320
+       C300 380 240 380 210 320
+       C180 260 240 200 270 170
+       C285 155 300 150 300 150 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Stylized text -->
+  <text x="300" y="460"
+        text-anchor="middle"
+        font-family="Inter, sans-serif"
+        font-size="100"
+        font-weight="700"
+        fill="#ffffff"
+        letter-spacing="-5">
+    ink
+  </text>
+</svg>
