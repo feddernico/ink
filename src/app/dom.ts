@@ -5,11 +5,14 @@ function requiredElement<T extends Element>(id: string): T {
   if (!element) {
     throw new Error(`Missing required element: #${id}`);
   }
-  return element as T;
+  return element as unknown as T;
 }
 
 export function getDomRefs(): DomRefs {
   return {
+    app: requiredElement<HTMLElement>("app"),
+    workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
+    sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
     openFolderBtn: requiredElement<HTMLButtonElement>("openFolderBtn"),
     refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
     sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),

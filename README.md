@@ -37,6 +37,7 @@ tests/
   qunit/
 cypress/
   e2e/
+repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
 ```
 
 ## Building Process

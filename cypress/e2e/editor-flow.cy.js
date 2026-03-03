@@ -116,4 +116,40 @@ describe("ink authoring flow", () => {
       expect(handle.__read()).to.eq(markdown);
     });
   });
+
+  it("collapses and expands the left menu, updating accessibility state and editor space", () => {
+    let expandedEditorWidth = 0;
+    let collapsedEditorWidth = 0;
+
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "true")
+      .and("contain", "▶ Collapse");
+    cy.get(".app").should("not.have.class", "sidebar-collapsed");
+
+    cy.get("#editor").then(($editor) => {
+      expandedEditorWidth = $editor[0].getBoundingClientRect().width;
+    });
+
+    cy.get("#sidebarToggleBtn").click();
+    cy.get(".app").should("have.class", "sidebar-collapsed");
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "false")
+      .and("contain", "▼ Expand");
+
+    cy.get("#editor").then(($editor) => {
+      collapsedEditorWidth = $editor[0].getBoundingClientRect().width;
+      expect(collapsedEditorWidth).to.be.greaterThan(expandedEditorWidth);
+    });
+
+    cy.get("#sidebarToggleBtn").focus().type("{enter}");
+    cy.get(".app").should("not.have.class", "sidebar-collapsed");
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "true")
+      .and("contain", "Collapse");
+
+    cy.get("#editor").then(($editor) => {
+      const finalEditorWidth = $editor[0].getBoundingClientRect().width;
+      expect(finalEditorWidth).to.be.lessThan(collapsedEditorWidth);
+    });
+  });
 });

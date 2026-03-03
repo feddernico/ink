@@ -66,9 +66,13 @@ export interface AppState {
   collapsedDirs: Set<string>;
   autoRefreshMs: number;
   autoRefreshTimer: ReturnType<typeof setInterval> | null;
+  isSidebarCollapsed: boolean;
 }
 
 export interface DomRefs {
+  app: HTMLElement;
+  workspaceSidebar: HTMLElement;
+  sidebarToggleBtn: HTMLButtonElement;
   openFolderBtn: HTMLButtonElement;
   refreshBtn: HTMLButtonElement;
   sortBtn: HTMLButtonElement;
