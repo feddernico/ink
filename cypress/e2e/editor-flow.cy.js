@@ -123,7 +123,8 @@ describe("ink authoring flow", () => {
 
     cy.get("#sidebarToggleBtn")
       .should("have.attr", "aria-expanded", "true")
-      .and("contain", "▶ Collapse");
+      .and("contain", "▶ Collapse")
+      .and("be.visible");
     cy.get(".app").should("not.have.class", "sidebar-collapsed");
 
     cy.get("#editor").then(($editor) => {
