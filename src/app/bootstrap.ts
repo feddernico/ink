@@ -8,14 +8,15 @@ import type {
   DomRefs,
   FileHandleLike,
   FileNode,
+  InMemoryNoteRecord,
   NoteRecord,
   TreeNode,
 } from "./types";
 
 function escapeHtml(value: string): string {
   return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
@@ -36,6 +37,7 @@ class InkApp {
       workspaceName: "",
       fileTree: null,
       notes: [],
+      inMemoryNotes: [],
       currentFileHandle: null,
       currentRelPath: "",
       currentContent: "",
@@ -47,6 +49,7 @@ class InkApp {
       autoRefreshMs: 10000,
       autoRefreshTimer: null,
       isSidebarCollapsed: false,
+      isTemporarySession: false,
     };
   }
 
@@ -80,6 +83,11 @@ class InkApp {
     });
 
     this.els.refreshBtn.addEventListener("click", () => {
+      if (this.state.isTemporarySession) {
+        this.showToast("Refresh not available in temporary session. Your data is in memory.");
+        return;
+      }
+
       if (!this.state.workspaceHandle) {
         this.showToast("No workspace open.");
         return;
@@ -107,7 +115,7 @@ class InkApp {
     });
 
     this.els.editor.addEventListener("input", () => {
-      if (!this.state.currentFileHandle) {
+      if (!this.state.currentRelPath) {
         return;
       }
 
@@ -139,6 +147,14 @@ class InkApp {
       this.saveCurrentNote().catch((error: unknown) => {
         this.showToast(`Save failed: ${String(error)}`, { persist: true });
       });
+    });
+
+    this.els.exportJsonBtn.addEventListener("click", () => {
+      this.exportAsJson();
+    });
+
+    this.els.exportMdBtn.addEventListener("click", () => {
+      this.exportAsMarkdown();
     });
 
     this.els.newNoteBtn.addEventListener("click", () => {
@@ -206,7 +222,9 @@ class InkApp {
 
   private updateDirtyUi(): void {
     this.els.dirtyDot.classList.toggle("show", this.state.isDirty);
-    this.els.saveBtn.disabled = !this.state.currentFileHandle || !this.state.isDirty;
+    const hasNote = this.state.currentRelPath && (this.state.currentFileHandle || this.state.isTemporarySession);
+    this.els.saveBtn.disabled = !hasNote || !this.state.isDirty;
+    this.els.exportMdBtn.disabled = !this.state.currentRelPath;
 
     const openFileName = this.state.currentRelPath
       ? this.state.currentRelPath.split("/").pop()
@@ -229,12 +247,33 @@ class InkApp {
 
   private async openWorkspace(): Promise<void> {
     if (!isFileSystemApiAvailable()) {
-      this.showToast("Your browser doesn't support the File System Access API. Use Chrome/Edge (Chromium).", {
+      this.state.isTemporarySession = true;
+      this.state.workspaceName = "Temporary Session";
+      this.state.inMemoryNotes = [];
+      this.state.isDirty = false;
+      this.state.currentRelPath = "";
+      this.state.currentContent = "";
+      this.state.fileTree = null;
+
+      this.els.workspaceName.textContent = this.state.workspaceName;
+      this.els.workspaceName.title = "Temporary Session - Data not persisted";
+      this.els.temporarySessionBadge.style.display = "inline";
+      this.els.countsPill.textContent = "0 notes";
+      this.els.tagRow.innerHTML = "";
+      this.els.tree.innerHTML = '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
+      this.els.exportJsonBtn.disabled = true;
+      this.els.exportMdBtn.disabled = true;
+
+      this.showToast("Temporary in-memory workspace enabled. Use Export to save your notes.", {
         persist: true,
       });
-      this.setStatus("Unsupported browser", "err");
+      this.setStatus("Temporary session", "warn");
       return;
     }
+
+    this.els.temporarySessionBadge.style.display = "none";
+    this.els.exportJsonBtn.disabled = true;
+    this.els.exportMdBtn.disabled = true;
 
     try {
       if (!window.showDirectoryPicker) {
@@ -405,7 +444,9 @@ class InkApp {
 
   private renderTags(): void {
     const tagCounts = new Map<string, number>();
-    for (const note of this.state.notes) {
+    const notes = this.state.isTemporarySession ? this.state.inMemoryNotes : this.state.notes;
+
+    for (const note of notes) {
       for (const tag of note.tags) {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       }
@@ -427,9 +468,13 @@ class InkApp {
     allButton.addEventListener("click", () => {
       this.state.tagFilter = "";
       this.renderTags();
-      this.renderTree().catch((error: unknown) => {
-        this.showToast(`Tag render failed: ${String(error)}`, { persist: true });
-      });
+      if (this.state.isTemporarySession) {
+        this.renderInMemoryTree();
+      } else {
+        this.renderTree().catch((error: unknown) => {
+          this.showToast(`Tag render failed: ${String(error)}`, { persist: true });
+        });
+      }
     });
     this.els.tagRow.appendChild(allButton);
 
@@ -441,9 +486,13 @@ class InkApp {
       button.addEventListener("click", () => {
         this.state.tagFilter = this.state.tagFilter === tag ? "" : tag;
         this.renderTags();
-        this.renderTree().catch((error: unknown) => {
-          this.showToast(`Tag render failed: ${String(error)}`, { persist: true });
-        });
+        if (this.state.isTemporarySession) {
+          this.renderInMemoryTree();
+        } else {
+          this.renderTree().catch((error: unknown) => {
+            this.showToast(`Tag render failed: ${String(error)}`, { persist: true });
+          });
+        }
       });
       this.els.tagRow.appendChild(button);
     }
@@ -635,6 +684,10 @@ class InkApp {
   }
 
   private async saveCurrentNote(): Promise<void> {
+    if (this.state.isTemporarySession) {
+      return this.saveInMemoryNote();
+    }
+
     if (!this.state.currentFileHandle) {
       return;
     }
@@ -660,7 +713,7 @@ class InkApp {
   }
 
   private async createNewNote(): Promise<void> {
-    if (!this.state.workspaceHandle) {
+    if (!this.state.workspaceHandle && !this.state.isTemporarySession) {
       this.showToast("Open a workspace first.");
       return;
     }
@@ -678,6 +731,10 @@ class InkApp {
     }
 
     const fileName = name.endsWith(".md") ? name : `${name}.md`;
+
+    if (this.state.isTemporarySession) {
+      return this.createInMemoryNote(fileName, name);
+    }
 
     try {
       for await (const [existingName] of this.state.workspaceHandle.entries()) {
@@ -708,6 +765,10 @@ class InkApp {
 
   private async createNewFolder(parentHandle: DirectoryHandleLike | null = this.state.workspaceHandle): Promise<void> {
     if (!parentHandle) {
+      if (this.state.isTemporarySession) {
+        this.showToast("Folders are not supported in temporary session.");
+        return;
+      }
       this.showToast("Open a workspace first.");
       return;
     }
@@ -727,6 +788,197 @@ class InkApp {
       this.showToast(`Failed to create folder: ${message}`, { persist: true });
       this.setStatus("Create folder failed", "err");
     }
+  }
+
+  private async createInMemoryNote(fileName: string, name: string): Promise<void> {
+    const existingNote = this.state.inMemoryNotes.find((n) => n.relPath === fileName);
+    if (existingNote) {
+      this.showToast("A note with that name already exists.", { persist: true });
+      return;
+    }
+
+    const initialContent = `# ${name}\n\nCreated ${new Date().toLocaleString()}\n`;
+
+    const note: InMemoryNoteRecord = {
+      name: fileName,
+      relPath: fileName,
+      content: initialContent,
+      lastModified: Date.now(),
+      tags: parseTags(initialContent),
+    };
+
+    this.state.inMemoryNotes.push(note);
+    this.state.currentRelPath = fileName;
+    this.state.currentContent = initialContent;
+    this.state.isDirty = false;
+
+    this.els.editor.value = initialContent;
+    this.renderPreview(initialContent);
+    this.updateDirtyUi();
+    this.renderInMemoryTree();
+    this.updateCountsPill();
+    this.enableExportButtons();
+
+    this.showToast("New note created ✓");
+    this.setStatus("New note", "ok");
+  }
+
+  private renderInMemoryTree(): void {
+    this.els.tree.innerHTML = "";
+
+    if (this.state.inMemoryNotes.length === 0) {
+      this.els.tree.innerHTML = '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
+      return;
+    }
+
+    const sortedNotes = [...this.state.inMemoryNotes].sort((a, b) => a.relPath.localeCompare(b.relPath));
+
+    for (const note of sortedNotes) {
+      const row = document.createElement("div");
+      row.className = "node";
+
+      const isActive = note.relPath === this.state.currentRelPath;
+      if (isActive) {
+        row.classList.add("active");
+      }
+
+      const meta = this.state.sortMode === "modified" ? new Date(note.lastModified).toLocaleDateString() : "";
+
+      row.innerHTML = `
+        <span class="icon">📝</span>
+        <span class="name" title="${escapeHtml(note.relPath)}">${escapeHtml(note.name)}</span>
+        <span class="meta">${escapeHtml(meta)}</span>
+      `;
+
+      row.addEventListener("click", () => {
+        this.openInMemoryNote(note.relPath);
+      });
+
+      this.els.tree.appendChild(row);
+    }
+  }
+
+  private async openInMemoryNote(relPath: string): Promise<void> {
+    if (this.state.isDirty && this.state.currentRelPath) {
+      const shouldDiscard = confirm("You have unsaved changes. Discard them?");
+      if (!shouldDiscard) {
+        return;
+      }
+    }
+
+    const note = this.state.inMemoryNotes.find((n) => n.relPath === relPath);
+    if (!note) {
+      this.showToast("Note not found", { persist: true });
+      return;
+    }
+
+    this.state.currentRelPath = relPath;
+    this.state.currentContent = note.content;
+    this.state.isDirty = false;
+
+    this.els.editor.value = note.content;
+    this.renderPreview(note.content);
+    this.updateDirtyUi();
+    this.setStatus("Opened ✓", "ok");
+
+    this.renderInMemoryTree();
+  }
+
+  private async saveInMemoryNote(): Promise<void> {
+    if (!this.state.currentRelPath || !this.state.isTemporarySession) {
+      return;
+    }
+
+    const note = this.state.inMemoryNotes.find((n) => n.relPath === this.state.currentRelPath);
+    if (!note) {
+      this.showToast("Note not found", { persist: true });
+      return;
+    }
+
+    note.content = this.els.editor.value;
+    note.lastModified = Date.now();
+    note.tags = parseTags(note.content);
+
+    this.state.currentContent = note.content;
+    this.state.isDirty = false;
+    this.updateDirtyUi();
+
+    this.setStatus("Saved ✓", "ok");
+    this.showToast("Saved ✓");
+
+    this.renderInMemoryTree();
+    this.renderTags();
+  }
+
+  private updateCountsPill(): void {
+    const count = this.state.inMemoryNotes.length;
+    this.els.countsPill.textContent = `${count} note${count === 1 ? "" : "s"}`;
+  }
+
+  private enableExportButtons(): void {
+    this.els.exportJsonBtn.disabled = this.state.inMemoryNotes.length === 0;
+    this.els.exportMdBtn.disabled = !this.state.currentRelPath;
+  }
+
+  private exportAsJson(): void {
+    if (this.state.inMemoryNotes.length === 0) {
+      this.showToast("No notes to export.");
+      return;
+    }
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      notes: this.state.inMemoryNotes.map((note) => ({
+        name: note.name,
+        path: note.relPath,
+        content: note.content,
+        lastModified: new Date(note.lastModified).toISOString(),
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const date = new Date().toISOString().split("T")[0];
+    const fileName = `ink-export-${date}.json`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    this.showToast(`Exported ${this.state.inMemoryNotes.length} note(s) as JSON.`);
+    this.setStatus("Exported JSON", "ok");
+  }
+
+  private exportAsMarkdown(): void {
+    if (!this.state.currentRelPath) {
+      this.showToast("No note selected to export.");
+      return;
+    }
+
+    const note = this.state.inMemoryNotes.find((n) => n.relPath === this.state.currentRelPath);
+    if (!note) {
+      this.showToast("Note not found.", { persist: true });
+      return;
+    }
+
+    const blob = new Blob([note.content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = note.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    this.showToast(`Exported ${note.name} as Markdown.`);
+    this.setStatus("Exported MD", "ok");
   }
 
   private startAutoRefresh(): void {

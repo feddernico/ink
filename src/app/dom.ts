@@ -26,11 +26,14 @@ export function getDomRefs(): DomRefs {
     currentFilename: requiredElement<HTMLElement>("currentFilename"),
     dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
     saveBtn: requiredElement<HTMLButtonElement>("saveBtn"),
+    exportJsonBtn: requiredElement<HTMLButtonElement>("exportJsonBtn"),
+    exportMdBtn: requiredElement<HTMLButtonElement>("exportMdBtn"),
     statusBadge: requiredElement<HTMLElement>("statusBadge"),
     toast: requiredElement<HTMLElement>("toast"),
     toastMsg: requiredElement<HTMLElement>("toastMsg"),
     toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
     newNoteBtn: requiredElement<HTMLButtonElement>("newNoteBtn"),
     newFolderBtn: requiredElement<HTMLButtonElement>("newFolderBtn"),
+    temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
   };
 }

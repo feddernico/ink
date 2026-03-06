@@ -117,6 +117,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
         <div class="row" style="gap:8px; flex-wrap: wrap;">
           <span id="workspaceName" class="pill" title="No folder selected">No folder selected</span>
           <span id="countsPill" class="pill" title="Counts">0 notes</span>
+          <span id="temporarySessionBadge" class="pill warning" style="display: none;">Temporary Session</span>
         </div>
 
         <input id="searchInput" class="input" type="search" placeholder="Search filename + content..." autocomplete="off" />
@@ -149,6 +150,8 @@ if(__exports != exports)module.exports = exports;return module.exports}));
         <div class="status" aria-live="polite">
           <span class="badge" id="statusBadge">Ready</span>
           <button id="saveBtn" class="primary" disabled title="Save (Ctrl/Cmd+S)">Save</button>
+          <button id="exportJsonBtn" class="ghost" disabled title="Export all notes as JSON">JSON</button>
+          <button id="exportMdBtn" class="ghost" disabled title="Export current note as Markdown">MD</button>
         </div>
       </header>
 
