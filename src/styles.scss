@@ -43,8 +43,10 @@
       height: 100%;
       display: grid;
       grid-template-columns: 320px 1fr;
-      gap: 14px;
-      padding: 14px;
+    }
+
+    .app.sidebar-collapsed{
+      grid-template-columns: 64px 1fr;
     }
 
     .card{
@@ -61,18 +63,62 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
+      position: relative;
+      border-radius: 0;
+    }
+
+    .sidebarToggle{
+      display: inline-flex;
+      margin: 10px;
+      top: 10px;
+      right: 10px;
+      z-index: 2;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .sidebarPanel{
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .sidebar.collapsed .sidebarPanel{ display: none; }
+
+    .sidebar.collapsed{
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    .sidebar.collapsed .sidebarToggle{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      writing-mode: vertical-lr;
+      text-orientation: upright;
+      letter-spacing: 1px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 80%), var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
     }
 
     .sidebar header{
       padding: 14px 14px 10px;
       border-bottom: 1px solid var(--border);
-      display: flex;
+      display: block;
       align-items: center;
       gap: 10px;
     }
 
-    .row{ display: flex; gap: 10px; align-items: center; }
+    .row{ display: flex; gap: 10px; align-items: center; margin-top: 7px; }
     .row.space{ justify-content: space-between; }
+    .row .row{ margin-top: 0; }
+
+    #searchInput{
+      margin-top: 7px;
+    }
 
     .title{
       font-size: 14px;
@@ -202,6 +248,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+      margin-top: 7px;
       padding: 0 2px 2px;
     }
     .tag{
@@ -224,6 +271,7 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
+      border-radius: 0;
     }
 
     .main header{
@@ -402,8 +450,34 @@
 
     /* Responsive */
     @media (max-width: 980px){
-      .app{ grid-template-columns: 1fr; }
+      .app{
+        grid-template-columns: 1fr;
+        grid-auto-rows: max-content;
+        align-content: start;
+      }
+      .app.sidebar-collapsed{ grid-template-columns: 1fr; }
       .split{ grid-template-columns: 1fr; }
       .editorPane{ border-right: none; border-bottom: 1px solid var(--border) }
       .filename{ max-width: 70vw; }
+      .sidebarToggle{
+        display: none;
+        position: static;
+        margin: 10px;
+        width: auto;
+        height: auto;
+        transform: none;
+      }
+      .sidebar.collapsed .sidebarPanel{
+        display: none;
+      }
+      .sidebar.collapsed .sidebarToggle{
+        display: none;
+        width: calc(100% - 20px);
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+        letter-spacing: normal;
+      }
+      .sidebar.collapsed{
+        align-self: start;
+      }
     }

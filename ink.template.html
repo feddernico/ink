@@ -85,9 +85,22 @@ if(__exports != exports)module.exports = exports;return module.exports}));
 </head>
 
 <body>
-  <div class="app">
+  <div id="app" class="app">
     <!-- Sidebar -->
-    <aside class="card sidebar" aria-label="Workspace sidebar">
+    <aside id="workspaceSidebar" class="card sidebar" aria-label="Workspace sidebar">
+      <button
+        id="sidebarToggleBtn"
+        class="ghost sidebarToggle"
+        type="button"
+        aria-label="Collapse sidebar"
+        aria-expanded="true"
+        aria-controls="workspaceSidebarPanel"
+        title="Collapse sidebar"
+      >
+        Collapse
+      </button>
+
+      <div id="workspaceSidebarPanel" class="sidebarPanel">
       <header>
         <div class="row space">
           <div class="title">
@@ -123,6 +136,7 @@ if(__exports != exports)module.exports = exports;return module.exports}));
         <div id="tree" class="tree" role="tree" aria-label="Folder tree">
           <div class="small" style="padding: 8px;">Open a folder to begin.</div>
         </div>
+      </div>
       </div>
     </aside>
 

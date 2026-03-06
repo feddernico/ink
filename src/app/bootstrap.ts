@@ -46,6 +46,7 @@ class InkApp {
       collapsedDirs: new Set<string>(),
       autoRefreshMs: 10000,
       autoRefreshTimer: null,
+      isSidebarCollapsed: false,
     };
   }
 
@@ -59,6 +60,7 @@ class InkApp {
     }
 
     this.attachEventListeners();
+    this.applySidebarState();
     this.updateDirtyUi();
     this.renderTree().catch((error: unknown) => {
       this.showToast(`Failed to render tree: ${String(error)}`, { persist: true });
@@ -67,6 +69,10 @@ class InkApp {
   }
 
   private attachEventListeners(): void {
+    this.els.sidebarToggleBtn.addEventListener("click", () => {
+      this.setSidebarCollapsed(!this.state.isSidebarCollapsed);
+    });
+
     this.els.openFolderBtn.addEventListener("click", () => {
       this.openWorkspace().catch((error: unknown) => {
         this.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
@@ -157,6 +163,21 @@ class InkApp {
         event.returnValue = "";
       }
     });
+  }
+
+  private applySidebarState(): void {
+    const isCollapsed = this.state.isSidebarCollapsed;
+    this.els.app.classList.toggle("sidebar-collapsed", isCollapsed);
+    this.els.workspaceSidebar.classList.toggle("collapsed", isCollapsed);
+    this.els.sidebarToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+    this.els.sidebarToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+    this.els.sidebarToggleBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
+    this.els.sidebarToggleBtn.textContent = isCollapsed ? "▼ Expand" : "▶ Collapse";
+  }
+
+  private setSidebarCollapsed(isCollapsed: boolean): void {
+    this.state.isSidebarCollapsed = isCollapsed;
+    this.applySidebarState();
   }
 
   private setStatus(message: string | null, kind: "neutral" | "ok" | "warn" | "err" = "neutral"): void {
