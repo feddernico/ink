@@ -141,6 +141,11 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .pill.warning{
+      border-color: rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.12);
+      color: rgba(251, 191, 36, 0.95);
+    }
 
     button{
       appearance: none;

@@ -1,31 +1,27 @@
-import type { PermissionCapableHandle } from "./types";
-
-export function isFileSystemApiAvailable(): boolean {
+// src/app/fs-api.ts
+function isFileSystemApiAvailable() {
   return Boolean(window.showDirectoryPicker && window.FileSystemHandle);
 }
-
-export function isInMemoryMode(): boolean {
+function isInMemoryMode() {
   return !isFileSystemApiAvailable();
 }
-
-export async function ensurePermission(
-  handle: PermissionCapableHandle | null,
-  mode: "read" | "readwrite" = "read",
-): Promise<boolean> {
+async function ensurePermission(handle, mode = "read") {
   if (!handle) {
     return false;
   }
-
   if (!handle.queryPermission || !handle.requestPermission) {
     return true;
   }
-
   const descriptor = { mode };
   const current = await handle.queryPermission(descriptor);
   if (current === "granted") {
     return true;
   }
-
   const requested = await handle.requestPermission(descriptor);
   return requested === "granted";
 }
+export {
+  ensurePermission,
+  isFileSystemApiAvailable,
+  isInMemoryMode
+};

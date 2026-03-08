@@ -34,6 +34,14 @@ export interface NoteRecord {
   tags: Set<string>;
 }
 
+export interface InMemoryNoteRecord {
+  name: string;
+  relPath: string;
+  content: string;
+  lastModified: number;
+  tags: Set<string>;
+}
+
 export interface FileNode {
   type: "file";
   name: string;
@@ -56,6 +64,7 @@ export interface AppState {
   workspaceName: string;
   fileTree: DirectoryNode | null;
   notes: NoteRecord[];
+  inMemoryNotes: InMemoryNoteRecord[];
   currentFileHandle: FileHandleLike | null;
   currentRelPath: string;
   currentContent: string;
@@ -67,6 +76,7 @@ export interface AppState {
   autoRefreshMs: number;
   autoRefreshTimer: ReturnType<typeof setInterval> | null;
   isSidebarCollapsed: boolean;
+  isTemporarySession: boolean;
 }
 
 export interface DomRefs {
@@ -86,12 +96,15 @@ export interface DomRefs {
   currentFilename: HTMLElement;
   dirtyDot: HTMLElement;
   saveBtn: HTMLButtonElement;
+  exportJsonBtn: HTMLButtonElement;
+  exportMdBtn: HTMLButtonElement;
   statusBadge: HTMLElement;
   toast: HTMLElement;
   toastMsg: HTMLElement;
   toastCloseBtn: HTMLButtonElement;
   newNoteBtn: HTMLButtonElement;
   newFolderBtn: HTMLButtonElement;
+  temporarySessionBadge: HTMLElement;
 }
 
 declare global {
