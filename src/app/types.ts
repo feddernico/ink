@@ -81,6 +81,7 @@ export interface AppState {
 
 export interface DomRefs {
   app: HTMLElement;
+  menuBar: HTMLElement;
   workspaceSidebar: HTMLElement;
   sidebarToggleBtn: HTMLButtonElement;
   openFolderBtn: HTMLButtonElement;

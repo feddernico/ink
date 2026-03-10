@@ -55,6 +55,15 @@ Ink is a web application for writing and editing markdown documents with export 
 - **Lightweight**: Keep file size minimal for fast loading
 - **No Server**: Pure client-side application
 
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
+
 ## External Dependencies
 
 - **Marked.js**: Markdown parser library (embedded in build)

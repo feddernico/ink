@@ -11,6 +11,7 @@ function requiredElement<T extends Element>(id: string): T {
 export function getDomRefs(): DomRefs {
   return {
     app: requiredElement<HTMLElement>("app"),
+    menuBar: requiredElement<HTMLElement>("menuBar"),
     workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
     sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
     openFolderBtn: requiredElement<HTMLButtonElement>("openFolderBtn"),

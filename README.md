@@ -92,3 +92,12 @@ The Cypress flow test verifies:
 2. Create a new markdown file
 3. Enter markdown content
 4. Save and verify persisted content
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown

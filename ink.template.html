@@ -86,6 +86,74 @@ if(__exports != exports)module.exports = exports;return module.exports}));
 
 <body>
   <div id="app" class="app">
+    <!-- Menu Bar -->
+    <nav id="menuBar" class="card menubar" role="menubar" aria-label="Application menu">
+      <div class="menu-item" role="menuitem" aria-haspopup="true" aria-expanded="false" tabindex="0">
+        <span class="menu-text">File</span>
+        <span class="menu-arrow">▼</span>
+        <ul class="dropdown" role="menu" aria-label="File menu">
+          <li role="menuitem" tabindex="-1" data-action="new-note">
+            <span class="menu-label">New Note</span>
+            <span class="menu-shortcut">Cmd/Ctrl+E</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="new-folder">
+            <span class="menu-label">New Folder</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="open-workspace">
+            <span class="menu-label">Open Workspace</span>
+            <span class="menu-shortcut">Cmd/Ctrl+Shift+O</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="close-workspace">
+            <span class="menu-label">Close Workspace</span>
+          </li>
+          <li role="separator" aria-hidden="true"></li>
+          <li role="menuitem" tabindex="-1" data-action="exit">
+            <span class="menu-label">Exit</span>
+          </li>
+        </ul>
+      </div>
+      
+      <div class="menu-item" role="menuitem" aria-haspopup="true" aria-expanded="false" tabindex="0">
+        <span class="menu-text">Edit</span>
+        <span class="menu-arrow">▼</span>
+        <ul class="dropdown" role="menu" aria-label="Edit menu">
+          <li role="menuitem" tabindex="-1" data-action="save">
+            <span class="menu-label">Save</span>
+            <span class="menu-shortcut">Ctrl+S</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="save-as">
+            <span class="menu-label">Save As...</span>
+          </li>
+          <li role="separator" aria-hidden="true"></li>
+          <li role="menuitem" tabindex="-1" data-action="refresh">
+            <span class="menu-label">Refresh</span>
+            <span class="menu-shortcut">Cmd/Ctrl+L</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="sort">
+            <span class="menu-label">Sort: Name</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="collapse-sidebar">
+            <span class="menu-label">Collapse Sidebar</span>
+          </li>
+        </ul>
+      </div>
+      
+      <div class="menu-item" role="menuitem" aria-haspopup="true" aria-expanded="false" tabindex="0">
+        <span class="menu-text">Import/Export</span>
+        <span class="menu-arrow">▼</span>
+        <ul class="dropdown" role="menu" aria-label="Import/Export menu">
+          <li role="menuitem" tabindex="-1" data-action="export-json">
+            <span class="menu-label">Export JSON</span>
+            <span class="menu-shortcut">Ctrl+Shift+S</span>
+          </li>
+          <li role="menuitem" tabindex="-1" data-action="export-markdown">
+            <span class="menu-label">Export Markdown</span>
+            <span class="menu-shortcut">Ctrl+Shift+M</span>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
     <!-- Sidebar -->
     <aside id="workspaceSidebar" class="card sidebar" aria-label="Workspace sidebar">
       <button

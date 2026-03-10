@@ -62,6 +62,7 @@ class InkApp {
       });
     }
 
+    this.updateMenuShortcuts();
     this.attachEventListeners();
     this.applySidebarState();
     this.updateDirtyUi();
@@ -71,7 +72,20 @@ class InkApp {
     });
   }
 
+  private updateMenuShortcuts(): void {
+    const modifier = this.isMac() ? "Cmd" : "Ctrl";
+    const shortcuts = this.els.menuBar.querySelectorAll(".menu-shortcut");
+    shortcuts.forEach((el) => {
+      const text = el.textContent;
+      if (text && text.includes("Ctrl")) {
+        el.textContent = text.replace("Ctrl", modifier);
+      }
+    });
+  }
+
   private attachEventListeners(): void {
+    this.attachMenuEventListeners();
+
     this.els.sidebarToggleBtn.addEventListener("click", () => {
       this.setSidebarCollapsed(!this.state.isSidebarCollapsed);
     });
@@ -83,28 +97,11 @@ class InkApp {
     });
 
     this.els.refreshBtn.addEventListener("click", () => {
-      if (this.state.isTemporarySession) {
-        this.showToast("Refresh not available in temporary session. Your data is in memory.");
-        return;
-      }
-
-      if (!this.state.workspaceHandle) {
-        this.showToast("No workspace open.");
-        return;
-      }
-
-      this.rescanWorkspace().catch((error: unknown) => {
-        this.showToast(`Refresh failed: ${String(error)}`, { persist: true });
-        this.setStatus("Refresh failed", "err");
-      });
+      this.handleRefresh();
     });
 
     this.els.sortBtn.addEventListener("click", () => {
-      this.state.sortMode = this.state.sortMode === "name" ? "modified" : "name";
-      this.els.sortBtn.textContent = `Sort: ${this.state.sortMode === "name" ? "Name" : "Last modified"}`;
-      this.renderTree().catch((error: unknown) => {
-        this.showToast(`Sort render failed: ${String(error)}`, { persist: true });
-      });
+      this.toggleSort();
     });
 
     this.els.searchInput.addEventListener("input", () => {
@@ -179,6 +176,241 @@ class InkApp {
         event.returnValue = "";
       }
     });
+
+    this.attachGlobalKeyboardShortcuts();
+  }
+
+  private attachMenuEventListeners(): void {
+    const menuItems = this.els.menuBar.querySelectorAll(".menu-item");
+    
+    menuItems.forEach((item) => {
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const isExpanded = item.getAttribute("aria-expanded") === "true";
+        
+        menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+        
+        if (!isExpanded) {
+          item.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      item.addEventListener("keydown", (event: Event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key === "Escape") {
+          item.setAttribute("aria-expanded", "false");
+        }
+      });
+    });
+
+    document.addEventListener("click", () => {
+      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+    });
+
+    const dropdownItems = this.els.menuBar.querySelectorAll(".dropdown li[data-action]");
+    dropdownItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        const action = item.getAttribute("data-action");
+        if (action) {
+          this.handleMenuAction(action);
+        }
+        menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+      });
+    });
+  }
+
+  private handleMenuAction(action: string): void {
+    switch (action) {
+      case "new-note":
+        this.createNewNote().catch((error: unknown) => {
+          this.showToast(`Create note failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "new-folder":
+        this.createNewFolder().catch((error: unknown) => {
+          this.showToast(`Create folder failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "open-workspace":
+        this.openWorkspace().catch((error: unknown) => {
+          this.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "close-workspace":
+        this.closeWorkspace();
+        break;
+      case "exit":
+        this.handleExit();
+        break;
+      case "save":
+        this.saveCurrentNote().catch((error: unknown) => {
+          this.showToast(`Save failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "save-as":
+        this.saveAsNewNote().catch((error: unknown) => {
+          this.showToast(`Save As failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "refresh":
+        this.handleRefresh();
+        break;
+      case "sort":
+        this.toggleSort();
+        break;
+      case "collapse-sidebar":
+        this.setSidebarCollapsed(!this.state.isSidebarCollapsed);
+        break;
+      case "export-json":
+        this.exportAsJson();
+        break;
+      case "export-markdown":
+        this.exportAsMarkdown();
+        break;
+    }
+  }
+
+  private toggleSort(): void {
+    this.state.sortMode = this.state.sortMode === "name" ? "modified" : "name";
+    this.els.sortBtn.textContent = `Sort: ${this.state.sortMode === "name" ? "Name" : "Last modified"}`;
+    
+    const sortMenuItem = document.querySelector('[data-action="sort"] .menu-label');
+    if (sortMenuItem) {
+      sortMenuItem.textContent = `Sort: ${this.state.sortMode === "name" ? "Name" : "Modified"}`;
+    }
+    
+    this.renderTree().catch((error: unknown) => {
+      this.showToast(`Sort render failed: ${String(error)}`, { persist: true });
+    });
+  }
+
+  private handleRefresh(): void {
+    if (this.state.isTemporarySession) {
+      this.showToast("Refresh not available in temporary session. Your data is in memory.");
+      return;
+    }
+
+    if (!this.state.workspaceHandle) {
+      this.showToast("No workspace open.");
+      return;
+    }
+
+    this.rescanWorkspace().catch((error: unknown) => {
+      this.showToast(`Refresh failed: ${String(error)}`, { persist: true });
+      this.setStatus("Refresh failed", "err");
+    });
+  }
+
+  private closeWorkspace(): void {
+    this.stopAutoRefresh();
+    this.state.workspaceHandle = null;
+    this.state.workspaceName = "";
+    this.state.fileTree = null;
+    this.state.notes = [];
+    this.state.currentFileHandle = null;
+    this.state.currentRelPath = "";
+    this.state.currentContent = "";
+    this.state.isDirty = false;
+    this.state.searchQuery = "";
+    this.state.tagFilter = "";
+    this.state.collapsedDirs.clear();
+
+    this.els.workspaceName.textContent = "No folder selected";
+    this.els.workspaceName.title = "No folder selected";
+    this.els.countsPill.textContent = "0 notes";
+    this.els.tagRow.innerHTML = "";
+    this.els.tree.innerHTML = '<div class="small" style="padding: 8px;">Open a folder to begin.</div>';
+    this.els.editor.value = "";
+    this.els.preview.innerHTML = "";
+    this.els.currentFilename.textContent = "No note open";
+    this.els.dirtyDot.classList.remove("show");
+    this.els.saveBtn.disabled = true;
+    this.els.exportJsonBtn.disabled = true;
+    this.els.exportMdBtn.disabled = true;
+
+    this.setStatus("Ready");
+    this.showToast("Workspace closed.");
+  }
+
+  private handleExit(): void {
+    if (this.state.isDirty) {
+      const shouldExit = confirm("You have unsaved changes. Are you sure you want to exit?");
+      if (!shouldExit) {
+        return;
+      }
+    }
+    window.close();
+  }
+
+  private attachGlobalKeyboardShortcuts(): void {
+    window.addEventListener('keydown', (event: KeyboardEvent) => {
+      const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+      const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+      const isAltPressed = event.altKey;
+
+      // Handle Ctrl/Cmd + L (Refresh)
+      if (isModifierPressed && event.key.toLowerCase() === "l") {
+        event.preventDefault();
+        this.handleRefresh();
+        return;
+      }
+
+      // Handle Ctrl/Cmd + S (Save)
+      if (isModifierPressed && event.key.toLowerCase() === "s" && !event.shiftKey) {
+        event.preventDefault();
+        this.saveCurrentNote().catch((error: unknown) => {
+          this.showToast(`Save failed: ${String(error)}`, { persist: true });
+        });
+        return;
+      }
+
+      // Handle Ctrl/Cmd + Shift + S (Export JSON)
+      if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        this.exportAsJson();
+        return;
+      }
+
+      // Handle Ctrl/Cmd + Shift + M (Export Markdown)
+      if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "m") {
+        event.preventDefault();
+        this.exportAsMarkdown();
+        return;
+      }
+
+      // Handle Ctrl/Cmd + E (New Note)
+      if (isModifierPressed && event.key.toLowerCase() === "e") {
+        event.preventDefault();
+        this.createNewNote().catch((error: unknown) => {
+          this.showToast(`Create note failed: ${String(error)}`, { persist: true });
+        });
+        return;
+      }
+
+      // Handle Cmd/Ctrl + Shift + O (Open Workspace)
+      if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        // console.log("Cmd/Ctrl+Shift+O detected, calling openWorkspace");
+        this.openWorkspace().catch((error: unknown) => {
+          this.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+        });
+        return;
+      }
+
+      // Handle Alt + Shift + O (Open Workspace) as fallback
+      if (isAltPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+        event.preventDefault();
+        // console.log("Alt+Shift+O detected, calling openWorkspace");
+        this.openWorkspace().catch((error: unknown) => {
+          this.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+        });
+        return;
+      }
+    });
+  }
+
+  private isMac(): boolean {
+    return navigator.platform.toLowerCase().includes("mac");
   }
 
   private applySidebarState(): void {
@@ -547,7 +779,7 @@ class InkApp {
     const prunedTree = this.pruneTree(this.state.fileTree, matches);
 
     this.els.tree.innerHTML = "";
-    if (!prunedTree || prunedTree.children.length === 0) {
+    if (!prunedTree || prunedTree.type !== "dir" || prunedTree.children.length === 0) {
       this.els.tree.innerHTML = '<div class="small" style="padding: 8px;">No matching notes.</div>';
       return;
     }
@@ -737,7 +969,12 @@ class InkApp {
     }
 
     try {
-      for await (const [existingName] of this.state.workspaceHandle.entries()) {
+      if (!this.state.workspaceHandle) {
+        throw new Error("Workspace handle is not available");
+      }
+
+      const workspaceHandle = this.state.workspaceHandle;
+      for await (const [existingName] of workspaceHandle.entries()) {
         if (existingName === fileName) {
           this.showToast("A file with that name already exists.", { persist: true });
           return;
@@ -760,6 +997,61 @@ class InkApp {
       const message = error instanceof Error ? error.message : String(error);
       this.showToast(`Failed to create note: ${message}`, { persist: true });
       this.setStatus("Create failed", "err");
+    }
+  }
+
+  private async saveAsNewNote(): Promise<void> {
+    if (!this.state.workspaceHandle && !this.state.isTemporarySession) {
+      this.showToast("Open a workspace first.");
+      return;
+    }
+
+    const currentContent = this.state.isTemporarySession
+      ? this.els.editor.value
+      : this.state.currentContent;
+
+    if (!currentContent) {
+      this.showToast("Nothing to save.");
+      return;
+    }
+
+    const name = prompt("Save note as (filename without .md):");
+    if (!name) {
+      return;
+    }
+
+    const fileName = name.endsWith(".md") ? name : `${name}.md`;
+
+    if (this.state.isTemporarySession) {
+      return this.createInMemoryNote(fileName, name);
+    }
+
+    try {
+      if (!this.state.workspaceHandle) {
+        throw new Error("Workspace handle is not available");
+      }
+
+      for await (const [existingName] of this.state.workspaceHandle.entries()) {
+        if (existingName === fileName) {
+          this.showToast("A file with that name already exists.", { persist: true });
+          return;
+        }
+      }
+
+      const fileHandle = await this.state.workspaceHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(currentContent);
+      await writable.close();
+
+      await this.rescanWorkspace({ silent: true });
+      await this.openNoteByRelPath(fileName, fileHandle);
+
+      this.showToast(`Saved as ${fileName} ✓`);
+      this.setStatus("Saved as", "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.showToast(`Failed to save: ${message}`, { persist: true });
+      this.setStatus("Save failed", "err");
     }
   }
 
