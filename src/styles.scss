@@ -42,11 +42,16 @@
     .app{
       height: 100%;
       display: grid;
+      grid-template-rows: auto 1fr;
       grid-template-columns: 320px 1fr;
     }
 
     .app.sidebar-collapsed{
       grid-template-columns: 64px 1fr;
+    }
+
+    .app > .menubar{
+      grid-column: 1 / -1;
     }
 
     .card{
@@ -424,6 +429,108 @@
     .preview th{
       background: rgba(255, 255, 255, 0.05);
       font-weight: 800;
+    }
+
+    /* Menu Bar */
+    .menubar{
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      height: 38px;
+      border-radius: 0;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 80%), var(--panel);
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .menu-item{
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background .12s ease;
+      user-select: none;
+    }
+
+    .menu-item:hover,
+    .menu-item:focus,
+    .menu-item[aria-expanded="true"]{
+      background: rgba(255, 255, 255, 0.08);
+      outline: none;
+    }
+
+    .menu-text{
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .menu-arrow{
+      font-size: 8px;
+      color: var(--muted);
+      margin-left: 2px;
+    }
+
+    .dropdown{
+      position: absolute;
+      top: 100%;
+      left: 0;
+      min-width: 200px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 4px 0;
+      display: none;
+      z-index: 100;
+      margin-top: 2px;
+    }
+
+    .menu-item[aria-expanded="true"] .dropdown{
+      display: block;
+    }
+
+    .dropdown li{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: background .08s ease;
+    }
+
+    .dropdown li:hover,
+    .dropdown li:focus{
+      background: rgba(94, 234, 212, 0.12);
+      outline: none;
+    }
+
+    .dropdown li[role="separator"]{
+      height: 1px;
+      padding: 0;
+      margin: 4px 8px;
+      background: var(--border);
+      cursor: default;
+    }
+
+    .dropdown li[role="separator"]:hover,
+    .dropdown li[role="separator"]:focus{
+      background: var(--border);
+    }
+
+    .menu-label{
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .menu-shortcut{
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 20px;
     }
 
     /* Toast / banner */

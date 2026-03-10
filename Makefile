@@ -14,5 +14,5 @@ test-qunit:
 test-cypress:
 	npm run test:cypress
 
-update-repomix:
+repomix:
 	npx repomix@latest
