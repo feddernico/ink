@@ -64,6 +64,7 @@ class InkApp {
 
     this.updateMenuShortcuts();
     this.attachEventListeners();
+    this.loadTheme();
     this.applySidebarState();
     this.updateDirtyUi();
     this.renderTree().catch((error: unknown) => {
@@ -267,7 +268,54 @@ class InkApp {
       case "export-markdown":
         this.exportAsMarkdown();
         break;
+      case "theme-default":
+      case "theme-classic":
+      case "theme-cobalt":
+      case "theme-monokai":
+      case "theme-office":
+      case "theme-twilight":
+      case "theme-xcode": {
+        const themeName = action.replace("theme-", "");
+        this.applyTheme(themeName);
+        break;
+      }
     }
+  }
+
+  private readonly VALID_THEMES = ["default", "classic", "cobalt", "monokai", "office", "twilight", "xcode"];
+
+  private applyTheme(theme: string): void {
+    if (!this.VALID_THEMES.includes(theme)) {
+      return;
+    }
+
+    if (theme === "default") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+
+    try {
+      localStorage.setItem("ink-theme", theme);
+    } catch {
+    }
+
+    document.querySelectorAll(".menu-theme-check").forEach((el) => {
+      el.classList.remove("active");
+    });
+    const checkEl = document.getElementById(`themeCheck-${theme}`);
+    if (checkEl) {
+      checkEl.classList.add("active");
+    }
+  }
+
+  private loadTheme(): void {
+    let savedTheme = "default";
+    try {
+      savedTheme = localStorage.getItem("ink-theme") ?? "default";
+    } catch {
+    }
+    this.applyTheme(this.VALID_THEMES.includes(savedTheme) ? savedTheme : "default");
   }
 
   private toggleSort(): void {

@@ -39,6 +39,18 @@ App is accessible at: `http://localhost:5000/ink-app.html`
 - Build command: `npm run build`
 - Public directory: `.` (root, serves `ink-app.html`)
 
+## Color Themes
+Six RStudio-style color themes available under the **View** menu:
+- **Default (Dark)** — original dark teal theme
+- **Classic** — light, neutral grey/white
+- **Cobalt** — dark ocean blue with gold accents
+- **Monokai** — iconic dark theme with green/pink highlights
+- **Office** — clean professional light theme (Microsoft Office palette)
+- **Twilight** — warm dark grey with amber accents
+- **Xcode** — light theme inspired by Apple Xcode
+
+The selected theme is persisted in `localStorage` under the key `ink-theme`. Themes are applied via a `data-theme` attribute on `<html>`, driven by CSS custom property overrides in `src/styles.scss`.
+
 ## Testing
 - QUnit unit tests: `npm run test:qunit`
 - Cypress e2e tests: `npm run test:cypress`
