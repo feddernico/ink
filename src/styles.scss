@@ -13,19 +13,113 @@
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       --radius: 14px;
+      --body-bg: radial-gradient(900px 600px at 10% 0%, rgba(94, 234, 212, 0.15), transparent 60%),
+                 radial-gradient(900px 600px at 90% 0%, rgba(251, 191, 36, 0.10), transparent 60%),
+                 var(--bg);
     }
 
-    /* Light mode fallback */
-    @media (prefers-color-scheme: light) {
-      :root{
-        --bg: #f7fafc;
-        --panel: #ffffff;
-        --panel2: #f1f5f9;
-        --border: rgba(2, 6, 23, 0.10);
-        --muted: rgba(2, 6, 23, 0.65);
-        --text: rgba(2, 6, 23, 0.92);
-        --shadow: 0 10px 30px rgba(2,6,23,.10);
-      }
+    /* ── RStudio-style colour themes ── */
+
+    /* Classic: light, clean, neutral */
+    :root[data-theme="classic"]{
+      --bg: #f5f5f5;
+      --panel: #ffffff;
+      --panel2: #eeeeee;
+      --border: rgba(0, 0, 0, 0.12);
+      --muted: rgba(0, 0, 0, 0.55);
+      --text: rgba(0, 0, 0, 0.88);
+      --accent: #2c6fad;
+      --danger: #d9534f;
+      --ok: #2e7d32;
+      --warn: #e65100;
+      --shadow: 0 10px 30px rgba(0,0,0,.10);
+      --body-bg: var(--bg);
+    }
+
+    /* Cobalt: dark ocean blue */
+    :root[data-theme="cobalt"]{
+      --bg: #001f3d;
+      --panel: #002b52;
+      --panel2: #002040;
+      --border: rgba(255, 255, 255, 0.12);
+      --muted: rgba(255, 255, 255, 0.60);
+      --text: #e8f4fd;
+      --accent: #ffd700;
+      --danger: #ff6b6b;
+      --ok: #32d48a;
+      --warn: #ffba08;
+      --shadow: 0 10px 30px rgba(0,0,0,.50);
+      --body-bg: radial-gradient(800px 500px at 20% 0%, rgba(0, 120, 212, 0.20), transparent 60%),
+                 radial-gradient(800px 500px at 80% 100%, rgba(255, 215, 0, 0.08), transparent 60%),
+                 var(--bg);
+    }
+
+    /* Monokai: iconic dark developer theme */
+    :root[data-theme="monokai"]{
+      --bg: #272822;
+      --panel: #3e3d32;
+      --panel2: #2d2c27;
+      --border: rgba(255, 255, 255, 0.10);
+      --muted: rgba(248, 248, 242, 0.55);
+      --text: #f8f8f2;
+      --accent: #a6e22e;
+      --danger: #f92672;
+      --ok: #a6e22e;
+      --warn: #e6db74;
+      --shadow: 0 10px 30px rgba(0,0,0,.45);
+      --body-bg: radial-gradient(700px 400px at 0% 0%, rgba(166, 226, 46, 0.08), transparent 60%),
+                 radial-gradient(700px 400px at 100% 100%, rgba(249, 38, 114, 0.08), transparent 60%),
+                 var(--bg);
+    }
+
+    /* Office: clean professional light theme */
+    :root[data-theme="office"]{
+      --bg: #f0f0f0;
+      --panel: #ffffff;
+      --panel2: #f7f7f7;
+      --border: rgba(0, 0, 0, 0.12);
+      --muted: rgba(0, 0, 0, 0.50);
+      --text: rgba(0, 0, 0, 0.85);
+      --accent: #0078d4;
+      --danger: #c4314b;
+      --ok: #107c10;
+      --warn: #c19c00;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
+      --body-bg: var(--bg);
+    }
+
+    /* Twilight: dark warm grey */
+    :root[data-theme="twilight"]{
+      --bg: #141414;
+      --panel: #1e1e1e;
+      --panel2: #191919;
+      --border: rgba(255, 255, 255, 0.10);
+      --muted: rgba(247, 247, 247, 0.55);
+      --text: #f5f5f5;
+      --accent: #d4a96a;
+      --danger: #cf6679;
+      --ok: #7cbf8e;
+      --warn: #c9a84c;
+      --shadow: 0 10px 30px rgba(0,0,0,.50);
+      --body-bg: radial-gradient(700px 400px at 15% 0%, rgba(212, 169, 106, 0.10), transparent 60%),
+                 radial-gradient(700px 400px at 85% 100%, rgba(124, 191, 142, 0.07), transparent 60%),
+                 var(--bg);
+    }
+
+    /* Xcode: Apple Xcode light theme */
+    :root[data-theme="xcode"]{
+      --bg: #f9f9f9;
+      --panel: #ffffff;
+      --panel2: #f2f2f7;
+      --border: rgba(0, 0, 0, 0.12);
+      --muted: rgba(0, 0, 0, 0.50);
+      --text: rgba(0, 0, 0, 0.88);
+      --accent: #0070c1;
+      --danger: #b22222;
+      --ok: #006400;
+      --warn: #7d4700;
+      --shadow: 0 10px 30px rgba(0,0,0,.08);
+      --body-bg: var(--bg);
     }
 
     * { box-sizing: border-box; }
@@ -33,9 +127,7 @@
     body{
       margin: 0;
       font-family: var(--sans);
-      background: radial-gradient(900px 600px at 10% 0%, rgba(94, 234, 212, 0.15), transparent 60%),
-                  radial-gradient(900px 600px at 90% 0%, rgba(251, 191, 36, 0.10), transparent 60%),
-                  var(--bg);
+      background: var(--body-bg);
       color: var(--text);
     }
 
@@ -531,6 +623,17 @@
       font-size: 11px;
       color: var(--muted);
       margin-left: 20px;
+    }
+
+    /* Active theme checkmark in menu */
+    .menu-theme-check{
+      font-size: 11px;
+      color: var(--accent);
+      margin-left: 20px;
+      opacity: 0;
+    }
+    .menu-theme-check.active{
+      opacity: 1;
     }
 
     /* Toast / banner */
