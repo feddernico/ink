@@ -109,6 +109,16 @@ describe("mobile fallback functionality", () => {
     cy.get("#dirtyDot").should("be.visible");
   });
 
+  it("renders markdown preview in temporary session", () => {
+    cy.get("#openFolderBtn").click();
+    cy.get("#newNoteBtn").click();
+
+    cy.get("#editor").clear().type("## Section\n\nSome **bold** text.");
+
+    cy.get("#preview").find("h2").should("contain", "Section");
+    cy.get("#preview").find("strong").should("contain", "bold");
+  });
+
   it("displays tags after creating notes with hashtags", () => {
     cy.get("#openFolderBtn").click();
     cy.get("#newNoteBtn").click();

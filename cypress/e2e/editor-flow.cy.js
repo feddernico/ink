@@ -117,6 +117,16 @@ describe("ink authoring flow", () => {
     });
   });
 
+  it("renders markdown preview when editing a note", () => {
+    cy.get("#openFolderBtn").click();
+    cy.get("#newNoteBtn").click();
+
+    cy.get("#editor").clear().type("# Hello World\n\nThis is a paragraph.");
+
+    cy.get("#preview").find("h1").should("contain", "Hello World");
+    cy.get("#preview").find("p").should("contain", "This is a paragraph.");
+  });
+
   it("collapses and expands the left menu, updating accessibility state and editor space", () => {
     let expandedEditorWidth = 0;
     let collapsedEditorWidth = 0;
