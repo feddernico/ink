@@ -78,12 +78,6 @@ class InkApp {
       this.setSidebarCollapsed(!this.state.isSidebarCollapsed);
     });
 
-    this.els.openFolderBtn.addEventListener("click", () => {
-      this.openWorkspace().catch((error: unknown) => {
-        this.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-      });
-    });
-
     this.els.refreshBtn.addEventListener("click", () => {
       this.handleRefresh();
     });
@@ -126,32 +120,6 @@ class InkApp {
         const start = this.els.editor.selectionStart;
         this.els.editor.setRangeText("  ", start, start, "end");
       }
-    });
-
-    this.els.saveBtn.addEventListener("click", () => {
-      this.saveCurrentNote().catch((error: unknown) => {
-        this.showToast(`Save failed: ${String(error)}`, { persist: true });
-      });
-    });
-
-    this.els.exportJsonBtn.addEventListener("click", () => {
-      this.exportAsJson();
-    });
-
-    this.els.exportMdBtn.addEventListener("click", () => {
-      this.exportAsMarkdown();
-    });
-
-    this.els.newNoteBtn.addEventListener("click", () => {
-      this.createNewNote().catch((error: unknown) => {
-        this.showToast(`Create note failed: ${String(error)}`, { persist: true });
-      });
-    });
-
-    this.els.newFolderBtn.addEventListener("click", () => {
-      this.createNewFolder().catch((error: unknown) => {
-        this.showToast(`Create folder failed: ${String(error)}`, { persist: true });
-      });
     });
 
     this.els.toastCloseBtn.addEventListener("click", () => {
@@ -359,9 +327,6 @@ class InkApp {
     this.els.preview.innerHTML = "";
     this.els.currentFilename.textContent = "No note open";
     this.els.dirtyDot.classList.remove("show");
-    this.els.saveBtn.disabled = true;
-    this.els.exportJsonBtn.disabled = true;
-    this.els.exportMdBtn.disabled = true;
 
     this.setStatus("Ready");
     this.showToast("Workspace closed.");
@@ -489,9 +454,6 @@ class InkApp {
 
   private updateDirtyUi(): void {
     this.els.dirtyDot.classList.toggle("show", this.state.isDirty);
-    const hasNote = this.state.currentRelPath && (this.state.currentFileHandle || this.state.isTemporarySession);
-    this.els.saveBtn.disabled = !hasNote || !this.state.isDirty;
-    this.els.exportMdBtn.disabled = !this.state.currentRelPath;
 
     const openFileName = this.state.currentRelPath
       ? this.state.currentRelPath.split("/").pop()
@@ -528,8 +490,6 @@ class InkApp {
       this.els.countsPill.textContent = "0 notes";
       this.els.tagRow.innerHTML = "";
       this.els.tree.innerHTML = '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
-      this.els.exportJsonBtn.disabled = true;
-      this.els.exportMdBtn.disabled = true;
 
       this.showToast("Temporary in-memory workspace enabled. Use Export to save your notes.", {
         persist: true,
@@ -539,8 +499,6 @@ class InkApp {
     }
 
     this.els.temporarySessionBadge.style.display = "none";
-    this.els.exportJsonBtn.disabled = true;
-    this.els.exportMdBtn.disabled = true;
 
     try {
       if (!window.showDirectoryPicker) {
@@ -1144,7 +1102,6 @@ class InkApp {
     this.updateDirtyUi();
     this.renderInMemoryTree();
     this.updateCountsPill();
-    this.enableExportButtons();
 
     this.showToast("New note created ✓");
     this.setStatus("New note", "ok");
@@ -1240,11 +1197,6 @@ class InkApp {
   private updateCountsPill(): void {
     const count = this.state.inMemoryNotes.length;
     this.els.countsPill.textContent = `${count} note${count === 1 ? "" : "s"}`;
-  }
-
-  private enableExportButtons(): void {
-    this.els.exportJsonBtn.disabled = this.state.inMemoryNotes.length === 0;
-    this.els.exportMdBtn.disabled = !this.state.currentRelPath;
   }
 
   private exportAsJson(): void {

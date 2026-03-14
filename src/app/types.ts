@@ -84,7 +84,6 @@ export interface DomRefs {
   menuBar: HTMLElement;
   workspaceSidebar: HTMLElement;
   sidebarToggleBtn: HTMLButtonElement;
-  openFolderBtn: HTMLButtonElement;
   refreshBtn: HTMLButtonElement;
   sortBtn: HTMLButtonElement;
   searchInput: HTMLInputElement;
@@ -96,15 +95,10 @@ export interface DomRefs {
   preview: HTMLElement;
   currentFilename: HTMLElement;
   dirtyDot: HTMLElement;
-  saveBtn: HTMLButtonElement;
-  exportJsonBtn: HTMLButtonElement;
-  exportMdBtn: HTMLButtonElement;
   statusBadge: HTMLElement;
   toast: HTMLElement;
   toastMsg: HTMLElement;
   toastCloseBtn: HTMLButtonElement;
-  newNoteBtn: HTMLButtonElement;
-  newFolderBtn: HTMLButtonElement;
   temporarySessionBadge: HTMLElement;
 }
 

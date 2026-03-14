@@ -14,7 +14,6 @@ export function getDomRefs(): DomRefs {
     menuBar: requiredElement<HTMLElement>("menuBar"),
     workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
     sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
-    openFolderBtn: requiredElement<HTMLButtonElement>("openFolderBtn"),
     refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
     sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),
     searchInput: requiredElement<HTMLInputElement>("searchInput"),
@@ -26,15 +25,10 @@ export function getDomRefs(): DomRefs {
     preview: requiredElement<HTMLElement>("preview"),
     currentFilename: requiredElement<HTMLElement>("currentFilename"),
     dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
-    saveBtn: requiredElement<HTMLButtonElement>("saveBtn"),
-    exportJsonBtn: requiredElement<HTMLButtonElement>("exportJsonBtn"),
-    exportMdBtn: requiredElement<HTMLButtonElement>("exportMdBtn"),
     statusBadge: requiredElement<HTMLElement>("statusBadge"),
     toast: requiredElement<HTMLElement>("toast"),
     toastMsg: requiredElement<HTMLElement>("toastMsg"),
     toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
-    newNoteBtn: requiredElement<HTMLButtonElement>("newNoteBtn"),
-    newFolderBtn: requiredElement<HTMLButtonElement>("newFolderBtn"),
     temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
   };
 }
