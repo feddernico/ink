@@ -2,6 +2,7 @@ import { marked } from "marked";
 import { parseTags } from "../tags";
 import { getDomRefs } from "./dom";
 import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
+import { escapeHtml } from "./utils";
 import type {
   AppState,
   DirectoryHandleLike,
@@ -13,15 +14,6 @@ import type {
   NoteRecord,
   TreeNode,
 } from "./types";
-
-function escapeHtml(value: string): string {
-  return String(value)
-    .replace("&", "&amp;")
-    .replace("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 class InkApp {
   private readonly els: DomRefs;

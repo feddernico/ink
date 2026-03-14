@@ -13,3 +13,4 @@
 - [x] 4.1 Run `npm run build` and confirm the build succeeds with `marked` bundled by esbuild.
 - [x] 4.2 Verify markdown rendering works correctly in the app after the migration.
 - [x] 4.3 Confirm the final `ink-app.html` output has no external script references to jsDelivr or any CDN.
+- [x] 4.4 fix the .replace() security alerts from CodeQL
