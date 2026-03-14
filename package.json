@@ -32,6 +32,10 @@
     "http-server": "^14.1.1",
     "qunit": "^2.24.2",
     "sass": "^1.97.3",
-    "start-server-and-test": "^2.0.12"
+    "start-server-and-test": "^2.0.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "marked": "^17.0.4"
   }
 }

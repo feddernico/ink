@@ -1,3 +1,4 @@
+import { marked } from "marked";
 import { parseTags } from "../tags";
 import { getDomRefs } from "./dom";
 import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
@@ -54,13 +55,7 @@ class InkApp {
   }
 
   initialize(): void {
-    if (window.marked) {
-      window.marked.setOptions({
-        mangle: false,
-        headerIds: true,
-        breaks: true,
-      });
-    }
+    marked.use({ breaks: true });
 
     this.updateMenuShortcuts();
     this.attachEventListeners();
@@ -518,7 +513,7 @@ class InkApp {
 
   private renderPreview(text: string): void {
     try {
-      this.els.preview.innerHTML = window.marked ? window.marked.parse(text || "") : "";
+      this.els.preview.innerHTML = marked.parse(text || "") as string;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.els.preview.innerHTML = `<pre>${escapeHtml(message)}</pre>`;

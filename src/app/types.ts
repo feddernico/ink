@@ -110,10 +110,6 @@ export interface DomRefs {
 
 declare global {
   interface Window {
-    marked?: {
-      setOptions: (options: { mangle: boolean; headerIds: boolean; breaks: boolean }) => void;
-      parse: (markdown: string) => string;
-    };
     showDirectoryPicker?: (options?: { id?: string; mode?: "read" | "readwrite" }) => Promise<DirectoryHandleLike>;
     FileSystemHandle?: unknown;
   }
