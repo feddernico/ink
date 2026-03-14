@@ -23,6 +23,36 @@ The sidebar header SHALL NOT contain standalone icon buttons for New Note, New F
 - **THEN** the folder picker opens correctly
 - **AND** pressing Cmd/Ctrl+Shift+O also triggers the same flow
 
+### Requirement: Removal of the Save Button
+The editor header SHALL NOT contain a Save button, as saving is fully accessible through the Edit menu and the Cmd/Ctrl+S keyboard shortcut.
+
+#### Scenario: Editor header after removal
+- **WHEN** the application loads
+- **THEN** the editor header does not contain a Save button element
+
+#### Scenario: Save still reachable via menu
+- **WHEN** the user selects Edit > Save
+- **THEN** the current note is saved successfully
+
+#### Scenario: Save still reachable via keyboard shortcut
+- **WHEN** the user presses Cmd/Ctrl+S with unsaved changes
+- **THEN** the current note is saved successfully
+- **AND** the dirty-dot indicator disappears
+- **AND** the status badge returns to a non-warning state
+
+### Requirement: Unsaved-State Feedback via Retained Indicators
+Removing the Save button SHALL NOT reduce the user's ability to see when a note has unsaved changes. The dirty-dot indicator and the status badge SHALL remain the sole visual signals for unsaved state.
+
+#### Scenario: Dirty-dot appears on edit
+- **WHEN** the user modifies the content of the currently open note
+- **THEN** the red dirty-dot indicator becomes visible in the editor header
+- **AND** the status badge reads "Unsaved changes"
+
+#### Scenario: Dirty-dot clears on save
+- **WHEN** the user saves the note via Cmd/Ctrl+S or Edit > Save
+- **THEN** the dirty-dot indicator is hidden
+- **AND** the status badge no longer shows a warning state
+
 ### Requirement: Removal of Redundant Export Buttons
 The editor header status area SHALL NOT contain standalone JSON or MD export buttons, as these actions are fully accessible through the Import/Export menu and keyboard shortcuts.
 
@@ -30,7 +60,6 @@ The editor header status area SHALL NOT contain standalone JSON or MD export but
 - **WHEN** the application loads
 - **THEN** the editor header status area does not display a JSON export button
 - **AND** the editor header status area does not display an MD export button
-- **AND** the Save button and status badge remain present
 
 #### Scenario: Export JSON still reachable
 - **WHEN** the user selects Import/Export > Export JSON
@@ -43,12 +72,7 @@ The editor header status area SHALL NOT contain standalone JSON or MD export but
 - **AND** pressing Cmd/Ctrl+Shift+M also triggers the same export
 
 ### Requirement: Retained Buttons Unaffected
-Buttons that are NOT fully covered by the menu (Save, Sort, Refresh, Sidebar Toggle) SHALL remain in place and continue to function identically.
-
-#### Scenario: Save button retained
-- **WHEN** the editor contains unsaved changes
-- **THEN** the Save button is enabled and clicking it saves the note
-- **AND** the dirty-dot indicator and button enabled state continue to reflect unsaved state correctly
+Buttons that are NOT fully covered by the menu (Sort, Refresh, Sidebar Toggle) SHALL remain in place and continue to function identically.
 
 #### Scenario: Sort and Refresh buttons retained
 - **WHEN** the application loads
@@ -59,13 +83,15 @@ Buttons that are NOT fully covered by the menu (Save, Sort, Refresh, Sidebar Tog
 - **WHEN** the user clicks the Collapse/Expand button
 - **THEN** the sidebar collapses or expands as before
 
-### Requirement: No Regression in Functionality
-Removing the five buttons SHALL NOT break any existing feature or test.
+### Requirement: No Regression in Existing Tests
+Removing the six buttons SHALL NOT break any existing test.
 
-#### Scenario: Cypress flow test passes
-- **WHEN** the full Cypress end-to-end suite is run after removal
-- **THEN** all tests pass without modification
+#### Scenario: QUnit baseline maintained
+- **WHEN** `npm run test:qunit` is executed after the change
+- **THEN** all 32 pre-existing tests pass
+- **AND** the new DOM-presence QUnit tests (6 additional) also pass
 
-#### Scenario: QUnit unit tests pass
-- **WHEN** the QUnit test suite is run after removal
-- **THEN** all tests pass without modification
+#### Scenario: Cypress suite passes
+- **WHEN** `npm run test:cypress` is executed after the change
+- **THEN** all pre-existing Cypress tests pass without modification
+- **AND** the new Cypress tests covering keyboard-save and menu-driven actions also pass
