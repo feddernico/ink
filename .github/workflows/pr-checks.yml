@@ -42,12 +42,3 @@ jobs:
         with:
           name: cypress-screenshots
           path: cypress/screenshots
-
-      - name: Update repomix
-        run: npx repomix@latest
-
-      - name: Commit repomix output
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "docs: update repomix output"
-          file_pattern: "repomix-output.xml"
