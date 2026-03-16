@@ -347,7 +347,7 @@ jobs:
 
       - name: Bump version and create tag
         id: version
-        uses: mathieudutour/github-tag-action@v6
+        uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -5370,25 +5370,6 @@ QUnit.test("leaves plain text unchanged", (assert) => {
 });
 </file>
 
-<file path=".gitignore">
-# Dependencies
-node_modules/
-
-# OS/editor noise
-.DS_Store
-*.log
-
-# Local tool state
-.opencode/
-
-# Cypress artifacts
-cypress/screenshots/
-cypress/videos/
-cypress/downloads/
-coverage/
-.nyc_output/
-</file>
-
 <file path=".nycrc">
 {
   "extension": [".ts", ".js"],
@@ -5743,6 +5724,25 @@ export async function ensurePermission(
 import { bootstrapInkApp } from "./app/bootstrap";
 
 bootstrapInkApp();
+</file>
+
+<file path=".gitignore">
+# Dependencies
+node_modules/
+
+# OS/editor noise
+.DS_Store
+*.log
+
+# Local tool state
+.opencode/
+
+# Cypress artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+coverage/
+.nyc_output/
 </file>
 
 <file path="cypress.config.mjs">
