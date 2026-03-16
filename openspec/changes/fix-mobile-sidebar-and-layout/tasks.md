@@ -24,13 +24,13 @@
 - [x] 4.1 Add `min-height: 40vh` to `.editorPane` inside the mobile media block so the editor pane is usably tall when stacked below the preview.
 - [x] 4.2 Add `min-height: 40vh` to `.previewPane` inside the mobile media block.
 - [x] 4.3 Confirm `textarea { height: 100%; }` is set at the base level and not overridden in the media block.
-- [ ] 4.4 Verify on a 390 × 844 px viewport that the textarea fills its pane and scrolling (if any) occurs inside the pane, not on the outer page.
+- [x] 4.4 Verify on a 390 × 844 px viewport that the textarea fills its pane and scrolling (if any) occurs inside the pane, not on the outer page.
 
 ## 5. Build and Verification
 
 - [x] 5.1 Run `npm run build` and confirm zero errors.
 - [x] 5.2 Run `npm run test:qunit` and confirm all 32 tests pass.
-- [ ] 5.3 Verify on a ≤ 980 px viewport:
+- [x] 5.3 Verify on a ≤ 980 px viewport:
   - Sidebar toggle is visible in both expanded and collapsed states.
   - Collapsing the sidebar shrinks it to a horizontal strip at the top; editor expands to fill the freed vertical space.
   - Expanding restores the full sidebar panel.

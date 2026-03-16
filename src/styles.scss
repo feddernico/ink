@@ -636,6 +636,28 @@
       opacity: 1;
     }
 
+    /* Submenu styles */
+    .submenu-parent{
+      position: relative;
+    }
+
+    .submenu-parent .dropdown.submenu{
+      position: absolute;
+      left: 100%;
+      top: 0;
+      margin-left: 4px;
+      display: none;
+    }
+
+    .submenu-parent:hover > .dropdown.submenu{
+      display: block;
+    }
+
+    .submenu-parent > .menu-arrow{
+      font-size: 6px;
+      margin-left: 6px;
+    }
+
     /* Toast / banner */
     .toast{
       position: fixed;

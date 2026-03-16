@@ -35,6 +35,21 @@
             <span class="menu-label">Close Workspace</span>
           </li>
           <li role="separator" aria-hidden="true"></li>
+          <li class="submenu-parent" role="menuitem" aria-haspopup="true" aria-expanded="false" tabindex="0">
+            <span class="menu-label">Export</span>
+            <span class="menu-arrow">▶</span>
+            <ul class="dropdown submenu" role="menu" aria-label="Export submenu">
+              <li role="menuitem" tabindex="-1" data-action="export-json">
+                <span class="menu-label">Export JSON</span>
+                <span class="menu-shortcut">Ctrl+Shift+S</span>
+              </li>
+              <li role="menuitem" tabindex="-1" data-action="export-markdown">
+                <span class="menu-label">Export Markdown</span>
+                <span class="menu-shortcut">Ctrl+Shift+M</span>
+              </li>
+            </ul>
+          </li>
+          <li role="separator" aria-hidden="true"></li>
           <li role="menuitem" tabindex="-1" data-action="exit">
             <span class="menu-label">Exit</span>
           </li>
@@ -59,9 +74,6 @@
           </li>
           <li role="menuitem" tabindex="-1" data-action="sort">
             <span class="menu-label">Sort: Name</span>
-          </li>
-          <li role="menuitem" tabindex="-1" data-action="collapse-sidebar">
-            <span class="menu-label">Collapse Sidebar</span>
           </li>
         </ul>
       </div>
@@ -98,21 +110,6 @@
           <li role="menuitem" tabindex="-1" data-action="theme-xcode">
             <span class="menu-label">Xcode</span>
             <span class="menu-theme-check" id="themeCheck-xcode">✓</span>
-          </li>
-        </ul>
-      </div>
-
-      <div class="menu-item" role="menuitem" aria-haspopup="true" aria-expanded="false" tabindex="0">
-        <span class="menu-text">Import/Export</span>
-        <span class="menu-arrow">▼</span>
-        <ul class="dropdown" role="menu" aria-label="Import/Export menu">
-          <li role="menuitem" tabindex="-1" data-action="export-json">
-            <span class="menu-label">Export JSON</span>
-            <span class="menu-shortcut">Ctrl+Shift+S</span>
-          </li>
-          <li role="menuitem" tabindex="-1" data-action="export-markdown">
-            <span class="menu-label">Export Markdown</span>
-            <span class="menu-shortcut">Ctrl+Shift+M</span>
           </li>
         </ul>
       </div>
