@@ -1,0 +1,7 @@
+{
+  "extension": [".ts", ".js"],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/test-support/**"],
+  "reporter": ["html", "text-summary", "json"],
+  "report-dir": "coverage"
+}

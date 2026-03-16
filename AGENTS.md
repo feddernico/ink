@@ -75,3 +75,20 @@ These coding principles are mandatory:
 9. Quality
     - Favor deterministic, testable behavior.
     - Keep tests simple and focused on verifying observable behavior.
+
+## Pre-commit Hook Setup
+
+To enforce repomix updates locally, set up the pre-commit hook:
+
+```bash
+# Copy the pre-commit hook into place
+cp .git/hooks/pre-commit.sample .git/hooks/pre-commit 2>/dev/null || true
+# Or create it manually
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+echo "Running repomix..."
+npx repomix@latest
+git add repomix-output.xml
+EOF
+chmod +x .git/hooks/pre-commit
+```

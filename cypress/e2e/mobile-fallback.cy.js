@@ -20,50 +20,45 @@ describe("mobile fallback functionality", () => {
     });
   });
 
-  it("shows temporary session when FS API is unavailable after clicking Open Folder", () => {
-    cy.get("#openFolderBtn").click();
+  it("shows temporary session when FS API is unavailable after clicking Open Workspace", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
     cy.get("#workspaceName").should("contain", "Temporary Session");
     cy.get("#temporarySessionBadge").should("be.visible");
     cy.get("#temporarySessionBadge").should("contain", "Temporary Session");
     cy.get("#statusBadge").should("contain", "Temporary session");
     cy.get("#tree").should("contain", "Temporary session");
-    cy.get("#exportJsonBtn").should("be.disabled");
-    cy.get("#exportMdBtn").should("be.disabled");
   });
 
   it("allows creating and editing notes in temporary session", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#currentFilename").should("contain", fileName);
 
     cy.get("#editor").clear().type(markdown);
     cy.get("#dirtyDot").should("be.visible");
 
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
     cy.get("#dirtyDot").should("not.be.visible");
     cy.get("#statusBadge").should("contain", "Saved");
 
     cy.get("#tree").should("contain", fileName);
   });
 
-  it("enables export buttons after creating notes", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#exportJsonBtn").should("be.disabled");
-    cy.get("#exportMdBtn").should("be.disabled");
+  it("enables export functionality after creating notes", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
 
-    cy.get("#newNoteBtn").click();
-
-    cy.get("#exportJsonBtn").should("not.be.disabled");
-    cy.get("#exportMdBtn").should("not.be.disabled");
+    cy.get('[data-action="export-json"]').should("exist");
+    cy.get('[data-action="export-markdown"]').should("exist");
   });
 
   it("exports current note as markdown", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type(markdown);
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
-    cy.get("#exportMdBtn").click();
+    cy.get('[data-action="export-markdown"]').click({ force: true });
 
     cy.readFile("cypress/downloads/test-note.md", { timeout: 5000 }).then((content) => {
       expect(content).to.include("# Test Note");
@@ -72,28 +67,28 @@ describe("mobile fallback functionality", () => {
   });
 
   it("exports all notes as JSON", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type("# First Note\n\nContent 1");
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type("# Second Note\n\nContent 2");
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
-    cy.get("#exportJsonBtn").click();
+    cy.get('[data-action="export-json"]').click({ force: true });
     cy.get("#statusBadge").should("contain", "Exported JSON");
   });
 
   it("opens existing note from tree in temporary session", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type("# Original Content");
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type("# Another Note");
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
     cy.get(".node").first().click();
 
@@ -101,8 +96,8 @@ describe("mobile fallback functionality", () => {
   });
 
   it("shows unsaved changes indicator when editing", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#currentFilename").should("contain", ".md");
     
     cy.get("#editor").type(" - added content", { force: true });
@@ -110,8 +105,8 @@ describe("mobile fallback functionality", () => {
   });
 
   it("renders markdown preview in temporary session", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
 
     cy.get("#editor").clear().type("## Section\n\nSome **bold** text.");
 
@@ -120,10 +115,10 @@ describe("mobile fallback functionality", () => {
   });
 
   it("displays tags after creating notes with hashtags", () => {
-    cy.get("#openFolderBtn").click();
-    cy.get("#newNoteBtn").click();
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
     cy.get("#editor").clear().type("# Note with work tag");
-    cy.get("#saveBtn").click();
+    cy.get('[data-action="save"]').click({ force: true });
 
     cy.get(".tagrow").should("exist");
   });

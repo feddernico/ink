@@ -65,8 +65,12 @@ class InkApp {
     const shortcuts = this.els.menuBar.querySelectorAll(".menu-shortcut");
     shortcuts.forEach((el) => {
       const text = el.textContent;
-      if (text && text.includes("Ctrl")) {
-        el.textContent = text.replace("Ctrl", modifier);
+      if (text) {
+        if (text.includes("Cmd/Ctrl")) {
+          el.textContent = text.replace("Cmd/Ctrl", modifier);
+        } else if (text.includes("Ctrl")) {
+          el.textContent = text.replace("Ctrl", modifier);
+        }
       }
     });
   }
@@ -159,8 +163,30 @@ class InkApp {
       });
     });
 
+    const submenuParents = this.els.menuBar.querySelectorAll(".submenu-parent");
+    submenuParents.forEach((item) => {
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const isExpanded = item.getAttribute("aria-expanded") === "true";
+        
+        submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+        
+        if (!isExpanded) {
+          item.setAttribute("aria-expanded", "true");
+        }
+      });
+
+      item.addEventListener("keydown", (event: Event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key === "Escape") {
+          item.setAttribute("aria-expanded", "false");
+        }
+      });
+    });
+
     document.addEventListener("click", () => {
       menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
     });
 
     const dropdownItems = this.els.menuBar.querySelectorAll(".dropdown li[data-action]");
@@ -171,6 +197,7 @@ class InkApp {
           this.handleMenuAction(action);
         }
         menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+        submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
       });
     });
   }
