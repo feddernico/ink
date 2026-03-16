@@ -313,54 +313,6 @@ jobs:
         category: "/language:${{matrix.language}}"
 </file>
 
-<file path=".github/workflows/release.yml">
-name: Release
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Run tests
-        run: npm test
-
-      - name: Bump version and create tag
-        id: version
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.new_tag }}
-          name: Release ${{ steps.version.outputs.new_tag }}
-          files: ink-app.html
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-</file>
-
 <file path=".github/copilot-instructions.md">
 
 </file>
@@ -5483,6 +5435,76 @@ jobs:
         with:
           name: cypress-screenshots
           path: cypress/screenshots
+</file>
+
+<file path=".github/workflows/release.yml">
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if ink-app.html changed
+        id: check_changes
+        run: |
+          # Get the list of files changed in the latest commit
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files: $CHANGED_FILES"
+          if echo "$CHANGED_FILES" | grep -q "ink-app.html"; then
+            echo "ink-app.html has changed"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "ink-app.html has NOT changed"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check_changes.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Build
+        if: steps.check_changes.outputs.changed == 'true'
+        run: npm run build
+
+      - name: Run tests
+        if: steps.check_changes.outputs.changed == 'true'
+        run: npm test
+
+      - name: Bump version and create tag
+        if: steps.check_changes.outputs.changed == 'true'
+        id: version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_tag }}
+          name: Release ${{ steps.version.outputs.new_tag }}
+          files: ink-app.html
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </file>
 
 <file path="cypress/support/commands.ts">
