@@ -4,20 +4,20 @@
 - [x] 1.2 Remove `display: none` from `.sidebar.collapsed .sidebarToggle` inside the same media block.
 - [x] 1.3 Inside the media block render the toggle as a full-width horizontal button: set `width: calc(100% - 20px)`, reset `writing-mode: horizontal-tb`, `text-orientation: mixed`, `letter-spacing: normal`.
 - [x] 1.4 Set `display: flex` on `.sidebar.collapsed .sidebarToggle` in the media block so it is explicitly visible when collapsed.
-- [ ] 1.5 Verify the toggle button is visible and tappable on a ≤ 980 px viewport both when the sidebar is expanded and when it is collapsed.
+- [x] 1.5 Verify the toggle button is visible and tappable on a ≤ 980 px viewport both when the sidebar is expanded and when it is collapsed.
 
 ## 2. Sidebar Collapsed State Collapses Vertically on Mobile
 
 - [x] 2.1 Inside the `@media (max-width: 980px)` block add `height: auto; min-height: 0` to `.sidebar.collapsed` so the sidebar row shrinks to just the toggle strip when collapsed.
 - [x] 2.2 Add `.app.sidebar-collapsed { grid-template-columns: 1fr; }` inside the media block to override the base `64px 1fr` rule and prevent a two-column layout appearing on mobile when the sidebar is collapsed.
 - [x] 2.3 Confirm `.sidebar.collapsed .sidebarPanel { display: none; }` remains active and is not overridden.
-- [ ] 2.4 Verify that tapping the toggle on a collapsed sidebar expands it and shows the workspace panel; tapping again collapses it back to the strip.
+- [x] 2.4 Verify that tapping the toggle on a collapsed sidebar expands it and shows the workspace panel; tapping again collapses it back to the strip.
 
 ## 3. App Grid Fills Viewport Height on Mobile
 
 - [x] 3.1 Inside the `@media (max-width: 980px)` block replace `grid-auto-rows: max-content` and `align-content: start` with `grid-template-rows: auto auto 1fr` and `height: 100%` on `.app`.
 - [x] 3.2 Confirm that `html, body { height: 100%; }` is already declared at the base level in `src/styles.scss` (confirmed at line 126).
-- [ ] 3.3 Verify the main editor row fills all remaining viewport height below the menu bar and sidebar.
+- [x] 3.3 Verify the main editor row fills all remaining viewport height below the menu bar and sidebar.
 
 ## 4. Editor and Preview Fill Available Vertical Space
 
