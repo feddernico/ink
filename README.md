@@ -12,7 +12,7 @@ The structure of the repo is as follows:
 ```
 src/
   app.ts         (Thin app entrypoint)
-  app/           (Feature modules: bootstrap, dom, fs-api, types)
+  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
   tags.ts        (Tag/frontmatter parsing utilities)
   test-support/
     storage-fixture.ts  (Test-only storage helpers)
@@ -25,6 +25,7 @@ ink-app.html       (The final single-page app, with inline <style> and <script>)
 build/
   assemble-single-file.js
   compile-and-assemble.js
+  build-test.js
   generate-favicons.js
   watch.js
   inject.js  (Compatibility alias)
@@ -51,6 +52,8 @@ The workflow uses `esbuild` and `sass`.
   - `make watch`
 
 The webapp is released as a single HTML file (`ink-app.html`).
+
+Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
 
 ## Branding Assets
 
@@ -88,6 +91,7 @@ Automated testing includes both QUnit and Cypress.
 - Full suite: `npm test`
 
 The Cypress flow test verifies:
+
 1. Open/select a workspace
 2. Create a new markdown file
 3. Enter markdown content

@@ -8,7 +8,7 @@ Ink is a web application for writing and editing markdown documents with export 
 
 - **Frontend**: Vanilla JavaScript (ES6+)
 - **Markdown Processing**: Marked.js v15.0.12 (embedded)
-- **Build System**: Custom Node.js build script (build/inject.js)
+- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
 - **HTML Template**: Custom template system with inlined CSS/JS
 - **Target**: Single-page web application (ink.html)
 
