@@ -1,3 +1,3 @@
-import { bootstrapInkApp } from "./app/bootstrap";
+import { bootstrapInkApp } from "./app/app-controller";
 
 bootstrapInkApp();

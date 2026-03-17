@@ -18,7 +18,7 @@
     "build": "node build/compile-and-assemble.js",
     "watch": "node build/watch.js",
     "build:favicon": "node build/generate-favicons.js",
-    "build:test": "esbuild src/tags.ts --bundle --platform=node --format=esm --outfile=dist/test/tags.js && esbuild src/test-support/storage-fixture.ts --bundle --platform=node --format=esm --outfile=dist/test/storage.js && esbuild src/app/fs-api.ts --bundle --platform=node --format=esm --outfile=dist/test/fs-api.js && esbuild src/app/utils.ts --bundle --platform=node --format=esm --outfile=dist/test/utils.js",
+    "build:test": "node build/build-test.js",
     "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
     "serve:test": "http-server . -p 4173 -s",
     "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
@@ -41,5 +41,8 @@
   },
   "dependencies": {
     "marked": "^17.0.4"
+  },
+  "overrides": {
+    "immutable": "^5.1.5"
   }
 }
