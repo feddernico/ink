@@ -41,5 +41,8 @@
   },
   "dependencies": {
     "marked": "^17.0.4"
+  },
+  "overrides": {
+    "immutable": "^5.1.5"
   }
 }

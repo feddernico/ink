@@ -236,2195 +236,6 @@ This section contains the contents of the repository's files.
 }
 </file>
 
-<file path="cypress/e2e/workspace-actions.cy.js">
-function createFakeFileHandle(name, initialContent = "") {
-  let content = initialContent;
-  let lastModified = Date.now();
-
-  return {
-    kind: "file",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async getFile() {
-      return new File([content], name, { type: "text/markdown", lastModified });
-    },
-    async createWritable() {
-      return {
-        async write(nextContent) {
-          content = String(nextContent);
-          lastModified = Date.now();
-        },
-        async close() {},
-      };
-    },
-    __read() {
-      return content;
-    },
-  };
-}
-
-function createFakeDirectoryHandle(name) {
-  const entries = new Map();
-
-  return {
-    kind: "directory",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async *entries() {
-      for (const entry of entries.entries()) {
-        yield entry;
-      }
-    },
-    async getFileHandle(fileName, options = {}) {
-      const existing = entries.get(fileName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`File not found: ${fileName}`);
-      }
-      const handle = createFakeFileHandle(fileName);
-      entries.set(fileName, handle);
-      return handle;
-    },
-    async getDirectoryHandle(dirName, options = {}) {
-      const existing = entries.get(dirName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`Directory not found: ${dirName}`);
-      }
-      const handle = createFakeDirectoryHandle(dirName);
-      entries.set(dirName, handle);
-      return handle;
-    },
-    __entries: entries,
-  };
-}
-
-function dispatchShortcut(win, { key, ctrlKey = false, shiftKey = false, altKey = false }) {
-  const event = new win.KeyboardEvent("keydown", {
-    key,
-    ctrlKey,
-    shiftKey,
-    altKey,
-    bubbles: true,
-  });
-  win.dispatchEvent(event);
-}
-
-describe("workspace actions regression", () => {
-  const workspaceName = "workspace-actions";
-  const noteName = "note-a";
-  const saveAsName = "note-b";
-  const markdown = "# Ink regression\n\nSaved content.";
-
-  beforeEach(() => {
-    cy.visit("/ink-app.html", {
-      onBeforeLoad(win) {
-        Object.defineProperty(win.navigator, "userAgent", {
-          value: "Windows NT 10.0",
-          configurable: true,
-        });
-
-        const root = createFakeDirectoryHandle(workspaceName);
-
-        win.prompt = (message) => {
-          if (message.includes("New note name")) {
-            return noteName;
-          }
-          if (message.includes("Save note as")) {
-            return saveAsName;
-          }
-          if (message.includes("Folder name")) {
-            return "folder-a";
-          }
-          return null;
-        };
-
-        win.confirm = () => true;
-        win.FileSystemHandle = function FileSystemHandle() {};
-        win.showDirectoryPicker = async () => root;
-        win.__fakeWorkspace = root;
-      },
-    });
-  });
-
-  it("save as creates a new file with the saved content", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get("#workspaceName").should("contain", workspaceName);
-
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type(markdown);
-    cy.get('[data-action="save"]').click({ force: true });
-    cy.get("#statusBadge").should("contain", "Saved");
-
-    cy.get('[data-action="save-as"]').click({ force: true });
-    cy.get("#statusBadge").should("contain", "Saved as");
-    cy.get("#currentFilename").should("contain", `${saveAsName}.md`);
-
-    cy.window().then(async (win) => {
-      const handle = await win.__fakeWorkspace.getFileHandle(`${saveAsName}.md`);
-      expect(handle.__read()).to.eq(markdown);
-    });
-  });
-
-  it("refresh button rescans workspace and updates status", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get("#workspaceName").should("contain", workspaceName);
-
-    cy.get("body").click("topLeft");
-    cy.get("#refreshBtn").click();
-    cy.get("#statusBadge").should("contain", "Refreshed");
-  });
-
-  it("close workspace resets UI state", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-
-    cy.get('[data-action="close-workspace"]').click({ force: true });
-    cy.get("#workspaceName").should("contain", "No folder selected");
-    cy.get("#tree").should("contain", "Open a folder to begin.");
-    cy.get("#currentFilename").should("contain", "No note open");
-    cy.get("#statusBadge").should("contain", "Ready");
-  });
-
-  it("sort toggle updates labels", () => {
-    cy.get("#sortBtn").should("contain", "Sort: Name");
-    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Name");
-
-    cy.get("#sortBtn").click();
-    cy.get("#sortBtn").should("contain", "Sort: Last modified");
-    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Modified");
-  });
-
-  it("keyboard shortcuts trigger key workspace actions", () => {
-    cy.window().then((win) => {
-      dispatchShortcut(win, { key: "o", ctrlKey: true, shiftKey: true });
-    });
-    cy.get("#workspaceName").should("contain", workspaceName);
-
-    cy.window().then((win) => {
-      dispatchShortcut(win, { key: "e", ctrlKey: true });
-    });
-    cy.get("#currentFilename").should("contain", `${noteName}.md`);
-
-    cy.get("#editor").clear().type(markdown);
-    cy.window().then((win) => {
-      dispatchShortcut(win, { key: "s", ctrlKey: true });
-    });
-    cy.get("#statusBadge").should("contain", "Saved");
-
-    cy.window().then((win) => {
-      dispatchShortcut(win, { key: "l", ctrlKey: true });
-    });
-    cy.get("#statusBadge").should("contain", "Refreshed");
-  });
-});
-</file>
-
-<file path="openspec/changes/refactor-app-controller-modules/specs/codebase-maintainability/spec.md">
-## ADDED Requirements
-### Requirement: Modular app controller
-The system SHALL decompose the app controller into focused feature modules with explicit interfaces and a shared `AppState` passed as an argument.
-
-#### Scenario: Explicit module boundaries
-- **WHEN** controller responsibilities are extracted
-- **THEN** each module exports named functions for its feature area
-- **AND** modules do not access global state or hidden singletons
-
-#### Scenario: Controller orchestration
-- **WHEN** the app initializes
-- **THEN** the controller constructs `AppState` once
-- **AND** passes it explicitly into each module function
-
-### Requirement: Centralized UI event wiring
-The system SHALL register UI event listeners in a dedicated `ui-events.ts` module that receives `DomRefs`, `AppState`, and explicit action callbacks.
-
-#### Scenario: UI events registration
-- **WHEN** UI events are attached
-- **THEN** the controller calls `ui-events` with callbacks for menu actions, shortcuts, and workspace flows
-
-### Requirement: Build/test entrypoint clarity
-The system SHALL keep `build/compile-and-assemble.js` as the canonical build entry and use a dedicated test build helper for `npm run build:test`.
-
-#### Scenario: Build entry documentation
-- **WHEN** build instructions are documented
-- **THEN** they reference `build/compile-and-assemble.js` as the canonical entrypoint
-
-#### Scenario: Test build helper
-- **WHEN** the test build runs
-- **THEN** it uses a single helper script that centralizes the esbuild configuration
-</file>
-
-<file path="openspec/changes/refactor-app-controller-modules/design.md">
-## Context
-The refactor plan identifies `src/app/bootstrap.ts` as a coupling hotspot that mixes UI wiring, state mutation, File System Access API flows, and rendering. The build/test scripts also have ambiguous naming and duplicated configuration.
-
-## Goals / Non-Goals
-- Goals:
-  - Decompose the controller into explicit feature modules with clear boundaries.
-  - Keep state transitions linear and explicit through shared `AppState`.
-  - Clarify build and test entrypoints while preserving single-file output.
-- Non-Goals:
-  - Change user-visible behavior, UI layout, or feature set.
-  - Introduce new dependencies or build frameworks.
-
-## Decisions
-- Decision: Keep a single `AppState` object and pass it explicitly into modules.
-- Decision: Centralize event registration in `ui-events.ts` with injected callbacks.
-- Decision: Preserve `src/app.ts` as the sole entrypoint and rename the controller file only.
-- Decision: Add a `build/build-test.js` helper to own test bundle configuration.
-
-## Risks / Trade-offs
-- Risk: Refactor could introduce regressions in shortcuts or file system flows.
-  - Mitigation: Manual smoke testing of open/save/refresh and menu shortcuts after each extraction.
-
-## Migration Plan
-1. Extract modules one by one, keeping the controller as an orchestration layer.
-2. Rename the controller file and update imports once module boundaries are stable.
-3. Update build/test scripts and documentation last to avoid churn.
-
-## Open Questions
-- Resolved: use `app-controller.ts` as the controller filename.
-</file>
-
-<file path="openspec/changes/refactor-app-controller-modules/proposal.md">
-# Change: Modularize app controller and build helpers
-
-## Why
-The refactor plan calls for separating the large controller module into explicit feature units and clarifying build/test entrypoints so the codebase stays predictable for LLM maintenance without changing behavior.
-
-## What Changes
-- Split `src/app/bootstrap.ts` into small feature modules with explicit interfaces and shared `AppState`.
-- Introduce a dedicated `ui-events.ts` to centralize UI wiring and keyboard/menu shortcuts.
-- Rename `bootstrap.ts` to a clearer controller name while keeping `src/app.ts` as the entrypoint.
-- Add a test build helper and converge on `build/compile-and-assemble.js` as the canonical build entry.
-
-## Impact
-- Affected specs: codebase-maintainability
-- Affected code: src/app/bootstrap.ts, src/app/*.ts, build/*.js, package.json, README.md
-</file>
-
-<file path="openspec/changes/refactor-app-controller-modules/tasks.md">
-## 1. Implementation
-- [x] 1.1 Map `InkApp` responsibilities to module boundaries from the refactor plan.
-- [x] 1.2 Extract feature modules (menu actions, workspace IO, tree render, editor preview, toast/status, auto-refresh) with explicit exports.
-- [x] 1.3 Add `ui-events.ts` to register UI event listeners and shortcuts via injected callbacks.
-- [x] 1.4 Rename `bootstrap.ts` to the chosen controller filename and update imports/exports.
-- [x] 1.5 Introduce `build/build-test.js` and update `npm run build:test` to use it.
-- [x] 1.6 Update documentation to reference `build/compile-and-assemble.js` as the canonical build entry.
-- [x] 1.7 Run build/test verification and smoke checks for workspace open/save/preview flows (automated via Cypress).
-</file>
-
-<file path="openspec/changes/refactor-simplification-plan/specs/codebase-maintainability/spec.md">
-## ADDED Requirements
-### Requirement: Refactor and simplification plan
-The system SHALL provide a refactor and simplification plan that aligns the codebase with the AI-first coding principles.
-
-#### Scenario: Prioritized recommendations
-- **WHEN** a plan is produced
-- **THEN** it includes high, medium, and low priority sections
-- **AND** only recommends changes that improve alignment with the coding principles
-
-#### Scenario: Deletion and renaming guidance
-- **WHEN** a plan is produced
-- **THEN** it identifies code or files that can be deleted
-- **AND** it calls out candidates for renaming or restructuring
-
-#### Scenario: No-change guidance
-- **WHEN** a plan is produced
-- **THEN** it states which areas do not need change to avoid unnecessary churn
-</file>
-
-<file path="openspec/changes/refactor-simplification-plan/plan.md">
-# Refactor and Simplification Plan
-
-## Audit Summary (Current Coupling)
-- `src/app/bootstrap.ts` (~1335 lines) concentrates UI wiring, state mutation, File System Access API flows, tree rendering, preview rendering, and menu/shortcut behavior in one class. This is the primary coupling hotspot.
-- `src/app/dom.ts`, `src/app/fs-api.ts`, `src/app/types.ts`, and `src/app/utils.ts` are already small, stable modules, but the higher-level orchestration still lives in `bootstrap.ts`.
-- Build pipeline entry is `build/compile-and-assemble.js`, while `build/build.js` and `build/inject.js` act as compatibility aliases for older names. This creates naming ambiguity without functional separation.
-- The test build script (`npm run build:test`) bundles multiple small modules into `dist/test/*` with repeated `esbuild` invocations, which is explicit but manually duplicated.
-
-## High Priority (Safety + Clarity)
-1. Split `InkApp` in `src/app/bootstrap.ts` into small feature modules with explicit interfaces.
-   - Suggested modules: `menu-actions.ts`, `workspace-io.ts`, `tree-render.ts`, `editor-preview.ts`, `toast-status.ts`, `auto-refresh.ts`.
-   - Keep a single `AppState` and pass it explicitly into each module to avoid hidden coupling.
-2. Flatten UI event wiring into a dedicated initializer.
-   - Move `attachEventListeners`, `attachMenuEventListeners`, and keyboard shortcuts into a `ui-events.ts` module that accepts `DomRefs`, `AppState`, and a small set of action callbacks.
-3. Make state transitions explicit and sequential.
-   - Extract high-risk mutation flows (open workspace, refresh, save, save-as, close workspace) into functions that return updated state or mutate a specific slice, then re-render.
-   - This keeps control flow linear and reduces the chance of side effects crossing feature boundaries.
-
-## Medium Priority (Structure + Naming)
-1. Rename `bootstrap.ts` to a clearer responsibility label.
-   - Suggested: `app-controller.ts` (or `app-core.ts`) while keeping `src/app.ts` as the only entrypoint.
-2. Consolidate build script naming to reduce ambiguity.
-   - Choose one canonical entry (`build/compile-and-assemble.js`) and update `README.md` + `openspec/project.md` to reference it.
-   - Keep `build/build.js` and `build/inject.js` as temporary aliases only if needed for compatibility.
-3. Consolidate repeated `esbuild` calls in `npm run build:test`.
-   - Introduce a small build helper (e.g., `build/build-test.js`) that centralizes the esbuild config for test bundles and reduces duplication.
-
-## Low Priority (Cleanup)
-1. Re-evaluate `dist/test/*` as committed artifacts.
-   - If they are only generated outputs, consider excluding them from source control after verifying no workflows depend on committed copies.
-2. Remove tiny utility duplication when the same logic appears in multiple spots.
-   - Example targets: repeated toast message formatting, repeated tree render error handling.
-
-## Deletions / Renames / Restructures
-- **Rename**: `src/app/bootstrap.ts` -> `src/app/app-controller.ts` (keep `src/app.ts` as entrypoint).
-- **Restructure**: Extract feature modules from `bootstrap.ts` into separate files under `src/app/` with explicit, flat function exports.
-- **Delete (optional, only after confirming no external usage)**: `build/build.js` and `build/inject.js` once documentation and scripts use the canonical build entry.
-- **Restructure**: Move test build steps into a dedicated build helper (e.g., `build/build-test.js`) and have `npm run build:test` call it.
-
-## Areas to Keep Unchanged (Avoid Churn)
-- `src/app/dom.ts`, `src/app/fs-api.ts`, `src/app/utils.ts`, `src/app/types.ts` are already narrow and should remain stable.
-- `src/app.ts` should remain a tiny entrypoint that delegates to app initialization.
-- `build/compile-and-assemble.js` should stay the canonical build pipeline entry unless a larger build redesign is approved.
-- `ink.template.html` and `src/styles.scss` should not be refactored during maintainability-only changes.
-
-## Guardrails
-- Preserve user-visible behavior (workspace open/save/edit, sidebar interactions, preview rendering) while refactoring.
-- Keep build output as a single self-contained `ink-app.html`.
-</file>
-
-<file path="openspec/changes/refactor-simplification-plan/proposal.md">
-# Change: Refactor and simplify for LLM-friendly maintenance
-
-## Why
-The core UI/controller logic lives in a single large module, which increases coupling and makes safe regeneration harder. A structured refactor plan will align the codebase with the AI-first principles without changing behavior unnecessarily.
-
-## What Changes
-- Produce a refactor and simplification plan aligned to the repo's LLM coding principles.
-- Define high/medium/low priority refactor themes with deletion/rename/restructure guidance.
-- Call out areas that should remain unchanged to avoid churn.
-
-## Impact
-- Affected specs: codebase-maintainability
-- Affected code: src/app/bootstrap.ts, src/app/*, build/*, tests/*, docs
-</file>
-
-<file path="openspec/changes/refactor-simplification-plan/tasks.md">
-## 1. Planning Output
-- [x] 1.1 Audit current modules and build/test pipeline for coupling and duplication.
-- [x] 1.2 Draft a prioritized refactor plan with high/medium/low sections.
-- [x] 1.3 Identify deletions/renames/restructures that reduce complexity.
-- [x] 1.4 Document what should remain unchanged to avoid churn.
-</file>
-
-<file path="src/app/app-controller.ts">
-import { marked } from "marked";
-import { parseTags } from "../tags";
-import { getDomRefs } from "./dom";
-import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
-import { createAutoRefresh } from "./auto-refresh";
-import { renderPreview, updateDirtyUi } from "./editor-preview";
-import { createMenuActions, updateMenuShortcuts } from "./menu-actions";
-import { applySidebarState, setSidebarCollapsed } from "./sidebar";
-import { loadTheme } from "./theme";
-import { createToastController, setStatus } from "./toast-status";
-import { createTreeRenderer } from "./tree-render";
-import { attachUiEvents } from "./ui-events";
-import { createWorkspaceActions } from "./workspace-io";
-import type { AppState, DomRefs } from "./types";
-
-type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
-
-export function bootstrapInkApp(): void {
-  const app = createAppController(getDomRefs());
-  app.initialize();
-}
-
-export function createAppController(els: DomRefs) {
-  const state: AppState = {
-    workspaceHandle: null,
-    workspaceName: "",
-    fileTree: null,
-    notes: [],
-    inMemoryNotes: [],
-    currentFileHandle: null,
-    currentRelPath: "",
-    currentContent: "",
-    isDirty: false,
-    searchQuery: "",
-    tagFilter: "",
-    sortMode: "name",
-    collapsedDirs: new Set<string>(),
-    autoRefreshMs: 10000,
-    autoRefreshTimer: null,
-    isSidebarCollapsed: false,
-    isTemporarySession: false,
-  };
-
-  const toastTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
-  const { showToast, hideToast } = createToastController(els, toastTimerRef);
-
-  const treeHandlers = {
-    openNoteByRelPath: async () => {},
-    openInMemoryNote: async () => {},
-  };
-
-  const treeRenderer = createTreeRenderer({
-    state,
-    els,
-    handlers: treeHandlers,
-    showToast,
-  });
-
-  const rescanWorkspaceRef: { current: RescanWorkspaceFn } = {
-    current: async () => {},
-  };
-
-  const autoRefresh = createAutoRefresh({
-    state,
-    ensurePermission,
-    rescanWorkspace: (options) => rescanWorkspaceRef.current(options),
-    showToast,
-    setStatus: (message, kind) => setStatus(els, message, kind),
-  });
-
-  const workspaceActions = createWorkspaceActions({
-    state,
-    els,
-    showToast,
-    setStatus: (message, kind) => setStatus(els, message, kind),
-    renderPreview,
-    updateDirtyUi,
-    renderTree: treeRenderer.renderTree,
-    renderInMemoryTree: treeRenderer.renderInMemoryTree,
-    renderTags: treeRenderer.renderTags,
-    updateCountsPill: treeRenderer.updateCountsPill,
-    fsApi: {
-      ensurePermission,
-      isFileSystemApiAvailable,
-    },
-    parseTags,
-    autoRefresh,
-  });
-
-  rescanWorkspaceRef.current = workspaceActions.rescanWorkspace;
-  treeHandlers.openNoteByRelPath = workspaceActions.openNoteByRelPath;
-  treeHandlers.openInMemoryNote = workspaceActions.openInMemoryNote;
-
-  const menuActions = createMenuActions({
-    state,
-    els,
-    showToast,
-    renderTree: treeRenderer.renderTree,
-    callbacks: {
-      createNewNote: workspaceActions.createNewNote,
-      createNewFolder: workspaceActions.createNewFolder,
-      openWorkspace: workspaceActions.openWorkspace,
-      closeWorkspace: workspaceActions.closeWorkspace,
-      saveCurrentNote: workspaceActions.saveCurrentNote,
-      saveAsNewNote: workspaceActions.saveAsNewNote,
-      handleRefresh: workspaceActions.handleRefresh,
-      exportAsJson: workspaceActions.exportAsJson,
-      exportAsMarkdown: workspaceActions.exportAsMarkdown,
-      setSidebarCollapsed: (isCollapsed) => setSidebarCollapsed(els, state, isCollapsed),
-    },
-  });
-
-  function handleSearchInput(value: string): void {
-    state.searchQuery = value;
-    treeRenderer.renderTree().catch((error: unknown) => {
-      showToast(`Search render failed: ${String(error)}`, { persist: true });
-    });
-  }
-
-  function handleEditorInput(value: string): void {
-    state.isDirty = value !== state.currentContent;
-    updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
-    renderPreview(els, value);
-  }
-
-  function initialize(): void {
-    marked.use({ breaks: true });
-
-    const isMac = navigator.platform.toLowerCase().includes("mac");
-    updateMenuShortcuts(els, isMac);
-
-    attachUiEvents({
-      state,
-      els,
-      actions: {
-        handleMenuAction: menuActions.handleMenuAction,
-        toggleSidebar: () => setSidebarCollapsed(els, state, !state.isSidebarCollapsed),
-        handleRefresh: workspaceActions.handleRefresh,
-        toggleSort: menuActions.toggleSort,
-        handleSearchInput,
-        handleEditorInput,
-        saveCurrentNote: workspaceActions.saveCurrentNote,
-        createNewNote: workspaceActions.createNewNote,
-        openWorkspace: workspaceActions.openWorkspace,
-        exportAsJson: workspaceActions.exportAsJson,
-        exportAsMarkdown: workspaceActions.exportAsMarkdown,
-        hideToast,
-        showToast,
-      },
-    });
-
-    loadTheme();
-    applySidebarState(els, state);
-    updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
-    treeRenderer.renderTree().catch((error: unknown) => {
-      showToast(`Failed to render tree: ${String(error)}`, { persist: true });
-      setStatus(els, "Render failed", "err");
-    });
-  }
-
-  return {
-    initialize,
-    state,
-  };
-}
-</file>
-
-<file path="src/app/auto-refresh.ts">
-import type { AppState } from "./types";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-type StatusFn = (message: string | null, kind?: "neutral" | "ok" | "warn" | "err") => void;
-
-type EnsurePermission = (handle: NonNullable<AppState["workspaceHandle"]>, mode: "read" | "readwrite") => Promise<boolean>;
-
-type RescanWorkspace = (options?: { silent?: boolean }) => Promise<void>;
-
-export function createAutoRefresh({
-  state,
-  ensurePermission,
-  rescanWorkspace,
-  showToast,
-  setStatus,
-}: {
-  state: AppState;
-  ensurePermission: EnsurePermission;
-  rescanWorkspace: RescanWorkspace;
-  showToast: ToastFn;
-  setStatus: StatusFn;
-}) {
-  function startAutoRefresh(): void {
-    stopAutoRefresh();
-    state.autoRefreshTimer = setInterval(() => {
-      runAutoRefresh().catch((error: unknown) => {
-        showToast(`Auto-refresh failed: ${String(error)}`, { persist: true });
-        setStatus("Auto-refresh failed", "err");
-      });
-    }, state.autoRefreshMs);
-  }
-
-  async function runAutoRefresh(): Promise<void> {
-    if (!state.workspaceHandle) {
-      return;
-    }
-
-    try {
-      const permissionGranted = await ensurePermission(state.workspaceHandle, "read");
-      if (!permissionGranted) {
-        throw new Error("Folder permission revoked.");
-      }
-    } catch {
-      stopAutoRefresh();
-      showToast("Auto-refresh stopped: folder permission revoked.", { persist: true });
-      setStatus("Permission revoked", "err");
-      return;
-    }
-
-    if (state.isDirty) {
-      return;
-    }
-
-    await rescanWorkspace({ silent: true });
-  }
-
-  function stopAutoRefresh(): void {
-    if (state.autoRefreshTimer) {
-      clearInterval(state.autoRefreshTimer);
-      state.autoRefreshTimer = null;
-    }
-  }
-
-  return {
-    startAutoRefresh,
-    stopAutoRefresh,
-  };
-}
-</file>
-
-<file path="src/app/editor-preview.ts">
-import { marked } from "marked";
-import { escapeHtml } from "./utils";
-import type { AppState, DomRefs } from "./types";
-import type { StatusKind } from "./toast-status";
-
-export function renderPreview(els: DomRefs, text: string): void {
-  try {
-    els.preview.innerHTML = marked.parse(text || "") as string;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    els.preview.innerHTML = `<pre>${escapeHtml(message)}</pre>`;
-  }
-}
-
-export function updateDirtyUi(
-  els: DomRefs,
-  state: AppState,
-  setStatus: (message: string | null, kind?: StatusKind) => void,
-): void {
-  els.dirtyDot.classList.toggle("show", state.isDirty);
-
-  const openFileName = state.currentRelPath
-    ? state.currentRelPath.split("/").pop()
-    : "No note open";
-  els.currentFilename.textContent = `${openFileName}${state.isDirty ? "  • Unsaved" : ""}`;
-
-  if (state.isDirty) {
-    setStatus("Unsaved changes", "warn");
-  }
-}
-</file>
-
-<file path="src/app/menu-actions.ts">
-import type { AppState, DomRefs } from "./types";
-import { applyTheme, VALID_THEMES } from "./theme";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-type MenuCallbacks = {
-  createNewNote: () => Promise<void>;
-  createNewFolder: () => Promise<void>;
-  openWorkspace: () => Promise<void>;
-  closeWorkspace: () => void;
-  saveCurrentNote: () => Promise<void>;
-  saveAsNewNote: () => Promise<void>;
-  handleRefresh: () => void;
-  exportAsJson: () => void;
-  exportAsMarkdown: () => void;
-  setSidebarCollapsed: (isCollapsed: boolean) => void;
-};
-
-export function updateMenuShortcuts(els: DomRefs, isMac: boolean): void {
-  const modifier = isMac ? "Cmd" : "Ctrl";
-  const shortcuts = els.menuBar.querySelectorAll(".menu-shortcut");
-  shortcuts.forEach((el) => {
-    const text = el.textContent;
-    if (text) {
-      if (text.includes("Cmd/Ctrl")) {
-        el.textContent = text.replace("Cmd/Ctrl", modifier);
-      } else if (text.includes("Ctrl")) {
-        el.textContent = text.replace("Ctrl", modifier);
-      }
-    }
-  });
-}
-
-export function createMenuActions({
-  state,
-  els,
-  showToast,
-  renderTree,
-  callbacks,
-}: {
-  state: AppState;
-  els: DomRefs;
-  showToast: ToastFn;
-  renderTree: () => Promise<void>;
-  callbacks: MenuCallbacks;
-}) {
-  function toggleSort(): void {
-    state.sortMode = state.sortMode === "name" ? "modified" : "name";
-    els.sortBtn.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Last modified"}`;
-
-    const sortMenuItem = document.querySelector('[data-action="sort"] .menu-label');
-    if (sortMenuItem) {
-      sortMenuItem.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Modified"}`;
-    }
-
-    renderTree().catch((error: unknown) => {
-      showToast(`Sort render failed: ${String(error)}`, { persist: true });
-    });
-  }
-
-  function handleExit(): void {
-    if (state.isDirty) {
-      const shouldExit = confirm("You have unsaved changes. Are you sure you want to exit?");
-      if (!shouldExit) {
-        return;
-      }
-    }
-    window.close();
-  }
-
-  function handleMenuAction(action: string): void {
-    switch (action) {
-      case "new-note":
-        callbacks.createNewNote().catch((error: unknown) => {
-          showToast(`Create note failed: ${String(error)}`, { persist: true });
-        });
-        break;
-      case "new-folder":
-        callbacks.createNewFolder().catch((error: unknown) => {
-          showToast(`Create folder failed: ${String(error)}`, { persist: true });
-        });
-        break;
-      case "open-workspace":
-        callbacks.openWorkspace().catch((error: unknown) => {
-          showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-        });
-        break;
-      case "close-workspace":
-        callbacks.closeWorkspace();
-        break;
-      case "exit":
-        handleExit();
-        break;
-      case "save":
-        callbacks.saveCurrentNote().catch((error: unknown) => {
-          showToast(`Save failed: ${String(error)}`, { persist: true });
-        });
-        break;
-      case "save-as":
-        callbacks.saveAsNewNote().catch((error: unknown) => {
-          showToast(`Save As failed: ${String(error)}`, { persist: true });
-        });
-        break;
-      case "refresh":
-        callbacks.handleRefresh();
-        break;
-      case "sort":
-        toggleSort();
-        break;
-      case "collapse-sidebar":
-        callbacks.setSidebarCollapsed(!state.isSidebarCollapsed);
-        break;
-      case "export-json":
-        callbacks.exportAsJson();
-        break;
-      case "export-markdown":
-        callbacks.exportAsMarkdown();
-        break;
-      case "theme-default":
-      case "theme-classic":
-      case "theme-cobalt":
-      case "theme-monokai":
-      case "theme-office":
-      case "theme-twilight":
-      case "theme-xcode": {
-        const themeName = action.replace("theme-", "");
-        if (VALID_THEMES.includes(themeName)) {
-          applyTheme(themeName);
-        }
-        break;
-      }
-    }
-  }
-
-  return {
-    toggleSort,
-    handleMenuAction,
-    handleExit,
-  };
-}
-</file>
-
-<file path="src/app/sidebar.ts">
-import type { AppState, DomRefs } from "./types";
-
-export function applySidebarState(els: DomRefs, state: AppState): void {
-  const isCollapsed = state.isSidebarCollapsed;
-  els.app.classList.toggle("sidebar-collapsed", isCollapsed);
-  els.workspaceSidebar.classList.toggle("collapsed", isCollapsed);
-  els.sidebarToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
-  els.sidebarToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
-  els.sidebarToggleBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
-  els.sidebarToggleBtn.textContent = isCollapsed ? "▼ Expand" : "▶ Collapse";
-}
-
-export function setSidebarCollapsed(els: DomRefs, state: AppState, isCollapsed: boolean): void {
-  state.isSidebarCollapsed = isCollapsed;
-  applySidebarState(els, state);
-}
-</file>
-
-<file path="src/app/theme.ts">
-export const VALID_THEMES = [
-  "default",
-  "classic",
-  "cobalt",
-  "monokai",
-  "office",
-  "twilight",
-  "xcode",
-];
-
-export function applyTheme(theme: string): void {
-  if (!VALID_THEMES.includes(theme)) {
-    return;
-  }
-
-  if (theme === "default") {
-    document.documentElement.removeAttribute("data-theme");
-  } else {
-    document.documentElement.setAttribute("data-theme", theme);
-  }
-
-  try {
-    localStorage.setItem("ink-theme", theme);
-  } catch {
-    // ignore localStorage errors
-  }
-
-  document.querySelectorAll(".menu-theme-check").forEach((el) => {
-    el.classList.remove("active");
-  });
-  const checkEl = document.getElementById(`themeCheck-${theme}`);
-  if (checkEl) {
-    checkEl.classList.add("active");
-  }
-}
-
-export function loadTheme(): void {
-  let savedTheme = "default";
-  try {
-    savedTheme = localStorage.getItem("ink-theme") ?? "default";
-  } catch {
-    // ignore localStorage errors
-  }
-  applyTheme(VALID_THEMES.includes(savedTheme) ? savedTheme : "default");
-}
-</file>
-
-<file path="src/app/toast-status.ts">
-import type { DomRefs } from "./types";
-
-export type ToastTimerRef = {
-  current: ReturnType<typeof setTimeout> | null;
-};
-
-export type StatusKind = "neutral" | "ok" | "warn" | "err";
-
-export function setStatus(els: DomRefs, message: string | null, kind: StatusKind = "neutral"): void {
-  els.statusBadge.textContent = message;
-  els.statusBadge.classList.remove("ok", "warn", "err");
-  if (kind !== "neutral") {
-    els.statusBadge.classList.add(kind);
-  }
-}
-
-export function createToastController(els: DomRefs, toastTimerRef: ToastTimerRef) {
-  function showToast(message: string, options: { persist?: boolean } = {}): void {
-    els.toastMsg.textContent = message;
-    els.toast.classList.add("show");
-
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = null;
-    }
-
-    if (!options.persist) {
-      toastTimerRef.current = setTimeout(() => {
-        els.toast.classList.remove("show");
-      }, 3500);
-    }
-  }
-
-  function hideToast(): void {
-    els.toast.classList.remove("show");
-  }
-
-  return { showToast, hideToast };
-}
-</file>
-
-<file path="src/app/tree-render.ts">
-import { escapeHtml } from "./utils";
-import type {
-  AppState,
-  DomRefs,
-  FileHandleLike,
-  InMemoryNoteRecord,
-  TreeNode,
-} from "./types";
-
-export type TreeHandlers = {
-  openNoteByRelPath: (relPath: string, handleHint: FileHandleLike | null) => Promise<void>;
-  openInMemoryNote: (relPath: string) => Promise<void>;
-};
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-
-export function createTreeRenderer({
-  state,
-  els,
-  handlers,
-  showToast,
-}: {
-  state: AppState;
-  els: DomRefs;
-  handlers: TreeHandlers;
-  showToast: ToastFn;
-}) {
-  function renderTags(): void {
-    const tagCounts = new Map<string, number>();
-    const notes = state.isTemporarySession ? state.inMemoryNotes : state.notes;
-
-    for (const note of notes) {
-      for (const tag of note.tags) {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-      }
-    }
-
-    const sorted = [...tagCounts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 50);
-
-    els.tagRow.innerHTML = "";
-    if (sorted.length === 0) {
-      return;
-    }
-
-    const allButton = document.createElement("button");
-    allButton.className = `tag${state.tagFilter ? "" : " active"}`;
-    allButton.textContent = "All";
-    allButton.title = "Clear tag filter";
-    allButton.addEventListener("click", () => {
-      state.tagFilter = "";
-      renderTags();
-      if (state.isTemporarySession) {
-        renderInMemoryTree();
-      } else {
-        renderTree().catch((error: unknown) => {
-          showToast(`Tag render failed: ${String(error)}`, { persist: true });
-        });
-      }
-    });
-    els.tagRow.appendChild(allButton);
-
-    for (const [tag, count] of sorted) {
-      const button = document.createElement("button");
-      button.className = `tag${state.tagFilter === tag ? " active" : ""}`;
-      button.textContent = `#${tag}`;
-      button.title = `${count} note${count === 1 ? "" : "s"} tagged #${tag}`;
-      button.addEventListener("click", () => {
-        state.tagFilter = state.tagFilter === tag ? "" : tag;
-        renderTags();
-        if (state.isTemporarySession) {
-          renderInMemoryTree();
-        } else {
-          renderTree().catch((error: unknown) => {
-            showToast(`Tag render failed: ${String(error)}`, { persist: true });
-          });
-        }
-      });
-      els.tagRow.appendChild(button);
-    }
-  }
-
-  async function computeMatches(): Promise<Set<string>> {
-    let notes = [...state.notes];
-
-    if (state.tagFilter) {
-      notes = notes.filter((note) => note.tags.has(state.tagFilter));
-    }
-
-    if (state.sortMode === "modified") {
-      notes.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
-    } else {
-      notes.sort((a, b) => a.relPath.localeCompare(b.relPath));
-    }
-
-    const query = state.searchQuery.trim().toLowerCase();
-    if (!query) {
-      return new Set(notes.map((note) => note.relPath));
-    }
-
-    const matches = new Set<string>();
-    for (const note of notes) {
-      if (note.relPath.toLowerCase().includes(query)) {
-        matches.add(note.relPath);
-        continue;
-      }
-
-      try {
-        const file = await note.handle.getFile();
-        const text = (await file.text()).toLowerCase();
-        if (text.includes(query)) {
-          matches.add(note.relPath);
-        }
-      } catch {
-        // Ignore read errors while searching.
-      }
-    }
-
-    return matches;
-  }
-
-  async function renderTree(): Promise<void> {
-    if (!state.fileTree) {
-      els.tree.innerHTML = '<div class="small" style="padding: 8px;">Open a folder to begin.</div>';
-      return;
-    }
-
-    const matches = await computeMatches();
-    const prunedTree = pruneTree(state.fileTree, matches);
-
-    els.tree.innerHTML = "";
-    if (!prunedTree || prunedTree.type !== "dir" || prunedTree.children.length === 0) {
-      els.tree.innerHTML = '<div class="small" style="padding: 8px;">No matching notes.</div>';
-      return;
-    }
-
-    for (const child of prunedTree.children) {
-      renderNode(child, 0);
-    }
-  }
-
-  function pruneTree(node: TreeNode, matches: Set<string>): TreeNode | null {
-    if (node.type === "file") {
-      return matches.has(node.relPath) ? node : null;
-    }
-
-    const children: TreeNode[] = [];
-    for (const child of node.children) {
-      const kept = pruneTree(child, matches);
-      if (kept) {
-        children.push(kept);
-      }
-    }
-
-    if (node.relPath === "") {
-      return {
-        ...node,
-        children,
-      };
-    }
-
-    if (children.length === 0) {
-      return null;
-    }
-
-    return {
-      ...node,
-      children,
-    };
-  }
-
-  function renderNode(node: TreeNode, depth: number): void {
-    const row = document.createElement("div");
-    row.className = "node";
-    row.style.paddingLeft = `${8 + depth * 12}px`;
-
-    if (node.type === "dir") {
-      const isCollapsed = state.collapsedDirs.has(node.relPath);
-      row.innerHTML = `
-        <span class="icon">${isCollapsed ? "▶" : "▼"}</span>
-        <span class="icon">${isCollapsed ? "📁" : "📂"}</span>
-        <span class="name">${escapeHtml(node.name)}</span>
-      `;
-
-      row.addEventListener("click", (event: MouseEvent) => {
-        event.stopPropagation();
-        if (isCollapsed) {
-          state.collapsedDirs.delete(node.relPath);
-        } else {
-          state.collapsedDirs.add(node.relPath);
-        }
-
-        renderTree().catch((error: unknown) => {
-          showToast(`Tree render failed: ${String(error)}`, { persist: true });
-        });
-      });
-
-      els.tree.appendChild(row);
-      if (!isCollapsed) {
-        for (const child of node.children) {
-          renderNode(child, depth + 1);
-        }
-      }
-      return;
-    }
-
-    const isActive = node.relPath === state.currentRelPath;
-    if (isActive) {
-      row.classList.add("active");
-    }
-
-    const meta =
-      state.sortMode === "modified" && node.noteRef.lastModified
-        ? new Date(node.noteRef.lastModified).toLocaleDateString()
-        : "";
-
-    row.innerHTML = `
-      <span class="icon">📝</span>
-      <span class="name" title="${escapeHtml(node.noteRef.relPath)}">${escapeHtml(node.noteRef.name)}</span>
-      <span class="meta">${escapeHtml(meta)}</span>
-    `;
-
-    row.addEventListener("click", (event: MouseEvent) => {
-      event.stopPropagation();
-      handlers.openNoteByRelPath(node.relPath, node.handle).catch((error: unknown) => {
-        showToast(`Open note failed: ${String(error)}`, { persist: true });
-      });
-    });
-
-    els.tree.appendChild(row);
-  }
-
-  function renderInMemoryTree(): void {
-    els.tree.innerHTML = "";
-
-    if (state.inMemoryNotes.length === 0) {
-      els.tree.innerHTML =
-        '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
-      return;
-    }
-
-    const sortedNotes = [...state.inMemoryNotes].sort((a, b) => a.relPath.localeCompare(b.relPath));
-
-    for (const note of sortedNotes) {
-      renderInMemoryRow(note);
-    }
-  }
-
-  function renderInMemoryRow(note: InMemoryNoteRecord): void {
-    const row = document.createElement("div");
-    row.className = "node";
-
-    const isActive = note.relPath === state.currentRelPath;
-    if (isActive) {
-      row.classList.add("active");
-    }
-
-    const meta = state.sortMode === "modified" ? new Date(note.lastModified).toLocaleDateString() : "";
-
-    row.innerHTML = `
-      <span class="icon">📝</span>
-      <span class="name" title="${escapeHtml(note.relPath)}">${escapeHtml(note.name)}</span>
-      <span class="meta">${escapeHtml(meta)}</span>
-    `;
-
-    row.addEventListener("click", () => {
-      handlers.openInMemoryNote(note.relPath);
-    });
-
-    els.tree.appendChild(row);
-  }
-
-  function updateCountsPill(): void {
-    const count = state.inMemoryNotes.length;
-    els.countsPill.textContent = `${count} note${count === 1 ? "" : "s"}`;
-  }
-
-  return {
-    computeMatches,
-    renderTree,
-    renderTags,
-    renderInMemoryTree,
-    updateCountsPill,
-  };
-}
-</file>
-
-<file path="src/app/ui-events.ts">
-import type { AppState, DomRefs } from "./types";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-
-export type UiActions = {
-  handleMenuAction: (action: string) => void;
-  toggleSidebar: () => void;
-  handleRefresh: () => void;
-  toggleSort: () => void;
-  handleSearchInput: (value: string) => void;
-  handleEditorInput: (value: string) => void;
-  saveCurrentNote: () => Promise<void>;
-  createNewNote: () => Promise<void>;
-  openWorkspace: () => Promise<void>;
-  exportAsJson: () => void;
-  exportAsMarkdown: () => void;
-  hideToast: () => void;
-  showToast: ToastFn;
-};
-
-export function attachUiEvents({
-  state,
-  els,
-  actions,
-}: {
-  state: AppState;
-  els: DomRefs;
-  actions: UiActions;
-}): void {
-  attachMenuEventListeners(els, actions.handleMenuAction);
-
-  els.sidebarToggleBtn.addEventListener("click", () => {
-    actions.toggleSidebar();
-  });
-
-  els.refreshBtn.addEventListener("click", () => {
-    actions.handleRefresh();
-  });
-
-  els.sortBtn.addEventListener("click", () => {
-    actions.toggleSort();
-  });
-
-  els.searchInput.addEventListener("input", () => {
-    actions.handleSearchInput(els.searchInput.value);
-  });
-
-  els.editor.addEventListener("input", () => {
-    if (!state.currentRelPath) {
-      return;
-    }
-
-    actions.handleEditorInput(els.editor.value);
-  });
-
-  els.editor.addEventListener("keydown", (event: KeyboardEvent) => {
-    const isMac = navigator.platform.toLowerCase().includes("mac");
-    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
-
-    if (isModifierPressed && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      actions.saveCurrentNote().catch((error: unknown) => {
-        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
-      });
-    }
-
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const start = els.editor.selectionStart;
-      els.editor.setRangeText("  ", start, start, "end");
-    }
-  });
-
-  els.toastCloseBtn.addEventListener("click", () => {
-    actions.hideToast();
-  });
-
-  window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {
-    if (state.isDirty) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-  });
-
-  attachGlobalKeyboardShortcuts(actions);
-}
-
-function attachMenuEventListeners(els: DomRefs, handleMenuAction: (action: string) => void): void {
-  const menuItems = els.menuBar.querySelectorAll(".menu-item");
-
-  menuItems.forEach((item) => {
-    item.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isExpanded = item.getAttribute("aria-expanded") === "true";
-
-      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-
-      if (!isExpanded) {
-        item.setAttribute("aria-expanded", "true");
-      }
-    });
-
-    item.addEventListener("keydown", (event: Event) => {
-      const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.key === "Escape") {
-        item.setAttribute("aria-expanded", "false");
-      }
-    });
-  });
-
-  const submenuParents = els.menuBar.querySelectorAll(".submenu-parent");
-  submenuParents.forEach((item) => {
-    item.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isExpanded = item.getAttribute("aria-expanded") === "true";
-
-      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-
-      if (!isExpanded) {
-        item.setAttribute("aria-expanded", "true");
-      }
-    });
-
-    item.addEventListener("keydown", (event: Event) => {
-      const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.key === "Escape") {
-        item.setAttribute("aria-expanded", "false");
-      }
-    });
-  });
-
-  document.addEventListener("click", () => {
-    menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-    submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-  });
-
-  const dropdownItems = els.menuBar.querySelectorAll(".dropdown li[data-action]");
-  dropdownItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      const action = item.getAttribute("data-action");
-      if (action) {
-        handleMenuAction(action);
-      }
-      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-    });
-  });
-}
-
-function attachGlobalKeyboardShortcuts(actions: UiActions): void {
-  window.addEventListener("keydown", (event: KeyboardEvent) => {
-    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
-    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
-    const isAltPressed = event.altKey;
-
-    if (isModifierPressed && event.key.toLowerCase() === "l") {
-      event.preventDefault();
-      actions.handleRefresh();
-      return;
-    }
-
-    if (isModifierPressed && event.key.toLowerCase() === "s" && !event.shiftKey) {
-      event.preventDefault();
-      actions.saveCurrentNote().catch((error: unknown) => {
-        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      actions.exportAsJson();
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "m") {
-      event.preventDefault();
-      actions.exportAsMarkdown();
-      return;
-    }
-
-    if (isModifierPressed && event.key.toLowerCase() === "e") {
-      event.preventDefault();
-      actions.createNewNote().catch((error: unknown) => {
-        actions.showToast(`Create note failed: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "o") {
-      event.preventDefault();
-      actions.openWorkspace().catch((error: unknown) => {
-        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isAltPressed && event.shiftKey && event.key.toLowerCase() === "o") {
-      event.preventDefault();
-      actions.openWorkspace().catch((error: unknown) => {
-        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-      });
-    }
-  });
-}
-</file>
-
-<file path="src/app/workspace-io.ts">
-import type {
-  AppState,
-  DirectoryHandleLike,
-  DirectoryNode,
-  DomRefs,
-  FileHandleLike,
-  FileNode,
-  InMemoryNoteRecord,
-  NoteRecord,
-  TreeNode,
-} from "./types";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-type StatusFn = (message: string | null, kind?: "neutral" | "ok" | "warn" | "err") => void;
-
-type RenderPreviewFn = (els: DomRefs, text: string) => void;
-type UpdateDirtyFn = (els: DomRefs, state: AppState, setStatus: StatusFn) => void;
-
-type TreeRenderFns = {
-  renderTree: () => Promise<void>;
-  renderInMemoryTree: () => void;
-  renderTags: () => void;
-  updateCountsPill: () => void;
-};
-
-type FsApi = {
-  ensurePermission: (handle: DirectoryHandleLike, mode: "read" | "readwrite") => Promise<boolean>;
-  isFileSystemApiAvailable: () => boolean;
-};
-
-type AutoRefreshFns = {
-  startAutoRefresh: () => void;
-  stopAutoRefresh: () => void;
-};
-
-type TagParser = (text: string) => Set<string>;
-
-export function createWorkspaceActions({
-  state,
-  els,
-  showToast,
-  setStatus,
-  renderPreview,
-  updateDirtyUi,
-  renderTree,
-  renderInMemoryTree,
-  renderTags,
-  updateCountsPill,
-  fsApi,
-  parseTags,
-  autoRefresh,
-}: {
-  state: AppState;
-  els: DomRefs;
-  showToast: ToastFn;
-  setStatus: StatusFn;
-  renderPreview: RenderPreviewFn;
-  updateDirtyUi: UpdateDirtyFn;
-  renderTree: TreeRenderFns["renderTree"];
-  renderInMemoryTree: TreeRenderFns["renderInMemoryTree"];
-  renderTags: TreeRenderFns["renderTags"];
-  updateCountsPill: TreeRenderFns["updateCountsPill"];
-  fsApi: FsApi;
-  parseTags: TagParser;
-  autoRefresh: AutoRefreshFns;
-}) {
-  async function openWorkspace(): Promise<void> {
-    if (!fsApi.isFileSystemApiAvailable()) {
-      state.isTemporarySession = true;
-      state.workspaceName = "Temporary Session";
-      state.inMemoryNotes = [];
-      state.isDirty = false;
-      state.currentRelPath = "";
-      state.currentContent = "";
-      state.fileTree = null;
-
-      els.workspaceName.textContent = state.workspaceName;
-      els.workspaceName.title = "Temporary Session - Data not persisted";
-      els.temporarySessionBadge.style.display = "inline";
-      els.countsPill.textContent = "0 notes";
-      els.tagRow.innerHTML = "";
-      els.tree.innerHTML =
-        '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
-
-      showToast("Temporary in-memory workspace enabled. Use Export to save your notes.", {
-        persist: true,
-      });
-      setStatus("Temporary session", "warn");
-      return;
-    }
-
-    els.temporarySessionBadge.style.display = "none";
-
-    try {
-      if (!window.showDirectoryPicker) {
-        throw new Error("File System Access API not available");
-      }
-
-      const directory = await window.showDirectoryPicker({ id: "local-md-workspace", mode: "readwrite" });
-      const permissionGranted = await fsApi.ensurePermission(directory, "readwrite");
-      if (!permissionGranted) {
-        showToast("Permission denied. Please allow access to the folder.", { persist: true });
-        setStatus("Permission denied", "err");
-        return;
-      }
-
-      state.workspaceHandle = directory;
-      state.workspaceName = directory.name || "Selected folder";
-      state.collapsedDirs.clear();
-      state.tagFilter = "";
-
-      els.workspaceName.textContent = state.workspaceName;
-      els.workspaceName.title = state.workspaceName;
-      els.tagRow.innerHTML = "";
-
-      setStatus("Scanning folder...");
-      await rescanWorkspace();
-      autoRefresh.startAutoRefresh();
-
-      showToast("Workspace opened.");
-      setStatus("Workspace ready", "ok");
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        setStatus("Open folder cancelled");
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Failed to open folder: ${message}`, { persist: true });
-      setStatus("Failed to open folder", "err");
-    }
-  }
-
-  async function rescanWorkspace(options: { silent?: boolean } = {}): Promise<void> {
-    if (!state.workspaceHandle) {
-      return;
-    }
-
-    try {
-      const permissionGranted = await fsApi.ensurePermission(state.workspaceHandle, "read");
-      if (!permissionGranted) {
-        throw new Error("Folder permission not granted (read)");
-      }
-
-      const notes: NoteRecord[] = [];
-      const rootNode: DirectoryNode = {
-        type: "dir",
-        name: state.workspaceName,
-        relPath: "",
-        children: [],
-      };
-
-      await walkDirectory(state.workspaceHandle, rootNode, "", notes);
-      await enrichNotesWithTags(notes);
-
-      state.notes = notes;
-      state.fileTree = rootNode;
-
-      els.countsPill.textContent = `${notes.length} note${notes.length === 1 ? "" : "s"}`;
-
-      renderTags();
-      await renderTree();
-
-      if (!options.silent) {
-        showToast("Workspace refreshed.");
-        setStatus("Refreshed", "ok");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Refresh failed: ${message}`, { persist: true });
-      setStatus("Refresh failed", "err");
-    }
-  }
-
-  async function walkDirectory(
-    dirHandle: DirectoryHandleLike,
-    parentNode: DirectoryNode,
-    relPathBase: string,
-    notes: NoteRecord[],
-  ): Promise<void> {
-    for await (const [name, handle] of dirHandle.entries()) {
-      if (name.startsWith(".")) {
-        continue;
-      }
-
-      if (handle.kind === "directory") {
-        const relPath = relPathBase ? `${relPathBase}/${name}` : name;
-        const directoryNode: DirectoryNode = {
-          type: "dir",
-          name,
-          relPath,
-          children: [],
-        };
-
-        parentNode.children.push(directoryNode);
-        await walkDirectory(handle, directoryNode, relPath, notes);
-        continue;
-      }
-
-      if (!name.toLowerCase().endsWith(".md")) {
-        continue;
-      }
-
-      const relPath = relPathBase ? `${relPathBase}/${name}` : name;
-      let lastModified = 0;
-      let size = 0;
-
-      try {
-        const file = await handle.getFile();
-        lastModified = file.lastModified || 0;
-        size = file.size || 0;
-      } catch {
-        showToast(`Skipped a file that couldn't be read: ${relPath}`);
-        continue;
-      }
-
-      const note: NoteRecord = {
-        handle,
-        name,
-        relPath,
-        lastModified,
-        size,
-        tags: new Set<string>(),
-      };
-
-      notes.push(note);
-      const fileNode: FileNode = {
-        type: "file",
-        name,
-        relPath,
-        handle,
-        noteRef: note,
-      };
-
-      parentNode.children.push(fileNode);
-    }
-
-    parentNode.children.sort((a: TreeNode, b: TreeNode) => {
-      if (a.type !== b.type) {
-        return a.type === "dir" ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-  }
-
-  async function enrichNotesWithTags(notes: NoteRecord[]): Promise<void> {
-    const MAX_BYTES = 256 * 1024;
-
-    for (const note of notes) {
-      try {
-        const file = await note.handle.getFile();
-        const blob = file.size > MAX_BYTES ? file.slice(0, MAX_BYTES) : file;
-        const text = await blob.text();
-        note.tags = parseTags(text);
-      } catch {
-        note.tags = new Set<string>();
-      }
-    }
-  }
-
-  async function openNoteByRelPath(relPath: string, handleHint: FileHandleLike | null = null): Promise<void> {
-    if (state.isDirty && state.currentFileHandle) {
-      const shouldDiscard = confirm("You have unsaved changes. Discard them?");
-      if (!shouldDiscard) {
-        return;
-      }
-    }
-
-    try {
-      const handle = handleHint || state.notes.find((note) => note.relPath === relPath)?.handle;
-      if (!handle) {
-        throw new Error("File not found");
-      }
-
-      const file = await handle.getFile();
-      const text = await file.text();
-
-      state.currentFileHandle = handle;
-      state.currentRelPath = relPath;
-      state.currentContent = text;
-      state.isDirty = false;
-
-      els.editor.value = text;
-      renderPreview(els, text);
-      updateDirtyUi(els, state, setStatus);
-      setStatus("Opened ✓", "ok");
-
-      await renderTree();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Failed to open note: ${message}`, { persist: true });
-      setStatus("Open failed", "err");
-    }
-  }
-
-  async function saveCurrentNote(): Promise<void> {
-    if (state.isTemporarySession) {
-      return saveInMemoryNote();
-    }
-
-    if (!state.currentFileHandle) {
-      return;
-    }
-
-    try {
-      const writable = await state.currentFileHandle.createWritable();
-      await writable.write(els.editor.value);
-      await writable.close();
-
-      state.currentContent = els.editor.value;
-      state.isDirty = false;
-      updateDirtyUi(els, state, setStatus);
-
-      setStatus("Saved ✓", "ok");
-      showToast("Saved ✓");
-
-      await rescanWorkspace({ silent: true });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Save failed: ${message}`, { persist: true });
-      setStatus("Save failed", "err");
-    }
-  }
-
-  async function createNewNote(): Promise<void> {
-    if (!state.workspaceHandle && !state.isTemporarySession) {
-      showToast("Open a workspace first.");
-      return;
-    }
-
-    if (state.isDirty) {
-      const shouldContinue = confirm("You have unsaved changes. Continue and discard them?");
-      if (!shouldContinue) {
-        return;
-      }
-    }
-
-    const name = prompt("New note name (without .md)");
-    if (!name) {
-      return;
-    }
-
-    const fileName = name.endsWith(".md") ? name : `${name}.md`;
-
-    if (state.isTemporarySession) {
-      return createInMemoryNote(fileName, name);
-    }
-
-    try {
-      if (!state.workspaceHandle) {
-        throw new Error("Workspace handle is not available");
-      }
-
-      const workspaceHandle = state.workspaceHandle;
-      for await (const [existingName] of workspaceHandle.entries()) {
-        if (existingName === fileName) {
-          showToast("A file with that name already exists.", { persist: true });
-          return;
-        }
-      }
-
-      const fileHandle = await state.workspaceHandle.getFileHandle(fileName, { create: true });
-      const initialContent = `# ${name}\n\nCreated ${new Date().toLocaleString()}\n`;
-
-      const writable = await fileHandle.createWritable();
-      await writable.write(initialContent);
-      await writable.close();
-
-      await rescanWorkspace({ silent: true });
-      await openNoteByRelPath(fileName, fileHandle);
-
-      showToast("New note created ✓");
-      setStatus("New note", "ok");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Failed to create note: ${message}`, { persist: true });
-      setStatus("Create failed", "err");
-    }
-  }
-
-  async function saveAsNewNote(): Promise<void> {
-    if (!state.workspaceHandle && !state.isTemporarySession) {
-      showToast("Open a workspace first.");
-      return;
-    }
-
-    const currentContent = state.isTemporarySession ? els.editor.value : state.currentContent;
-
-    if (!currentContent) {
-      showToast("Nothing to save.");
-      return;
-    }
-
-    const name = prompt("Save note as (filename without .md):");
-    if (!name) {
-      return;
-    }
-
-    const fileName = name.endsWith(".md") ? name : `${name}.md`;
-
-    if (state.isTemporarySession) {
-      return createInMemoryNote(fileName, name);
-    }
-
-    try {
-      if (!state.workspaceHandle) {
-        throw new Error("Workspace handle is not available");
-      }
-
-      for await (const [existingName] of state.workspaceHandle.entries()) {
-        if (existingName === fileName) {
-          showToast("A file with that name already exists.", { persist: true });
-          return;
-        }
-      }
-
-      const fileHandle = await state.workspaceHandle.getFileHandle(fileName, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(currentContent);
-      await writable.close();
-
-      await rescanWorkspace({ silent: true });
-      await openNoteByRelPath(fileName, fileHandle);
-
-      showToast(`Saved as ${fileName} ✓`);
-      setStatus("Saved as", "ok");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Failed to save: ${message}`, { persist: true });
-      setStatus("Save failed", "err");
-    }
-  }
-
-  async function createNewFolder(parentHandle: DirectoryHandleLike | null = state.workspaceHandle): Promise<void> {
-    if (!parentHandle) {
-      if (state.isTemporarySession) {
-        showToast("Folders are not supported in temporary session.");
-        return;
-      }
-      showToast("Open a workspace first.");
-      return;
-    }
-
-    const folderName = prompt("Folder name:");
-    if (!folderName) {
-      return;
-    }
-
-    try {
-      await parentHandle.getDirectoryHandle(folderName, { create: true });
-      await rescanWorkspace({ silent: true });
-      showToast("Folder created ✓");
-      setStatus("Folder created", "ok");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Failed to create folder: ${message}`, { persist: true });
-      setStatus("Create folder failed", "err");
-    }
-  }
-
-  async function createInMemoryNote(fileName: string, name: string): Promise<void> {
-    const existingNote = state.inMemoryNotes.find((n) => n.relPath === fileName);
-    if (existingNote) {
-      showToast("A note with that name already exists.", { persist: true });
-      return;
-    }
-
-    const initialContent = `# ${name}\n\nCreated ${new Date().toLocaleString()}\n`;
-
-    const note: InMemoryNoteRecord = {
-      name: fileName,
-      relPath: fileName,
-      content: initialContent,
-      lastModified: Date.now(),
-      tags: parseTags(initialContent),
-    };
-
-    state.inMemoryNotes.push(note);
-    state.currentRelPath = fileName;
-    state.currentContent = initialContent;
-    state.isDirty = false;
-
-    els.editor.value = initialContent;
-    renderPreview(els, initialContent);
-    updateDirtyUi(els, state, setStatus);
-    renderInMemoryTree();
-    updateCountsPill();
-
-    showToast("New note created ✓");
-    setStatus("New note", "ok");
-  }
-
-  async function openInMemoryNote(relPath: string): Promise<void> {
-    if (state.isDirty && state.currentRelPath) {
-      const shouldDiscard = confirm("You have unsaved changes. Discard them?");
-      if (!shouldDiscard) {
-        return;
-      }
-    }
-
-    const note = state.inMemoryNotes.find((n) => n.relPath === relPath);
-    if (!note) {
-      showToast("Note not found", { persist: true });
-      return;
-    }
-
-    state.currentRelPath = relPath;
-    state.currentContent = note.content;
-    state.isDirty = false;
-
-    els.editor.value = note.content;
-    renderPreview(els, note.content);
-    updateDirtyUi(els, state, setStatus);
-    setStatus("Opened ✓", "ok");
-
-    renderInMemoryTree();
-  }
-
-  async function saveInMemoryNote(): Promise<void> {
-    if (!state.currentRelPath || !state.isTemporarySession) {
-      return;
-    }
-
-    const note = state.inMemoryNotes.find((n) => n.relPath === state.currentRelPath);
-    if (!note) {
-      showToast("Note not found", { persist: true });
-      return;
-    }
-
-    note.content = els.editor.value;
-    note.lastModified = Date.now();
-    note.tags = parseTags(note.content);
-
-    state.currentContent = note.content;
-    state.isDirty = false;
-    updateDirtyUi(els, state, setStatus);
-
-    setStatus("Saved ✓", "ok");
-    showToast("Saved ✓");
-
-    renderInMemoryTree();
-    renderTags();
-  }
-
-  function exportAsJson(): void {
-    if (state.inMemoryNotes.length === 0) {
-      showToast("No notes to export.");
-      return;
-    }
-
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      notes: state.inMemoryNotes.map((note) => ({
-        name: note.name,
-        path: note.relPath,
-        content: note.content,
-        lastModified: new Date(note.lastModified).toISOString(),
-      })),
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    const date = new Date().toISOString().split("T")[0];
-    const fileName = `ink-export-${date}.json`;
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showToast(`Exported ${state.inMemoryNotes.length} note(s) as JSON.`);
-    setStatus("Exported JSON", "ok");
-  }
-
-  function exportAsMarkdown(): void {
-    if (!state.currentRelPath) {
-      showToast("No note selected to export.");
-      return;
-    }
-
-    const note = state.inMemoryNotes.find((n) => n.relPath === state.currentRelPath);
-    if (!note) {
-      showToast("Note not found.", { persist: true });
-      return;
-    }
-
-    const blob = new Blob([note.content], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = note.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showToast(`Exported ${note.name} as Markdown.`);
-    setStatus("Exported MD", "ok");
-  }
-
-  function handleRefresh(): void {
-    if (state.isTemporarySession) {
-      showToast("Refresh not available in temporary session. Your data is in memory.");
-      return;
-    }
-
-    if (!state.workspaceHandle) {
-      showToast("No workspace open.");
-      return;
-    }
-
-    rescanWorkspace().catch((error: unknown) => {
-      showToast(`Refresh failed: ${String(error)}`, { persist: true });
-      setStatus("Refresh failed", "err");
-    });
-  }
-
-  function closeWorkspace(): void {
-    autoRefresh.stopAutoRefresh();
-    state.workspaceHandle = null;
-    state.workspaceName = "";
-    state.fileTree = null;
-    state.notes = [];
-    state.currentFileHandle = null;
-    state.currentRelPath = "";
-    state.currentContent = "";
-    state.isDirty = false;
-    state.searchQuery = "";
-    state.tagFilter = "";
-    state.collapsedDirs.clear();
-
-    els.workspaceName.textContent = "No folder selected";
-    els.workspaceName.title = "No folder selected";
-    els.countsPill.textContent = "0 notes";
-    els.tagRow.innerHTML = "";
-    els.tree.innerHTML = '<div class="small" style="padding: 8px;">Open a folder to begin.</div>';
-    els.editor.value = "";
-    els.preview.innerHTML = "";
-    els.currentFilename.textContent = "No note open";
-    els.dirtyDot.classList.remove("show");
-
-    setStatus("Ready");
-    showToast("Workspace closed.");
-  }
-
-  return {
-    openWorkspace,
-    rescanWorkspace,
-    openNoteByRelPath,
-    saveCurrentNote,
-    createNewNote,
-    saveAsNewNote,
-    createNewFolder,
-    createInMemoryNote,
-    openInMemoryNote,
-    saveInMemoryNote,
-    exportAsJson,
-    exportAsMarkdown,
-    handleRefresh,
-    closeWorkspace,
-  };
-}
-</file>
-
-<file path="tests/qunit/fs-api.test.js">
-import QUnit from "qunit";
-import {
-  ensurePermission,
-  isFileSystemApiAvailable,
-  isInMemoryMode,
-} from "../../dist/test/fs-api.js";
-
-function setWindow(value) {
-  globalThis.window = value;
-}
-
-QUnit.module("fs-api", (hooks) => {
-  let originalWindow;
-
-  hooks.beforeEach(() => {
-    originalWindow = globalThis.window;
-    setWindow({});
-  });
-
-  hooks.afterEach(() => {
-    if (originalWindow === undefined) {
-      delete globalThis.window;
-    } else {
-      setWindow(originalWindow);
-    }
-  });
-
-  QUnit.test("isFileSystemApiAvailable returns false when API is missing", (assert) => {
-    setWindow({});
-    assert.strictEqual(isFileSystemApiAvailable(), false);
-  });
-
-  QUnit.test("isFileSystemApiAvailable returns true when API is present", (assert) => {
-    setWindow({
-      showDirectoryPicker: async () => ({}),
-      FileSystemHandle: function FileSystemHandle() {},
-    });
-    assert.strictEqual(isFileSystemApiAvailable(), true);
-  });
-
-  QUnit.test("isInMemoryMode mirrors availability", (assert) => {
-    setWindow({});
-    assert.strictEqual(isInMemoryMode(), true);
-
-    setWindow({
-      showDirectoryPicker: async () => ({}),
-      FileSystemHandle: function FileSystemHandle() {},
-    });
-    assert.strictEqual(isInMemoryMode(), false);
-  });
-
-  QUnit.test("ensurePermission returns false for null handle", async (assert) => {
-    const result = await ensurePermission(null, "read");
-    assert.strictEqual(result, false);
-  });
-
-  QUnit.test("ensurePermission returns true when permission APIs are missing", async (assert) => {
-    const result = await ensurePermission({});
-    assert.strictEqual(result, true);
-  });
-
-  QUnit.test("ensurePermission returns true when queryPermission is granted", async (assert) => {
-    let requestCalled = false;
-    const handle = {
-      async queryPermission() {
-        return "granted";
-      },
-      async requestPermission() {
-        requestCalled = true;
-        return "denied";
-      },
-    };
-
-    const result = await ensurePermission(handle, "read");
-    assert.strictEqual(result, true);
-    assert.strictEqual(requestCalled, false);
-  });
-
-  QUnit.test("ensurePermission requests permission when not granted", async (assert) => {
-    let requestedDescriptor = null;
-    const handle = {
-      async queryPermission() {
-        return "prompt";
-      },
-      async requestPermission(descriptor) {
-        requestedDescriptor = descriptor;
-        return "granted";
-      },
-    };
-
-    const result = await ensurePermission(handle, "readwrite");
-    assert.strictEqual(result, true);
-    assert.deepEqual(requestedDescriptor, { mode: "readwrite" });
-  });
-
-  QUnit.test("ensurePermission returns false when request is denied", async (assert) => {
-    const handle = {
-      async queryPermission() {
-        return "prompt";
-      },
-      async requestPermission() {
-        return "denied";
-      },
-    };
-
-    const result = await ensurePermission(handle, "read");
-    assert.strictEqual(result, false);
-  });
-});
-</file>
-
 <file path=".github/workflows/codeql.yml">
 # For most projects, this workflow file will not need changing; you simply need
 # to commit it to your repository.
@@ -2525,18 +336,6 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
-</file>
-
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Test bundles are built via `build/build-test.js`.
 </file>
 
 <file path="assets/branding/favicon.svg">
@@ -3035,6 +834,204 @@ describe("removed toolbar buttons verification", () => {
         cy.get("#statusBadge").should("exist");
       });
     });
+  });
+});
+</file>
+
+<file path="cypress/e2e/workspace-actions.cy.js">
+function createFakeFileHandle(name, initialContent = "") {
+  let content = initialContent;
+  let lastModified = Date.now();
+
+  return {
+    kind: "file",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async getFile() {
+      return new File([content], name, { type: "text/markdown", lastModified });
+    },
+    async createWritable() {
+      return {
+        async write(nextContent) {
+          content = String(nextContent);
+          lastModified = Date.now();
+        },
+        async close() {},
+      };
+    },
+    __read() {
+      return content;
+    },
+  };
+}
+
+function createFakeDirectoryHandle(name) {
+  const entries = new Map();
+
+  return {
+    kind: "directory",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async *entries() {
+      for (const entry of entries.entries()) {
+        yield entry;
+      }
+    },
+    async getFileHandle(fileName, options = {}) {
+      const existing = entries.get(fileName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`File not found: ${fileName}`);
+      }
+      const handle = createFakeFileHandle(fileName);
+      entries.set(fileName, handle);
+      return handle;
+    },
+    async getDirectoryHandle(dirName, options = {}) {
+      const existing = entries.get(dirName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`Directory not found: ${dirName}`);
+      }
+      const handle = createFakeDirectoryHandle(dirName);
+      entries.set(dirName, handle);
+      return handle;
+    },
+    __entries: entries,
+  };
+}
+
+function dispatchShortcut(win, { key, ctrlKey = false, shiftKey = false, altKey = false }) {
+  const event = new win.KeyboardEvent("keydown", {
+    key,
+    ctrlKey,
+    shiftKey,
+    altKey,
+    bubbles: true,
+  });
+  win.dispatchEvent(event);
+}
+
+describe("workspace actions regression", () => {
+  const workspaceName = "workspace-actions";
+  const noteName = "note-a";
+  const saveAsName = "note-b";
+  const markdown = "# Ink regression\n\nSaved content.";
+
+  beforeEach(() => {
+    cy.visit("/ink-app.html", {
+      onBeforeLoad(win) {
+        Object.defineProperty(win.navigator, "userAgent", {
+          value: "Windows NT 10.0",
+          configurable: true,
+        });
+
+        const root = createFakeDirectoryHandle(workspaceName);
+
+        win.prompt = (message) => {
+          if (message.includes("New note name")) {
+            return noteName;
+          }
+          if (message.includes("Save note as")) {
+            return saveAsName;
+          }
+          if (message.includes("Folder name")) {
+            return "folder-a";
+          }
+          return null;
+        };
+
+        win.confirm = () => true;
+        win.FileSystemHandle = function FileSystemHandle() {};
+        win.showDirectoryPicker = async () => root;
+        win.__fakeWorkspace = root;
+      },
+    });
+  });
+
+  it("save as creates a new file with the saved content", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("#workspaceName").should("contain", workspaceName);
+
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type(markdown);
+    cy.get('[data-action="save"]').click({ force: true });
+    cy.get("#statusBadge").should("contain", "Saved");
+
+    cy.get('[data-action="save-as"]').click({ force: true });
+    cy.get("#statusBadge").should("contain", "Saved as");
+    cy.get("#currentFilename").should("contain", `${saveAsName}.md`);
+
+    cy.window().then(async (win) => {
+      const handle = await win.__fakeWorkspace.getFileHandle(`${saveAsName}.md`);
+      expect(handle.__read()).to.eq(markdown);
+    });
+  });
+
+  it("refresh button rescans workspace and updates status", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("#workspaceName").should("contain", workspaceName);
+
+    cy.get("body").click("topLeft");
+    cy.get("#refreshBtn").click();
+    cy.get("#statusBadge").should("contain", "Refreshed");
+  });
+
+  it("close workspace resets UI state", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+
+    cy.get('[data-action="close-workspace"]').click({ force: true });
+    cy.get("#workspaceName").should("contain", "No folder selected");
+    cy.get("#tree").should("contain", "Open a folder to begin.");
+    cy.get("#currentFilename").should("contain", "No note open");
+    cy.get("#statusBadge").should("contain", "Ready");
+  });
+
+  it("sort toggle updates labels", () => {
+    cy.get("#sortBtn").should("contain", "Sort: Name");
+    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Name");
+
+    cy.get("#sortBtn").click();
+    cy.get("#sortBtn").should("contain", "Sort: Last modified");
+    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Modified");
+  });
+
+  it("keyboard shortcuts trigger key workspace actions", () => {
+    cy.window().then((win) => {
+      dispatchShortcut(win, { key: "o", ctrlKey: true, shiftKey: true });
+    });
+    cy.get("#workspaceName").should("contain", workspaceName);
+
+    cy.window().then((win) => {
+      dispatchShortcut(win, { key: "e", ctrlKey: true });
+    });
+    cy.get("#currentFilename").should("contain", `${noteName}.md`);
+
+    cy.get("#editor").clear().type(markdown);
+    cy.window().then((win) => {
+      dispatchShortcut(win, { key: "s", ctrlKey: true });
+    });
+    cy.get("#statusBadge").should("contain", "Saved");
+
+    cy.window().then((win) => {
+      dispatchShortcut(win, { key: "l", ctrlKey: true });
+    });
+    cy.get("#statusBadge").should("contain", "Refreshed");
   });
 });
 </file>
@@ -4466,6 +2463,195 @@ The current codebase works, but it has several maintainability risks that reduce
 - [x] 4.2 `npm run test:qunit` passes.
 - [x] 4.3 `npm run test:cypress` passes.
 - [x] 4.4 README and script references match actual files/commands.
+</file>
+
+<file path="openspec/changes/refactor-app-controller-modules/specs/codebase-maintainability/spec.md">
+## ADDED Requirements
+### Requirement: Modular app controller
+The system SHALL decompose the app controller into focused feature modules with explicit interfaces and a shared `AppState` passed as an argument.
+
+#### Scenario: Explicit module boundaries
+- **WHEN** controller responsibilities are extracted
+- **THEN** each module exports named functions for its feature area
+- **AND** modules do not access global state or hidden singletons
+
+#### Scenario: Controller orchestration
+- **WHEN** the app initializes
+- **THEN** the controller constructs `AppState` once
+- **AND** passes it explicitly into each module function
+
+### Requirement: Centralized UI event wiring
+The system SHALL register UI event listeners in a dedicated `ui-events.ts` module that receives `DomRefs`, `AppState`, and explicit action callbacks.
+
+#### Scenario: UI events registration
+- **WHEN** UI events are attached
+- **THEN** the controller calls `ui-events` with callbacks for menu actions, shortcuts, and workspace flows
+
+### Requirement: Build/test entrypoint clarity
+The system SHALL keep `build/compile-and-assemble.js` as the canonical build entry and use a dedicated test build helper for `npm run build:test`.
+
+#### Scenario: Build entry documentation
+- **WHEN** build instructions are documented
+- **THEN** they reference `build/compile-and-assemble.js` as the canonical entrypoint
+
+#### Scenario: Test build helper
+- **WHEN** the test build runs
+- **THEN** it uses a single helper script that centralizes the esbuild configuration
+</file>
+
+<file path="openspec/changes/refactor-app-controller-modules/design.md">
+## Context
+The refactor plan identifies `src/app/bootstrap.ts` as a coupling hotspot that mixes UI wiring, state mutation, File System Access API flows, and rendering. The build/test scripts also have ambiguous naming and duplicated configuration.
+
+## Goals / Non-Goals
+- Goals:
+  - Decompose the controller into explicit feature modules with clear boundaries.
+  - Keep state transitions linear and explicit through shared `AppState`.
+  - Clarify build and test entrypoints while preserving single-file output.
+- Non-Goals:
+  - Change user-visible behavior, UI layout, or feature set.
+  - Introduce new dependencies or build frameworks.
+
+## Decisions
+- Decision: Keep a single `AppState` object and pass it explicitly into modules.
+- Decision: Centralize event registration in `ui-events.ts` with injected callbacks.
+- Decision: Preserve `src/app.ts` as the sole entrypoint and rename the controller file only.
+- Decision: Add a `build/build-test.js` helper to own test bundle configuration.
+
+## Risks / Trade-offs
+- Risk: Refactor could introduce regressions in shortcuts or file system flows.
+  - Mitigation: Manual smoke testing of open/save/refresh and menu shortcuts after each extraction.
+
+## Migration Plan
+1. Extract modules one by one, keeping the controller as an orchestration layer.
+2. Rename the controller file and update imports once module boundaries are stable.
+3. Update build/test scripts and documentation last to avoid churn.
+
+## Open Questions
+- Resolved: use `app-controller.ts` as the controller filename.
+</file>
+
+<file path="openspec/changes/refactor-app-controller-modules/proposal.md">
+# Change: Modularize app controller and build helpers
+
+## Why
+The refactor plan calls for separating the large controller module into explicit feature units and clarifying build/test entrypoints so the codebase stays predictable for LLM maintenance without changing behavior.
+
+## What Changes
+- Split `src/app/bootstrap.ts` into small feature modules with explicit interfaces and shared `AppState`.
+- Introduce a dedicated `ui-events.ts` to centralize UI wiring and keyboard/menu shortcuts.
+- Rename `bootstrap.ts` to a clearer controller name while keeping `src/app.ts` as the entrypoint.
+- Add a test build helper and converge on `build/compile-and-assemble.js` as the canonical build entry.
+
+## Impact
+- Affected specs: codebase-maintainability
+- Affected code: src/app/bootstrap.ts, src/app/*.ts, build/*.js, package.json, README.md
+</file>
+
+<file path="openspec/changes/refactor-app-controller-modules/tasks.md">
+## 1. Implementation
+- [x] 1.1 Map `InkApp` responsibilities to module boundaries from the refactor plan.
+- [x] 1.2 Extract feature modules (menu actions, workspace IO, tree render, editor preview, toast/status, auto-refresh) with explicit exports.
+- [x] 1.3 Add `ui-events.ts` to register UI event listeners and shortcuts via injected callbacks.
+- [x] 1.4 Rename `bootstrap.ts` to the chosen controller filename and update imports/exports.
+- [x] 1.5 Introduce `build/build-test.js` and update `npm run build:test` to use it.
+- [x] 1.6 Update documentation to reference `build/compile-and-assemble.js` as the canonical build entry.
+- [x] 1.7 Run build/test verification and smoke checks for workspace open/save/preview flows (automated via Cypress).
+</file>
+
+<file path="openspec/changes/refactor-simplification-plan/specs/codebase-maintainability/spec.md">
+## ADDED Requirements
+### Requirement: Refactor and simplification plan
+The system SHALL provide a refactor and simplification plan that aligns the codebase with the AI-first coding principles.
+
+#### Scenario: Prioritized recommendations
+- **WHEN** a plan is produced
+- **THEN** it includes high, medium, and low priority sections
+- **AND** only recommends changes that improve alignment with the coding principles
+
+#### Scenario: Deletion and renaming guidance
+- **WHEN** a plan is produced
+- **THEN** it identifies code or files that can be deleted
+- **AND** it calls out candidates for renaming or restructuring
+
+#### Scenario: No-change guidance
+- **WHEN** a plan is produced
+- **THEN** it states which areas do not need change to avoid unnecessary churn
+</file>
+
+<file path="openspec/changes/refactor-simplification-plan/plan.md">
+# Refactor and Simplification Plan
+
+## Audit Summary (Current Coupling)
+- `src/app/bootstrap.ts` (~1335 lines) concentrates UI wiring, state mutation, File System Access API flows, tree rendering, preview rendering, and menu/shortcut behavior in one class. This is the primary coupling hotspot.
+- `src/app/dom.ts`, `src/app/fs-api.ts`, `src/app/types.ts`, and `src/app/utils.ts` are already small, stable modules, but the higher-level orchestration still lives in `bootstrap.ts`.
+- Build pipeline entry is `build/compile-and-assemble.js`, while `build/build.js` and `build/inject.js` act as compatibility aliases for older names. This creates naming ambiguity without functional separation.
+- The test build script (`npm run build:test`) bundles multiple small modules into `dist/test/*` with repeated `esbuild` invocations, which is explicit but manually duplicated.
+
+## High Priority (Safety + Clarity)
+1. Split `InkApp` in `src/app/bootstrap.ts` into small feature modules with explicit interfaces.
+   - Suggested modules: `menu-actions.ts`, `workspace-io.ts`, `tree-render.ts`, `editor-preview.ts`, `toast-status.ts`, `auto-refresh.ts`.
+   - Keep a single `AppState` and pass it explicitly into each module to avoid hidden coupling.
+2. Flatten UI event wiring into a dedicated initializer.
+   - Move `attachEventListeners`, `attachMenuEventListeners`, and keyboard shortcuts into a `ui-events.ts` module that accepts `DomRefs`, `AppState`, and a small set of action callbacks.
+3. Make state transitions explicit and sequential.
+   - Extract high-risk mutation flows (open workspace, refresh, save, save-as, close workspace) into functions that return updated state or mutate a specific slice, then re-render.
+   - This keeps control flow linear and reduces the chance of side effects crossing feature boundaries.
+
+## Medium Priority (Structure + Naming)
+1. Rename `bootstrap.ts` to a clearer responsibility label.
+   - Suggested: `app-controller.ts` (or `app-core.ts`) while keeping `src/app.ts` as the only entrypoint.
+2. Consolidate build script naming to reduce ambiguity.
+   - Choose one canonical entry (`build/compile-and-assemble.js`) and update `README.md` + `openspec/project.md` to reference it.
+   - Keep `build/build.js` and `build/inject.js` as temporary aliases only if needed for compatibility.
+3. Consolidate repeated `esbuild` calls in `npm run build:test`.
+   - Introduce a small build helper (e.g., `build/build-test.js`) that centralizes the esbuild config for test bundles and reduces duplication.
+
+## Low Priority (Cleanup)
+1. Re-evaluate `dist/test/*` as committed artifacts.
+   - If they are only generated outputs, consider excluding them from source control after verifying no workflows depend on committed copies.
+2. Remove tiny utility duplication when the same logic appears in multiple spots.
+   - Example targets: repeated toast message formatting, repeated tree render error handling.
+
+## Deletions / Renames / Restructures
+- **Rename**: `src/app/bootstrap.ts` -> `src/app/app-controller.ts` (keep `src/app.ts` as entrypoint).
+- **Restructure**: Extract feature modules from `bootstrap.ts` into separate files under `src/app/` with explicit, flat function exports.
+- **Delete (optional, only after confirming no external usage)**: `build/build.js` and `build/inject.js` once documentation and scripts use the canonical build entry.
+- **Restructure**: Move test build steps into a dedicated build helper (e.g., `build/build-test.js`) and have `npm run build:test` call it.
+
+## Areas to Keep Unchanged (Avoid Churn)
+- `src/app/dom.ts`, `src/app/fs-api.ts`, `src/app/utils.ts`, `src/app/types.ts` are already narrow and should remain stable.
+- `src/app.ts` should remain a tiny entrypoint that delegates to app initialization.
+- `build/compile-and-assemble.js` should stay the canonical build pipeline entry unless a larger build redesign is approved.
+- `ink.template.html` and `src/styles.scss` should not be refactored during maintainability-only changes.
+
+## Guardrails
+- Preserve user-visible behavior (workspace open/save/edit, sidebar interactions, preview rendering) while refactoring.
+- Keep build output as a single self-contained `ink-app.html`.
+</file>
+
+<file path="openspec/changes/refactor-simplification-plan/proposal.md">
+# Change: Refactor and simplify for LLM-friendly maintenance
+
+## Why
+The core UI/controller logic lives in a single large module, which increases coupling and makes safe regeneration harder. A structured refactor plan will align the codebase with the AI-first principles without changing behavior unnecessarily.
+
+## What Changes
+- Produce a refactor and simplification plan aligned to the repo's LLM coding principles.
+- Define high/medium/low priority refactor themes with deletion/rename/restructure guidance.
+- Call out areas that should remain unchanged to avoid churn.
+
+## Impact
+- Affected specs: codebase-maintainability
+- Affected code: src/app/bootstrap.ts, src/app/*, build/*, tests/*, docs
+</file>
+
+<file path="openspec/changes/refactor-simplification-plan/tasks.md">
+## 1. Planning Output
+- [x] 1.1 Audit current modules and build/test pipeline for coupling and duplication.
+- [x] 1.2 Draft a prioritized refactor plan with high/medium/low sections.
+- [x] 1.3 Identify deletions/renames/restructures that reduce complexity.
+- [x] 1.4 Document what should remain unchanged to avoid churn.
 </file>
 
 <file path="openspec/changes/update-menu-shortcuts-platform-aware/specs/keyboard-shortcuts/spec.md">
@@ -6932,6 +5118,1026 @@ openspec archive <change-id> [--yes|-y]  # Mark complete (add --yes for automati
 Remember: Specs are truth. Changes are proposals. Keep them in sync.
 </file>
 
+<file path="src/app/app-controller.ts">
+import { marked } from "marked";
+import { parseTags } from "../tags";
+import { getDomRefs } from "./dom";
+import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
+import { createAutoRefresh } from "./auto-refresh";
+import { renderPreview, updateDirtyUi } from "./editor-preview";
+import { createMenuActions, updateMenuShortcuts } from "./menu-actions";
+import { applySidebarState, setSidebarCollapsed } from "./sidebar";
+import { loadTheme } from "./theme";
+import { createToastController, setStatus } from "./toast-status";
+import { createTreeRenderer } from "./tree-render";
+import { attachUiEvents } from "./ui-events";
+import { createWorkspaceActions } from "./workspace-io";
+import type { AppState, DomRefs } from "./types";
+
+type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
+
+export function bootstrapInkApp(): void {
+  const app = createAppController(getDomRefs());
+  app.initialize();
+}
+
+export function createAppController(els: DomRefs) {
+  const state: AppState = {
+    workspaceHandle: null,
+    workspaceName: "",
+    fileTree: null,
+    notes: [],
+    inMemoryNotes: [],
+    currentFileHandle: null,
+    currentRelPath: "",
+    currentContent: "",
+    isDirty: false,
+    searchQuery: "",
+    tagFilter: "",
+    sortMode: "name",
+    collapsedDirs: new Set<string>(),
+    autoRefreshMs: 10000,
+    autoRefreshTimer: null,
+    isSidebarCollapsed: false,
+    isTemporarySession: false,
+  };
+
+  const toastTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
+  const { showToast, hideToast } = createToastController(els, toastTimerRef);
+
+  const treeHandlers = {
+    openNoteByRelPath: async () => {},
+    openInMemoryNote: async () => {},
+  };
+
+  const treeRenderer = createTreeRenderer({
+    state,
+    els,
+    handlers: treeHandlers,
+    showToast,
+  });
+
+  const rescanWorkspaceRef: { current: RescanWorkspaceFn } = {
+    current: async () => {},
+  };
+
+  const autoRefresh = createAutoRefresh({
+    state,
+    ensurePermission,
+    rescanWorkspace: (options) => rescanWorkspaceRef.current(options),
+    showToast,
+    setStatus: (message, kind) => setStatus(els, message, kind),
+  });
+
+  const workspaceActions = createWorkspaceActions({
+    state,
+    els,
+    showToast,
+    setStatus: (message, kind) => setStatus(els, message, kind),
+    renderPreview,
+    updateDirtyUi,
+    renderTree: treeRenderer.renderTree,
+    renderInMemoryTree: treeRenderer.renderInMemoryTree,
+    renderTags: treeRenderer.renderTags,
+    updateCountsPill: treeRenderer.updateCountsPill,
+    fsApi: {
+      ensurePermission,
+      isFileSystemApiAvailable,
+    },
+    parseTags,
+    autoRefresh,
+  });
+
+  rescanWorkspaceRef.current = workspaceActions.rescanWorkspace;
+  treeHandlers.openNoteByRelPath = workspaceActions.openNoteByRelPath;
+  treeHandlers.openInMemoryNote = workspaceActions.openInMemoryNote;
+
+  const menuActions = createMenuActions({
+    state,
+    els,
+    showToast,
+    renderTree: treeRenderer.renderTree,
+    callbacks: {
+      createNewNote: workspaceActions.createNewNote,
+      createNewFolder: workspaceActions.createNewFolder,
+      openWorkspace: workspaceActions.openWorkspace,
+      closeWorkspace: workspaceActions.closeWorkspace,
+      saveCurrentNote: workspaceActions.saveCurrentNote,
+      saveAsNewNote: workspaceActions.saveAsNewNote,
+      handleRefresh: workspaceActions.handleRefresh,
+      exportAsJson: workspaceActions.exportAsJson,
+      exportAsMarkdown: workspaceActions.exportAsMarkdown,
+      setSidebarCollapsed: (isCollapsed) => setSidebarCollapsed(els, state, isCollapsed),
+    },
+  });
+
+  function handleSearchInput(value: string): void {
+    state.searchQuery = value;
+    treeRenderer.renderTree().catch((error: unknown) => {
+      showToast(`Search render failed: ${String(error)}`, { persist: true });
+    });
+  }
+
+  function handleEditorInput(value: string): void {
+    state.isDirty = value !== state.currentContent;
+    updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
+    renderPreview(els, value);
+  }
+
+  function initialize(): void {
+    marked.use({ breaks: true });
+
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    updateMenuShortcuts(els, isMac);
+
+    attachUiEvents({
+      state,
+      els,
+      actions: {
+        handleMenuAction: menuActions.handleMenuAction,
+        toggleSidebar: () => setSidebarCollapsed(els, state, !state.isSidebarCollapsed),
+        handleRefresh: workspaceActions.handleRefresh,
+        toggleSort: menuActions.toggleSort,
+        handleSearchInput,
+        handleEditorInput,
+        saveCurrentNote: workspaceActions.saveCurrentNote,
+        createNewNote: workspaceActions.createNewNote,
+        openWorkspace: workspaceActions.openWorkspace,
+        exportAsJson: workspaceActions.exportAsJson,
+        exportAsMarkdown: workspaceActions.exportAsMarkdown,
+        hideToast,
+        showToast,
+      },
+    });
+
+    loadTheme();
+    applySidebarState(els, state);
+    updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
+    treeRenderer.renderTree().catch((error: unknown) => {
+      showToast(`Failed to render tree: ${String(error)}`, { persist: true });
+      setStatus(els, "Render failed", "err");
+    });
+  }
+
+  return {
+    initialize,
+    state,
+  };
+}
+</file>
+
+<file path="src/app/auto-refresh.ts">
+import type { AppState } from "./types";
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+type StatusFn = (message: string | null, kind?: "neutral" | "ok" | "warn" | "err") => void;
+
+type EnsurePermission = (handle: NonNullable<AppState["workspaceHandle"]>, mode: "read" | "readwrite") => Promise<boolean>;
+
+type RescanWorkspace = (options?: { silent?: boolean }) => Promise<void>;
+
+export function createAutoRefresh({
+  state,
+  ensurePermission,
+  rescanWorkspace,
+  showToast,
+  setStatus,
+}: {
+  state: AppState;
+  ensurePermission: EnsurePermission;
+  rescanWorkspace: RescanWorkspace;
+  showToast: ToastFn;
+  setStatus: StatusFn;
+}) {
+  function startAutoRefresh(): void {
+    stopAutoRefresh();
+    state.autoRefreshTimer = setInterval(() => {
+      runAutoRefresh().catch((error: unknown) => {
+        showToast(`Auto-refresh failed: ${String(error)}`, { persist: true });
+        setStatus("Auto-refresh failed", "err");
+      });
+    }, state.autoRefreshMs);
+  }
+
+  async function runAutoRefresh(): Promise<void> {
+    if (!state.workspaceHandle) {
+      return;
+    }
+
+    try {
+      const permissionGranted = await ensurePermission(state.workspaceHandle, "read");
+      if (!permissionGranted) {
+        throw new Error("Folder permission revoked.");
+      }
+    } catch {
+      stopAutoRefresh();
+      showToast("Auto-refresh stopped: folder permission revoked.", { persist: true });
+      setStatus("Permission revoked", "err");
+      return;
+    }
+
+    if (state.isDirty) {
+      return;
+    }
+
+    await rescanWorkspace({ silent: true });
+  }
+
+  function stopAutoRefresh(): void {
+    if (state.autoRefreshTimer) {
+      clearInterval(state.autoRefreshTimer);
+      state.autoRefreshTimer = null;
+    }
+  }
+
+  return {
+    startAutoRefresh,
+    stopAutoRefresh,
+  };
+}
+</file>
+
+<file path="src/app/editor-preview.ts">
+import { marked } from "marked";
+import { escapeHtml } from "./utils";
+import type { AppState, DomRefs } from "./types";
+import type { StatusKind } from "./toast-status";
+
+export function renderPreview(els: DomRefs, text: string): void {
+  try {
+    els.preview.innerHTML = marked.parse(text || "") as string;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    els.preview.innerHTML = `<pre>${escapeHtml(message)}</pre>`;
+  }
+}
+
+export function updateDirtyUi(
+  els: DomRefs,
+  state: AppState,
+  setStatus: (message: string | null, kind?: StatusKind) => void,
+): void {
+  els.dirtyDot.classList.toggle("show", state.isDirty);
+
+  const openFileName = state.currentRelPath
+    ? state.currentRelPath.split("/").pop()
+    : "No note open";
+  els.currentFilename.textContent = `${openFileName}${state.isDirty ? "  • Unsaved" : ""}`;
+
+  if (state.isDirty) {
+    setStatus("Unsaved changes", "warn");
+  }
+}
+</file>
+
+<file path="src/app/menu-actions.ts">
+import type { AppState, DomRefs } from "./types";
+import { applyTheme, VALID_THEMES } from "./theme";
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+type MenuCallbacks = {
+  createNewNote: () => Promise<void>;
+  createNewFolder: () => Promise<void>;
+  openWorkspace: () => Promise<void>;
+  closeWorkspace: () => void;
+  saveCurrentNote: () => Promise<void>;
+  saveAsNewNote: () => Promise<void>;
+  handleRefresh: () => void;
+  exportAsJson: () => void;
+  exportAsMarkdown: () => void;
+  setSidebarCollapsed: (isCollapsed: boolean) => void;
+};
+
+export function updateMenuShortcuts(els: DomRefs, isMac: boolean): void {
+  const modifier = isMac ? "Cmd" : "Ctrl";
+  const shortcuts = els.menuBar.querySelectorAll(".menu-shortcut");
+  shortcuts.forEach((el) => {
+    const text = el.textContent;
+    if (text) {
+      if (text.includes("Cmd/Ctrl")) {
+        el.textContent = text.replace("Cmd/Ctrl", modifier);
+      } else if (text.includes("Ctrl")) {
+        el.textContent = text.replace("Ctrl", modifier);
+      }
+    }
+  });
+}
+
+export function createMenuActions({
+  state,
+  els,
+  showToast,
+  renderTree,
+  callbacks,
+}: {
+  state: AppState;
+  els: DomRefs;
+  showToast: ToastFn;
+  renderTree: () => Promise<void>;
+  callbacks: MenuCallbacks;
+}) {
+  function toggleSort(): void {
+    state.sortMode = state.sortMode === "name" ? "modified" : "name";
+    els.sortBtn.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Last modified"}`;
+
+    const sortMenuItem = document.querySelector('[data-action="sort"] .menu-label');
+    if (sortMenuItem) {
+      sortMenuItem.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Modified"}`;
+    }
+
+    renderTree().catch((error: unknown) => {
+      showToast(`Sort render failed: ${String(error)}`, { persist: true });
+    });
+  }
+
+  function handleExit(): void {
+    if (state.isDirty) {
+      const shouldExit = confirm("You have unsaved changes. Are you sure you want to exit?");
+      if (!shouldExit) {
+        return;
+      }
+    }
+    window.close();
+  }
+
+  function handleMenuAction(action: string): void {
+    switch (action) {
+      case "new-note":
+        callbacks.createNewNote().catch((error: unknown) => {
+          showToast(`Create note failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "new-folder":
+        callbacks.createNewFolder().catch((error: unknown) => {
+          showToast(`Create folder failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "open-workspace":
+        callbacks.openWorkspace().catch((error: unknown) => {
+          showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "close-workspace":
+        callbacks.closeWorkspace();
+        break;
+      case "exit":
+        handleExit();
+        break;
+      case "save":
+        callbacks.saveCurrentNote().catch((error: unknown) => {
+          showToast(`Save failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "save-as":
+        callbacks.saveAsNewNote().catch((error: unknown) => {
+          showToast(`Save As failed: ${String(error)}`, { persist: true });
+        });
+        break;
+      case "refresh":
+        callbacks.handleRefresh();
+        break;
+      case "sort":
+        toggleSort();
+        break;
+      case "collapse-sidebar":
+        callbacks.setSidebarCollapsed(!state.isSidebarCollapsed);
+        break;
+      case "export-json":
+        callbacks.exportAsJson();
+        break;
+      case "export-markdown":
+        callbacks.exportAsMarkdown();
+        break;
+      case "theme-default":
+      case "theme-classic":
+      case "theme-cobalt":
+      case "theme-monokai":
+      case "theme-office":
+      case "theme-twilight":
+      case "theme-xcode": {
+        const themeName = action.replace("theme-", "");
+        if (VALID_THEMES.includes(themeName)) {
+          applyTheme(themeName);
+        }
+        break;
+      }
+    }
+  }
+
+  return {
+    toggleSort,
+    handleMenuAction,
+    handleExit,
+  };
+}
+</file>
+
+<file path="src/app/sidebar.ts">
+import type { AppState, DomRefs } from "./types";
+
+export function applySidebarState(els: DomRefs, state: AppState): void {
+  const isCollapsed = state.isSidebarCollapsed;
+  els.app.classList.toggle("sidebar-collapsed", isCollapsed);
+  els.workspaceSidebar.classList.toggle("collapsed", isCollapsed);
+  els.sidebarToggleBtn.setAttribute("aria-expanded", String(!isCollapsed));
+  els.sidebarToggleBtn.setAttribute("aria-label", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+  els.sidebarToggleBtn.title = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
+  els.sidebarToggleBtn.textContent = isCollapsed ? "▼ Expand" : "▶ Collapse";
+}
+
+export function setSidebarCollapsed(els: DomRefs, state: AppState, isCollapsed: boolean): void {
+  state.isSidebarCollapsed = isCollapsed;
+  applySidebarState(els, state);
+}
+</file>
+
+<file path="src/app/theme.ts">
+export const VALID_THEMES = [
+  "default",
+  "classic",
+  "cobalt",
+  "monokai",
+  "office",
+  "twilight",
+  "xcode",
+];
+
+export function applyTheme(theme: string): void {
+  if (!VALID_THEMES.includes(theme)) {
+    return;
+  }
+
+  if (theme === "default") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+
+  try {
+    localStorage.setItem("ink-theme", theme);
+  } catch {
+    // ignore localStorage errors
+  }
+
+  document.querySelectorAll(".menu-theme-check").forEach((el) => {
+    el.classList.remove("active");
+  });
+  const checkEl = document.getElementById(`themeCheck-${theme}`);
+  if (checkEl) {
+    checkEl.classList.add("active");
+  }
+}
+
+export function loadTheme(): void {
+  let savedTheme = "default";
+  try {
+    savedTheme = localStorage.getItem("ink-theme") ?? "default";
+  } catch {
+    // ignore localStorage errors
+  }
+  applyTheme(VALID_THEMES.includes(savedTheme) ? savedTheme : "default");
+}
+</file>
+
+<file path="src/app/toast-status.ts">
+import type { DomRefs } from "./types";
+
+export type ToastTimerRef = {
+  current: ReturnType<typeof setTimeout> | null;
+};
+
+export type StatusKind = "neutral" | "ok" | "warn" | "err";
+
+export function setStatus(els: DomRefs, message: string | null, kind: StatusKind = "neutral"): void {
+  els.statusBadge.textContent = message;
+  els.statusBadge.classList.remove("ok", "warn", "err");
+  if (kind !== "neutral") {
+    els.statusBadge.classList.add(kind);
+  }
+}
+
+export function createToastController(els: DomRefs, toastTimerRef: ToastTimerRef) {
+  function showToast(message: string, options: { persist?: boolean } = {}): void {
+    els.toastMsg.textContent = message;
+    els.toast.classList.add("show");
+
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+
+    if (!options.persist) {
+      toastTimerRef.current = setTimeout(() => {
+        els.toast.classList.remove("show");
+      }, 3500);
+    }
+  }
+
+  function hideToast(): void {
+    els.toast.classList.remove("show");
+  }
+
+  return { showToast, hideToast };
+}
+</file>
+
+<file path="src/app/tree-render.ts">
+import { escapeHtml } from "./utils";
+import type {
+  AppState,
+  DomRefs,
+  FileHandleLike,
+  InMemoryNoteRecord,
+  TreeNode,
+} from "./types";
+
+export type TreeHandlers = {
+  openNoteByRelPath: (relPath: string, handleHint: FileHandleLike | null) => Promise<void>;
+  openInMemoryNote: (relPath: string) => Promise<void>;
+};
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+
+export function createTreeRenderer({
+  state,
+  els,
+  handlers,
+  showToast,
+}: {
+  state: AppState;
+  els: DomRefs;
+  handlers: TreeHandlers;
+  showToast: ToastFn;
+}) {
+  function renderTags(): void {
+    const tagCounts = new Map<string, number>();
+    const notes = state.isTemporarySession ? state.inMemoryNotes : state.notes;
+
+    for (const note of notes) {
+      for (const tag of note.tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      }
+    }
+
+    const sorted = [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 50);
+
+    els.tagRow.innerHTML = "";
+    if (sorted.length === 0) {
+      return;
+    }
+
+    const allButton = document.createElement("button");
+    allButton.className = `tag${state.tagFilter ? "" : " active"}`;
+    allButton.textContent = "All";
+    allButton.title = "Clear tag filter";
+    allButton.addEventListener("click", () => {
+      state.tagFilter = "";
+      renderTags();
+      if (state.isTemporarySession) {
+        renderInMemoryTree();
+      } else {
+        renderTree().catch((error: unknown) => {
+          showToast(`Tag render failed: ${String(error)}`, { persist: true });
+        });
+      }
+    });
+    els.tagRow.appendChild(allButton);
+
+    for (const [tag, count] of sorted) {
+      const button = document.createElement("button");
+      button.className = `tag${state.tagFilter === tag ? " active" : ""}`;
+      button.textContent = `#${tag}`;
+      button.title = `${count} note${count === 1 ? "" : "s"} tagged #${tag}`;
+      button.addEventListener("click", () => {
+        state.tagFilter = state.tagFilter === tag ? "" : tag;
+        renderTags();
+        if (state.isTemporarySession) {
+          renderInMemoryTree();
+        } else {
+          renderTree().catch((error: unknown) => {
+            showToast(`Tag render failed: ${String(error)}`, { persist: true });
+          });
+        }
+      });
+      els.tagRow.appendChild(button);
+    }
+  }
+
+  async function computeMatches(): Promise<Set<string>> {
+    let notes = [...state.notes];
+
+    if (state.tagFilter) {
+      notes = notes.filter((note) => note.tags.has(state.tagFilter));
+    }
+
+    if (state.sortMode === "modified") {
+      notes.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
+    } else {
+      notes.sort((a, b) => a.relPath.localeCompare(b.relPath));
+    }
+
+    const query = state.searchQuery.trim().toLowerCase();
+    if (!query) {
+      return new Set(notes.map((note) => note.relPath));
+    }
+
+    const matches = new Set<string>();
+    for (const note of notes) {
+      if (note.relPath.toLowerCase().includes(query)) {
+        matches.add(note.relPath);
+        continue;
+      }
+
+      try {
+        const file = await note.handle.getFile();
+        const text = (await file.text()).toLowerCase();
+        if (text.includes(query)) {
+          matches.add(note.relPath);
+        }
+      } catch {
+        // Ignore read errors while searching.
+      }
+    }
+
+    return matches;
+  }
+
+  async function renderTree(): Promise<void> {
+    if (!state.fileTree) {
+      els.tree.innerHTML = '<div class="small" style="padding: 8px;">Open a folder to begin.</div>';
+      return;
+    }
+
+    const matches = await computeMatches();
+    const prunedTree = pruneTree(state.fileTree, matches);
+
+    els.tree.innerHTML = "";
+    if (!prunedTree || prunedTree.type !== "dir" || prunedTree.children.length === 0) {
+      els.tree.innerHTML = '<div class="small" style="padding: 8px;">No matching notes.</div>';
+      return;
+    }
+
+    for (const child of prunedTree.children) {
+      renderNode(child, 0);
+    }
+  }
+
+  function pruneTree(node: TreeNode, matches: Set<string>): TreeNode | null {
+    if (node.type === "file") {
+      return matches.has(node.relPath) ? node : null;
+    }
+
+    const children: TreeNode[] = [];
+    for (const child of node.children) {
+      const kept = pruneTree(child, matches);
+      if (kept) {
+        children.push(kept);
+      }
+    }
+
+    if (node.relPath === "") {
+      return {
+        ...node,
+        children,
+      };
+    }
+
+    if (children.length === 0) {
+      return null;
+    }
+
+    return {
+      ...node,
+      children,
+    };
+  }
+
+  function renderNode(node: TreeNode, depth: number): void {
+    const row = document.createElement("div");
+    row.className = "node";
+    row.style.paddingLeft = `${8 + depth * 12}px`;
+
+    if (node.type === "dir") {
+      const isCollapsed = state.collapsedDirs.has(node.relPath);
+      row.innerHTML = `
+        <span class="icon">${isCollapsed ? "▶" : "▼"}</span>
+        <span class="icon">${isCollapsed ? "📁" : "📂"}</span>
+        <span class="name">${escapeHtml(node.name)}</span>
+      `;
+
+      row.addEventListener("click", (event: MouseEvent) => {
+        event.stopPropagation();
+        if (isCollapsed) {
+          state.collapsedDirs.delete(node.relPath);
+        } else {
+          state.collapsedDirs.add(node.relPath);
+        }
+
+        renderTree().catch((error: unknown) => {
+          showToast(`Tree render failed: ${String(error)}`, { persist: true });
+        });
+      });
+
+      els.tree.appendChild(row);
+      if (!isCollapsed) {
+        for (const child of node.children) {
+          renderNode(child, depth + 1);
+        }
+      }
+      return;
+    }
+
+    const isActive = node.relPath === state.currentRelPath;
+    if (isActive) {
+      row.classList.add("active");
+    }
+
+    const meta =
+      state.sortMode === "modified" && node.noteRef.lastModified
+        ? new Date(node.noteRef.lastModified).toLocaleDateString()
+        : "";
+
+    row.innerHTML = `
+      <span class="icon">📝</span>
+      <span class="name" title="${escapeHtml(node.noteRef.relPath)}">${escapeHtml(node.noteRef.name)}</span>
+      <span class="meta">${escapeHtml(meta)}</span>
+    `;
+
+    row.addEventListener("click", (event: MouseEvent) => {
+      event.stopPropagation();
+      handlers.openNoteByRelPath(node.relPath, node.handle).catch((error: unknown) => {
+        showToast(`Open note failed: ${String(error)}`, { persist: true });
+      });
+    });
+
+    els.tree.appendChild(row);
+  }
+
+  function renderInMemoryTree(): void {
+    els.tree.innerHTML = "";
+
+    if (state.inMemoryNotes.length === 0) {
+      els.tree.innerHTML =
+        '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
+      return;
+    }
+
+    const sortedNotes = [...state.inMemoryNotes].sort((a, b) => a.relPath.localeCompare(b.relPath));
+
+    for (const note of sortedNotes) {
+      renderInMemoryRow(note);
+    }
+  }
+
+  function renderInMemoryRow(note: InMemoryNoteRecord): void {
+    const row = document.createElement("div");
+    row.className = "node";
+
+    const isActive = note.relPath === state.currentRelPath;
+    if (isActive) {
+      row.classList.add("active");
+    }
+
+    const meta = state.sortMode === "modified" ? new Date(note.lastModified).toLocaleDateString() : "";
+
+    row.innerHTML = `
+      <span class="icon">📝</span>
+      <span class="name" title="${escapeHtml(note.relPath)}">${escapeHtml(note.name)}</span>
+      <span class="meta">${escapeHtml(meta)}</span>
+    `;
+
+    row.addEventListener("click", () => {
+      handlers.openInMemoryNote(note.relPath);
+    });
+
+    els.tree.appendChild(row);
+  }
+
+  function updateCountsPill(): void {
+    const count = state.inMemoryNotes.length;
+    els.countsPill.textContent = `${count} note${count === 1 ? "" : "s"}`;
+  }
+
+  return {
+    computeMatches,
+    renderTree,
+    renderTags,
+    renderInMemoryTree,
+    updateCountsPill,
+  };
+}
+</file>
+
+<file path="src/app/ui-events.ts">
+import type { AppState, DomRefs } from "./types";
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+
+export type UiActions = {
+  handleMenuAction: (action: string) => void;
+  toggleSidebar: () => void;
+  handleRefresh: () => void;
+  toggleSort: () => void;
+  handleSearchInput: (value: string) => void;
+  handleEditorInput: (value: string) => void;
+  saveCurrentNote: () => Promise<void>;
+  createNewNote: () => Promise<void>;
+  openWorkspace: () => Promise<void>;
+  exportAsJson: () => void;
+  exportAsMarkdown: () => void;
+  hideToast: () => void;
+  showToast: ToastFn;
+};
+
+export function attachUiEvents({
+  state,
+  els,
+  actions,
+}: {
+  state: AppState;
+  els: DomRefs;
+  actions: UiActions;
+}): void {
+  attachMenuEventListeners(els, actions.handleMenuAction);
+
+  els.sidebarToggleBtn.addEventListener("click", () => {
+    actions.toggleSidebar();
+  });
+
+  els.refreshBtn.addEventListener("click", () => {
+    actions.handleRefresh();
+  });
+
+  els.sortBtn.addEventListener("click", () => {
+    actions.toggleSort();
+  });
+
+  els.searchInput.addEventListener("input", () => {
+    actions.handleSearchInput(els.searchInput.value);
+  });
+
+  els.editor.addEventListener("input", () => {
+    if (!state.currentRelPath) {
+      return;
+    }
+
+    actions.handleEditorInput(els.editor.value);
+  });
+
+  els.editor.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+
+    if (isModifierPressed && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      actions.saveCurrentNote().catch((error: unknown) => {
+        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
+      });
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const start = els.editor.selectionStart;
+      els.editor.setRangeText("  ", start, start, "end");
+    }
+  });
+
+  els.toastCloseBtn.addEventListener("click", () => {
+    actions.hideToast();
+  });
+
+  window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {
+    if (state.isDirty) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
+
+  attachGlobalKeyboardShortcuts(actions);
+}
+
+function attachMenuEventListeners(els: DomRefs, handleMenuAction: (action: string) => void): void {
+  const menuItems = els.menuBar.querySelectorAll(".menu-item");
+
+  menuItems.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isExpanded = item.getAttribute("aria-expanded") === "true";
+
+      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+
+      if (!isExpanded) {
+        item.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    item.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Escape") {
+        item.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  const submenuParents = els.menuBar.querySelectorAll(".submenu-parent");
+  submenuParents.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isExpanded = item.getAttribute("aria-expanded") === "true";
+
+      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+
+      if (!isExpanded) {
+        item.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    item.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Escape") {
+        item.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  document.addEventListener("click", () => {
+    menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+    submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+  });
+
+  const dropdownItems = els.menuBar.querySelectorAll(".dropdown li[data-action]");
+  dropdownItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const action = item.getAttribute("data-action");
+      if (action) {
+        handleMenuAction(action);
+      }
+      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+    });
+  });
+}
+
+function attachGlobalKeyboardShortcuts(actions: UiActions): void {
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+    const isAltPressed = event.altKey;
+
+    if (isModifierPressed && event.key.toLowerCase() === "l") {
+      event.preventDefault();
+      actions.handleRefresh();
+      return;
+    }
+
+    if (isModifierPressed && event.key.toLowerCase() === "s" && !event.shiftKey) {
+      event.preventDefault();
+      actions.saveCurrentNote().catch((error: unknown) => {
+        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      actions.exportAsJson();
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "m") {
+      event.preventDefault();
+      actions.exportAsMarkdown();
+      return;
+    }
+
+    if (isModifierPressed && event.key.toLowerCase() === "e") {
+      event.preventDefault();
+      actions.createNewNote().catch((error: unknown) => {
+        actions.showToast(`Create note failed: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      actions.openWorkspace().catch((error: unknown) => {
+        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isAltPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      actions.openWorkspace().catch((error: unknown) => {
+        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+      });
+    }
+  });
+}
+</file>
+
 <file path="src/app/utils.ts">
 export function escapeHtml(value: string): string {
   return String(value)
@@ -6940,6 +6146,676 @@ export function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+</file>
+
+<file path="src/app/workspace-io.ts">
+import type {
+  AppState,
+  DirectoryHandleLike,
+  DirectoryNode,
+  DomRefs,
+  FileHandleLike,
+  FileNode,
+  InMemoryNoteRecord,
+  NoteRecord,
+  TreeNode,
+} from "./types";
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+type StatusFn = (message: string | null, kind?: "neutral" | "ok" | "warn" | "err") => void;
+
+type RenderPreviewFn = (els: DomRefs, text: string) => void;
+type UpdateDirtyFn = (els: DomRefs, state: AppState, setStatus: StatusFn) => void;
+
+type TreeRenderFns = {
+  renderTree: () => Promise<void>;
+  renderInMemoryTree: () => void;
+  renderTags: () => void;
+  updateCountsPill: () => void;
+};
+
+type FsApi = {
+  ensurePermission: (handle: DirectoryHandleLike, mode: "read" | "readwrite") => Promise<boolean>;
+  isFileSystemApiAvailable: () => boolean;
+};
+
+type AutoRefreshFns = {
+  startAutoRefresh: () => void;
+  stopAutoRefresh: () => void;
+};
+
+type TagParser = (text: string) => Set<string>;
+
+export function createWorkspaceActions({
+  state,
+  els,
+  showToast,
+  setStatus,
+  renderPreview,
+  updateDirtyUi,
+  renderTree,
+  renderInMemoryTree,
+  renderTags,
+  updateCountsPill,
+  fsApi,
+  parseTags,
+  autoRefresh,
+}: {
+  state: AppState;
+  els: DomRefs;
+  showToast: ToastFn;
+  setStatus: StatusFn;
+  renderPreview: RenderPreviewFn;
+  updateDirtyUi: UpdateDirtyFn;
+  renderTree: TreeRenderFns["renderTree"];
+  renderInMemoryTree: TreeRenderFns["renderInMemoryTree"];
+  renderTags: TreeRenderFns["renderTags"];
+  updateCountsPill: TreeRenderFns["updateCountsPill"];
+  fsApi: FsApi;
+  parseTags: TagParser;
+  autoRefresh: AutoRefreshFns;
+}) {
+  async function openWorkspace(): Promise<void> {
+    if (!fsApi.isFileSystemApiAvailable()) {
+      state.isTemporarySession = true;
+      state.workspaceName = "Temporary Session";
+      state.inMemoryNotes = [];
+      state.isDirty = false;
+      state.currentRelPath = "";
+      state.currentContent = "";
+      state.fileTree = null;
+
+      els.workspaceName.textContent = state.workspaceName;
+      els.workspaceName.title = "Temporary Session - Data not persisted";
+      els.temporarySessionBadge.style.display = "inline";
+      els.countsPill.textContent = "0 notes";
+      els.tagRow.innerHTML = "";
+      els.tree.innerHTML =
+        '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
+
+      showToast("Temporary in-memory workspace enabled. Use Export to save your notes.", {
+        persist: true,
+      });
+      setStatus("Temporary session", "warn");
+      return;
+    }
+
+    els.temporarySessionBadge.style.display = "none";
+
+    try {
+      if (!window.showDirectoryPicker) {
+        throw new Error("File System Access API not available");
+      }
+
+      const directory = await window.showDirectoryPicker({ id: "local-md-workspace", mode: "readwrite" });
+      const permissionGranted = await fsApi.ensurePermission(directory, "readwrite");
+      if (!permissionGranted) {
+        showToast("Permission denied. Please allow access to the folder.", { persist: true });
+        setStatus("Permission denied", "err");
+        return;
+      }
+
+      state.workspaceHandle = directory;
+      state.workspaceName = directory.name || "Selected folder";
+      state.collapsedDirs.clear();
+      state.tagFilter = "";
+
+      els.workspaceName.textContent = state.workspaceName;
+      els.workspaceName.title = state.workspaceName;
+      els.tagRow.innerHTML = "";
+
+      setStatus("Scanning folder...");
+      await rescanWorkspace();
+      autoRefresh.startAutoRefresh();
+
+      showToast("Workspace opened.");
+      setStatus("Workspace ready", "ok");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setStatus("Open folder cancelled");
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to open folder: ${message}`, { persist: true });
+      setStatus("Failed to open folder", "err");
+    }
+  }
+
+  async function rescanWorkspace(options: { silent?: boolean } = {}): Promise<void> {
+    if (!state.workspaceHandle) {
+      return;
+    }
+
+    try {
+      const permissionGranted = await fsApi.ensurePermission(state.workspaceHandle, "read");
+      if (!permissionGranted) {
+        throw new Error("Folder permission not granted (read)");
+      }
+
+      const notes: NoteRecord[] = [];
+      const rootNode: DirectoryNode = {
+        type: "dir",
+        name: state.workspaceName,
+        relPath: "",
+        children: [],
+      };
+
+      await walkDirectory(state.workspaceHandle, rootNode, "", notes);
+      await enrichNotesWithTags(notes);
+
+      state.notes = notes;
+      state.fileTree = rootNode;
+
+      els.countsPill.textContent = `${notes.length} note${notes.length === 1 ? "" : "s"}`;
+
+      renderTags();
+      await renderTree();
+
+      if (!options.silent) {
+        showToast("Workspace refreshed.");
+        setStatus("Refreshed", "ok");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Refresh failed: ${message}`, { persist: true });
+      setStatus("Refresh failed", "err");
+    }
+  }
+
+  async function walkDirectory(
+    dirHandle: DirectoryHandleLike,
+    parentNode: DirectoryNode,
+    relPathBase: string,
+    notes: NoteRecord[],
+  ): Promise<void> {
+    for await (const [name, handle] of dirHandle.entries()) {
+      if (name.startsWith(".")) {
+        continue;
+      }
+
+      if (handle.kind === "directory") {
+        const relPath = relPathBase ? `${relPathBase}/${name}` : name;
+        const directoryNode: DirectoryNode = {
+          type: "dir",
+          name,
+          relPath,
+          children: [],
+        };
+
+        parentNode.children.push(directoryNode);
+        await walkDirectory(handle, directoryNode, relPath, notes);
+        continue;
+      }
+
+      if (!name.toLowerCase().endsWith(".md")) {
+        continue;
+      }
+
+      const relPath = relPathBase ? `${relPathBase}/${name}` : name;
+      let lastModified = 0;
+      let size = 0;
+
+      try {
+        const file = await handle.getFile();
+        lastModified = file.lastModified || 0;
+        size = file.size || 0;
+      } catch {
+        showToast(`Skipped a file that couldn't be read: ${relPath}`);
+        continue;
+      }
+
+      const note: NoteRecord = {
+        handle,
+        name,
+        relPath,
+        lastModified,
+        size,
+        tags: new Set<string>(),
+      };
+
+      notes.push(note);
+      const fileNode: FileNode = {
+        type: "file",
+        name,
+        relPath,
+        handle,
+        noteRef: note,
+      };
+
+      parentNode.children.push(fileNode);
+    }
+
+    parentNode.children.sort((a: TreeNode, b: TreeNode) => {
+      if (a.type !== b.type) {
+        return a.type === "dir" ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  async function enrichNotesWithTags(notes: NoteRecord[]): Promise<void> {
+    const MAX_BYTES = 256 * 1024;
+
+    for (const note of notes) {
+      try {
+        const file = await note.handle.getFile();
+        const blob = file.size > MAX_BYTES ? file.slice(0, MAX_BYTES) : file;
+        const text = await blob.text();
+        note.tags = parseTags(text);
+      } catch {
+        note.tags = new Set<string>();
+      }
+    }
+  }
+
+  async function openNoteByRelPath(relPath: string, handleHint: FileHandleLike | null = null): Promise<void> {
+    if (state.isDirty && state.currentFileHandle) {
+      const shouldDiscard = confirm("You have unsaved changes. Discard them?");
+      if (!shouldDiscard) {
+        return;
+      }
+    }
+
+    try {
+      const handle = handleHint || state.notes.find((note) => note.relPath === relPath)?.handle;
+      if (!handle) {
+        throw new Error("File not found");
+      }
+
+      const file = await handle.getFile();
+      const text = await file.text();
+
+      state.currentFileHandle = handle;
+      state.currentRelPath = relPath;
+      state.currentContent = text;
+      state.isDirty = false;
+
+      els.editor.value = text;
+      renderPreview(els, text);
+      updateDirtyUi(els, state, setStatus);
+      setStatus("Opened ✓", "ok");
+
+      await renderTree();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to open note: ${message}`, { persist: true });
+      setStatus("Open failed", "err");
+    }
+  }
+
+  async function saveCurrentNote(): Promise<void> {
+    if (state.isTemporarySession) {
+      return saveInMemoryNote();
+    }
+
+    if (!state.currentFileHandle) {
+      return;
+    }
+
+    try {
+      const writable = await state.currentFileHandle.createWritable();
+      await writable.write(els.editor.value);
+      await writable.close();
+
+      state.currentContent = els.editor.value;
+      state.isDirty = false;
+      updateDirtyUi(els, state, setStatus);
+
+      setStatus("Saved ✓", "ok");
+      showToast("Saved ✓");
+
+      await rescanWorkspace({ silent: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Save failed: ${message}`, { persist: true });
+      setStatus("Save failed", "err");
+    }
+  }
+
+  async function createNewNote(): Promise<void> {
+    if (!state.workspaceHandle && !state.isTemporarySession) {
+      showToast("Open a workspace first.");
+      return;
+    }
+
+    if (state.isDirty) {
+      const shouldContinue = confirm("You have unsaved changes. Continue and discard them?");
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
+    const name = prompt("New note name (without .md)");
+    if (!name) {
+      return;
+    }
+
+    const fileName = name.endsWith(".md") ? name : `${name}.md`;
+
+    if (state.isTemporarySession) {
+      return createInMemoryNote(fileName, name);
+    }
+
+    try {
+      if (!state.workspaceHandle) {
+        throw new Error("Workspace handle is not available");
+      }
+
+      const workspaceHandle = state.workspaceHandle;
+      for await (const [existingName] of workspaceHandle.entries()) {
+        if (existingName === fileName) {
+          showToast("A file with that name already exists.", { persist: true });
+          return;
+        }
+      }
+
+      const fileHandle = await state.workspaceHandle.getFileHandle(fileName, { create: true });
+      const initialContent = `# ${name}\n\nCreated ${new Date().toLocaleString()}\n`;
+
+      const writable = await fileHandle.createWritable();
+      await writable.write(initialContent);
+      await writable.close();
+
+      await rescanWorkspace({ silent: true });
+      await openNoteByRelPath(fileName, fileHandle);
+
+      showToast("New note created ✓");
+      setStatus("New note", "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to create note: ${message}`, { persist: true });
+      setStatus("Create failed", "err");
+    }
+  }
+
+  async function saveAsNewNote(): Promise<void> {
+    if (!state.workspaceHandle && !state.isTemporarySession) {
+      showToast("Open a workspace first.");
+      return;
+    }
+
+    const currentContent = state.isTemporarySession ? els.editor.value : state.currentContent;
+
+    if (!currentContent) {
+      showToast("Nothing to save.");
+      return;
+    }
+
+    const name = prompt("Save note as (filename without .md):");
+    if (!name) {
+      return;
+    }
+
+    const fileName = name.endsWith(".md") ? name : `${name}.md`;
+
+    if (state.isTemporarySession) {
+      return createInMemoryNote(fileName, name);
+    }
+
+    try {
+      if (!state.workspaceHandle) {
+        throw new Error("Workspace handle is not available");
+      }
+
+      for await (const [existingName] of state.workspaceHandle.entries()) {
+        if (existingName === fileName) {
+          showToast("A file with that name already exists.", { persist: true });
+          return;
+        }
+      }
+
+      const fileHandle = await state.workspaceHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(currentContent);
+      await writable.close();
+
+      await rescanWorkspace({ silent: true });
+      await openNoteByRelPath(fileName, fileHandle);
+
+      showToast(`Saved as ${fileName} ✓`);
+      setStatus("Saved as", "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to save: ${message}`, { persist: true });
+      setStatus("Save failed", "err");
+    }
+  }
+
+  async function createNewFolder(parentHandle: DirectoryHandleLike | null = state.workspaceHandle): Promise<void> {
+    if (!parentHandle) {
+      if (state.isTemporarySession) {
+        showToast("Folders are not supported in temporary session.");
+        return;
+      }
+      showToast("Open a workspace first.");
+      return;
+    }
+
+    const folderName = prompt("Folder name:");
+    if (!folderName) {
+      return;
+    }
+
+    try {
+      await parentHandle.getDirectoryHandle(folderName, { create: true });
+      await rescanWorkspace({ silent: true });
+      showToast("Folder created ✓");
+      setStatus("Folder created", "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to create folder: ${message}`, { persist: true });
+      setStatus("Create folder failed", "err");
+    }
+  }
+
+  async function createInMemoryNote(fileName: string, name: string): Promise<void> {
+    const existingNote = state.inMemoryNotes.find((n) => n.relPath === fileName);
+    if (existingNote) {
+      showToast("A note with that name already exists.", { persist: true });
+      return;
+    }
+
+    const initialContent = `# ${name}\n\nCreated ${new Date().toLocaleString()}\n`;
+
+    const note: InMemoryNoteRecord = {
+      name: fileName,
+      relPath: fileName,
+      content: initialContent,
+      lastModified: Date.now(),
+      tags: parseTags(initialContent),
+    };
+
+    state.inMemoryNotes.push(note);
+    state.currentRelPath = fileName;
+    state.currentContent = initialContent;
+    state.isDirty = false;
+
+    els.editor.value = initialContent;
+    renderPreview(els, initialContent);
+    updateDirtyUi(els, state, setStatus);
+    renderInMemoryTree();
+    updateCountsPill();
+
+    showToast("New note created ✓");
+    setStatus("New note", "ok");
+  }
+
+  async function openInMemoryNote(relPath: string): Promise<void> {
+    if (state.isDirty && state.currentRelPath) {
+      const shouldDiscard = confirm("You have unsaved changes. Discard them?");
+      if (!shouldDiscard) {
+        return;
+      }
+    }
+
+    const note = state.inMemoryNotes.find((n) => n.relPath === relPath);
+    if (!note) {
+      showToast("Note not found", { persist: true });
+      return;
+    }
+
+    state.currentRelPath = relPath;
+    state.currentContent = note.content;
+    state.isDirty = false;
+
+    els.editor.value = note.content;
+    renderPreview(els, note.content);
+    updateDirtyUi(els, state, setStatus);
+    setStatus("Opened ✓", "ok");
+
+    renderInMemoryTree();
+  }
+
+  async function saveInMemoryNote(): Promise<void> {
+    if (!state.currentRelPath || !state.isTemporarySession) {
+      return;
+    }
+
+    const note = state.inMemoryNotes.find((n) => n.relPath === state.currentRelPath);
+    if (!note) {
+      showToast("Note not found", { persist: true });
+      return;
+    }
+
+    note.content = els.editor.value;
+    note.lastModified = Date.now();
+    note.tags = parseTags(note.content);
+
+    state.currentContent = note.content;
+    state.isDirty = false;
+    updateDirtyUi(els, state, setStatus);
+
+    setStatus("Saved ✓", "ok");
+    showToast("Saved ✓");
+
+    renderInMemoryTree();
+    renderTags();
+  }
+
+  function exportAsJson(): void {
+    if (state.inMemoryNotes.length === 0) {
+      showToast("No notes to export.");
+      return;
+    }
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      notes: state.inMemoryNotes.map((note) => ({
+        name: note.name,
+        path: note.relPath,
+        content: note.content,
+        lastModified: new Date(note.lastModified).toISOString(),
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const date = new Date().toISOString().split("T")[0];
+    const fileName = `ink-export-${date}.json`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(`Exported ${state.inMemoryNotes.length} note(s) as JSON.`);
+    setStatus("Exported JSON", "ok");
+  }
+
+  function exportAsMarkdown(): void {
+    if (!state.currentRelPath) {
+      showToast("No note selected to export.");
+      return;
+    }
+
+    const note = state.inMemoryNotes.find((n) => n.relPath === state.currentRelPath);
+    if (!note) {
+      showToast("Note not found.", { persist: true });
+      return;
+    }
+
+    const blob = new Blob([note.content], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = note.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(`Exported ${note.name} as Markdown.`);
+    setStatus("Exported MD", "ok");
+  }
+
+  function handleRefresh(): void {
+    if (state.isTemporarySession) {
+      showToast("Refresh not available in temporary session. Your data is in memory.");
+      return;
+    }
+
+    if (!state.workspaceHandle) {
+      showToast("No workspace open.");
+      return;
+    }
+
+    rescanWorkspace().catch((error: unknown) => {
+      showToast(`Refresh failed: ${String(error)}`, { persist: true });
+      setStatus("Refresh failed", "err");
+    });
+  }
+
+  function closeWorkspace(): void {
+    autoRefresh.stopAutoRefresh();
+    state.workspaceHandle = null;
+    state.workspaceName = "";
+    state.fileTree = null;
+    state.notes = [];
+    state.currentFileHandle = null;
+    state.currentRelPath = "";
+    state.currentContent = "";
+    state.isDirty = false;
+    state.searchQuery = "";
+    state.tagFilter = "";
+    state.collapsedDirs.clear();
+
+    els.workspaceName.textContent = "No folder selected";
+    els.workspaceName.title = "No folder selected";
+    els.countsPill.textContent = "0 notes";
+    els.tagRow.innerHTML = "";
+    els.tree.innerHTML = '<div class="small" style="padding: 8px;">Open a folder to begin.</div>';
+    els.editor.value = "";
+    els.preview.innerHTML = "";
+    els.currentFilename.textContent = "No note open";
+    els.dirtyDot.classList.remove("show");
+
+    setStatus("Ready");
+    showToast("Workspace closed.");
+  }
+
+  return {
+    openWorkspace,
+    rescanWorkspace,
+    openNoteByRelPath,
+    saveCurrentNote,
+    createNewNote,
+    saveAsNewNote,
+    createNewFolder,
+    createInMemoryNote,
+    openInMemoryNote,
+    saveInMemoryNote,
+    exportAsJson,
+    exportAsMarkdown,
+    handleRefresh,
+    closeWorkspace,
+  };
 }
 </file>
 
@@ -7152,6 +7028,118 @@ export function parseTags(text: string): Set<string> {
 
   return tags;
 }
+</file>
+
+<file path="tests/qunit/fs-api.test.js">
+import QUnit from "qunit";
+import {
+  ensurePermission,
+  isFileSystemApiAvailable,
+  isInMemoryMode,
+} from "../../dist/test/fs-api.js";
+
+function setWindow(value) {
+  globalThis.window = value;
+}
+
+QUnit.module("fs-api", (hooks) => {
+  let originalWindow;
+
+  hooks.beforeEach(() => {
+    originalWindow = globalThis.window;
+    setWindow({});
+  });
+
+  hooks.afterEach(() => {
+    if (originalWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      setWindow(originalWindow);
+    }
+  });
+
+  QUnit.test("isFileSystemApiAvailable returns false when API is missing", (assert) => {
+    setWindow({});
+    assert.strictEqual(isFileSystemApiAvailable(), false);
+  });
+
+  QUnit.test("isFileSystemApiAvailable returns true when API is present", (assert) => {
+    setWindow({
+      showDirectoryPicker: async () => ({}),
+      FileSystemHandle: function FileSystemHandle() {},
+    });
+    assert.strictEqual(isFileSystemApiAvailable(), true);
+  });
+
+  QUnit.test("isInMemoryMode mirrors availability", (assert) => {
+    setWindow({});
+    assert.strictEqual(isInMemoryMode(), true);
+
+    setWindow({
+      showDirectoryPicker: async () => ({}),
+      FileSystemHandle: function FileSystemHandle() {},
+    });
+    assert.strictEqual(isInMemoryMode(), false);
+  });
+
+  QUnit.test("ensurePermission returns false for null handle", async (assert) => {
+    const result = await ensurePermission(null, "read");
+    assert.strictEqual(result, false);
+  });
+
+  QUnit.test("ensurePermission returns true when permission APIs are missing", async (assert) => {
+    const result = await ensurePermission({});
+    assert.strictEqual(result, true);
+  });
+
+  QUnit.test("ensurePermission returns true when queryPermission is granted", async (assert) => {
+    let requestCalled = false;
+    const handle = {
+      async queryPermission() {
+        return "granted";
+      },
+      async requestPermission() {
+        requestCalled = true;
+        return "denied";
+      },
+    };
+
+    const result = await ensurePermission(handle, "read");
+    assert.strictEqual(result, true);
+    assert.strictEqual(requestCalled, false);
+  });
+
+  QUnit.test("ensurePermission requests permission when not granted", async (assert) => {
+    let requestedDescriptor = null;
+    const handle = {
+      async queryPermission() {
+        return "prompt";
+      },
+      async requestPermission(descriptor) {
+        requestedDescriptor = descriptor;
+        return "granted";
+      },
+    };
+
+    const result = await ensurePermission(handle, "readwrite");
+    assert.strictEqual(result, true);
+    assert.deepEqual(requestedDescriptor, { mode: "readwrite" });
+  });
+
+  QUnit.test("ensurePermission returns false when request is denied", async (assert) => {
+    const handle = {
+      async queryPermission() {
+        return "prompt";
+      },
+      async requestPermission() {
+        return "denied";
+      },
+    };
+
+    const result = await ensurePermission(handle, "read");
+    assert.strictEqual(result, false);
+  });
+});
 </file>
 
 <file path="tests/qunit/mobile-fallback.test.js">
@@ -7659,6 +7647,19 @@ jobs:
           path: cypress/screenshots
 </file>
 
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+</file>
+
 <file path="cypress/support/commands.ts">
 export {};
 </file>
@@ -7892,12 +7893,6 @@ export async function ensurePermission(
   const requested = await handle.requestPermission(descriptor);
   return requested === "granted";
 }
-</file>
-
-<file path="src/app.ts">
-import { bootstrapInkApp } from "./app/app-controller";
-
-bootstrapInkApp();
 </file>
 
 <file path=".gitignore">
@@ -8198,6 +8193,12 @@ import "./commands";
 import "@cypress/code-coverage/support";
 
 Cypress.on("uncaught:exception", () => false);
+</file>
+
+<file path="src/app.ts">
+import { bootstrapInkApp } from "./app/app-controller";
+
+bootstrapInkApp();
 </file>
 
 <file path=".replit">
@@ -8631,6 +8632,43 @@ describe("ink authoring flow", () => {
 });
 </file>
 
+<file path="src/app/dom.ts">
+import type { DomRefs } from "./types";
+
+function requiredElement<T extends Element>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) {
+    throw new Error(`Missing required element: #${id}`);
+  }
+  return element as unknown as T;
+}
+
+export function getDomRefs(): DomRefs {
+  return {
+    app: requiredElement<HTMLElement>("app"),
+    menuBar: requiredElement<HTMLElement>("menuBar"),
+    workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
+    sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
+    refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
+    sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),
+    searchInput: requiredElement<HTMLInputElement>("searchInput"),
+    tree: requiredElement<HTMLElement>("tree"),
+    tagRow: requiredElement<HTMLElement>("tagRow"),
+    workspaceName: requiredElement<HTMLElement>("workspaceName"),
+    countsPill: requiredElement<HTMLElement>("countsPill"),
+    editor: requiredElement<HTMLTextAreaElement>("editor"),
+    preview: requiredElement<HTMLElement>("preview"),
+    currentFilename: requiredElement<HTMLElement>("currentFilename"),
+    dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
+    statusBadge: requiredElement<HTMLElement>("statusBadge"),
+    toast: requiredElement<HTMLElement>("toast"),
+    toastMsg: requiredElement<HTMLElement>("toastMsg"),
+    toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
+    temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
+  };
+}
+</file>
+
 <file path="openspec/project.md">
 # Project Context
 
@@ -8703,43 +8741,6 @@ Ink is a web application for writing and editing markdown documents with export 
 - **Marked.js**: Markdown parser library (embedded in build)
 - **No External APIs**: Application works completely offline
 - **No Backend**: No server-side components required
-</file>
-
-<file path="src/app/dom.ts">
-import type { DomRefs } from "./types";
-
-function requiredElement<T extends Element>(id: string): T {
-  const element = document.getElementById(id);
-  if (!element) {
-    throw new Error(`Missing required element: #${id}`);
-  }
-  return element as unknown as T;
-}
-
-export function getDomRefs(): DomRefs {
-  return {
-    app: requiredElement<HTMLElement>("app"),
-    menuBar: requiredElement<HTMLElement>("menuBar"),
-    workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
-    sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
-    refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
-    sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),
-    searchInput: requiredElement<HTMLInputElement>("searchInput"),
-    tree: requiredElement<HTMLElement>("tree"),
-    tagRow: requiredElement<HTMLElement>("tagRow"),
-    workspaceName: requiredElement<HTMLElement>("workspaceName"),
-    countsPill: requiredElement<HTMLElement>("countsPill"),
-    editor: requiredElement<HTMLTextAreaElement>("editor"),
-    preview: requiredElement<HTMLElement>("preview"),
-    currentFilename: requiredElement<HTMLElement>("currentFilename"),
-    dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
-    statusBadge: requiredElement<HTMLElement>("statusBadge"),
-    toast: requiredElement<HTMLElement>("toast"),
-    toastMsg: requiredElement<HTMLElement>("toastMsg"),
-    toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
-    temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
-  };
-}
 </file>
 
 <file path="src/app/types.ts">
@@ -8853,116 +8854,6 @@ declare global {
     FileSystemHandle?: unknown;
   }
 }
-</file>
-
-<file path="README.md">
-# ink
-<p align="center">
-  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
-</p>
-
-Ink is a functional and minimalistic webapp to write documents in markdown and export them.
-
-## Repo Structure
-
-The structure of the repo is as follows:
-
-```
-src/
-  app.ts         (Thin app entrypoint)
-  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
-  tags.ts        (Tag/frontmatter parsing utilities)
-  test-support/
-    storage-fixture.ts  (Test-only storage helpers)
-  styles.scss    (The app styles, in SCSS)
-dist/
-  app.min.js
-  styles.min.css
-ink.template.html  (The HTML template source)
-ink-app.html       (The final single-page app, with inline <style> and <script>)
-build/
-  assemble-single-file.js
-  compile-and-assemble.js
-  build-test.js
-  generate-favicons.js
-  watch.js
-  inject.js  (Compatibility alias)
-  build.js   (Compatibility alias)
-assets/
-  branding/
-    logo.svg
-    favicon.svg
-tests/
-  qunit/
-cypress/
-  e2e/
-repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
-```
-
-## Building Process
-
-The workflow uses `esbuild` and `sass`.
-
-- Build once: `npm run build`
-- Build on file changes: `npm run watch`
-- Makefile wrappers:
-  - `make build`
-  - `make watch`
-
-The webapp is released as a single HTML file (`ink-app.html`).
-
-Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
-
-## Branding Assets
-
-- Canonical logo source: `assets/branding/logo.svg`
-- Generated favicon: `assets/branding/favicon.svg`
-- Regenerate favicon after logo updates: `npm run build:favicon`
-
-`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
-
-## Workflow Cheat Sheet
-
-Use this sequence when working on the app:
-
-1. Install dependencies (first time only): `npm install`
-2. Edit source files:
-   - `src/app.ts`
-   - `src/tags.ts`
-   - `src/styles.scss`
-   - `ink.template.html`
-3. Rebuild output: `npm run build`
-4. Open/use `ink-app.html`
-
-If you want automatic rebuilds while editing:
-
-1. Run: `npm run watch`
-2. Keep editing source files
-3. `ink-app.html` will be regenerated after changes
-
-## Testing
-
-Automated testing includes both QUnit and Cypress.
-
-- QUnit: `npm run test:qunit`
-- Cypress end-to-end: `npm run test:cypress`
-- Full suite: `npm test`
-
-The Cypress flow test verifies:
-
-1. Open/select a workspace
-2. Create a new markdown file
-3. Enter markdown content
-4. Save and verify persisted content
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
 </file>
 
 <file path="src/styles.scss">
@@ -9698,52 +9589,114 @@ The Cypress flow test verifies:
     }
 </file>
 
-<file path="package.json">
-{
-  "name": "ink",
-  "version": "1.0.0",
-  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
-  "homepage": "https://github.com/feddernico/ink#readme",
-  "bugs": {
-    "url": "https://github.com/feddernico/ink/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/feddernico/ink.git"
-  },
-  "license": "MIT",
-  "author": "Federico Viscioletti",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "build": "node build/compile-and-assemble.js",
-    "watch": "node build/watch.js",
-    "build:favicon": "node build/generate-favicons.js",
-    "build:test": "node build/build-test.js",
-    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
-    "serve:test": "http-server . -p 4173 -s",
-    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
-    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
-    "test": "npm run test:qunit && npm run test:cypress"
-  },
-  "devDependencies": {
-    "@babel/standalone": "^7.29.2",
-    "@cypress/code-coverage": "^4.0.2",
-    "babel-plugin-istanbul": "^7.0.1",
-    "chokidar": "^4.0.3",
-    "cypress": "^15.12.0",
-    "esbuild": "^0.27.3",
-    "http-server": "^14.1.1",
-    "nyc": "^18.0.0",
-    "qunit": "^2.24.2",
-    "sass": "^1.97.3",
-    "start-server-and-test": "^2.0.12",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "marked": "^17.0.4"
-  }
-}
+<file path="README.md">
+# ink
+<p align="center">
+  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
+</p>
+
+Ink is a functional and minimalistic webapp to write documents in markdown and export them.
+
+## Repo Structure
+
+The structure of the repo is as follows:
+
+```
+src/
+  app.ts         (Thin app entrypoint)
+  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
+  tags.ts        (Tag/frontmatter parsing utilities)
+  test-support/
+    storage-fixture.ts  (Test-only storage helpers)
+  styles.scss    (The app styles, in SCSS)
+dist/
+  app.min.js
+  styles.min.css
+ink.template.html  (The HTML template source)
+ink-app.html       (The final single-page app, with inline <style> and <script>)
+build/
+  assemble-single-file.js
+  compile-and-assemble.js
+  build-test.js
+  generate-favicons.js
+  watch.js
+  inject.js  (Compatibility alias)
+  build.js   (Compatibility alias)
+assets/
+  branding/
+    logo.svg
+    favicon.svg
+tests/
+  qunit/
+cypress/
+  e2e/
+repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
+```
+
+## Building Process
+
+The workflow uses `esbuild` and `sass`.
+
+- Build once: `npm run build`
+- Build on file changes: `npm run watch`
+- Makefile wrappers:
+  - `make build`
+  - `make watch`
+
+The webapp is released as a single HTML file (`ink-app.html`).
+
+Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
+
+## Branding Assets
+
+- Canonical logo source: `assets/branding/logo.svg`
+- Generated favicon: `assets/branding/favicon.svg`
+- Regenerate favicon after logo updates: `npm run build:favicon`
+
+`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
+
+## Workflow Cheat Sheet
+
+Use this sequence when working on the app:
+
+1. Install dependencies (first time only): `npm install`
+2. Edit source files:
+   - `src/app.ts`
+   - `src/tags.ts`
+   - `src/styles.scss`
+   - `ink.template.html`
+3. Rebuild output: `npm run build`
+4. Open/use `ink-app.html`
+
+If you want automatic rebuilds while editing:
+
+1. Run: `npm run watch`
+2. Keep editing source files
+3. `ink-app.html` will be regenerated after changes
+
+## Testing
+
+Automated testing includes both QUnit and Cypress.
+
+- QUnit: `npm run test:qunit`
+- Cypress end-to-end: `npm run test:cypress`
+- Full suite: `npm test`
+
+The Cypress flow test verifies:
+
+1. Open/select a workspace
+2. Create a new markdown file
+3. Enter markdown content
+4. Save and verify persisted content
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
 </file>
 
 <file path="ink.template.html">
@@ -9948,6 +9901,57 @@ The Cypress flow test verifies:
   </script>
 </body>
 </html>
+</file>
+
+<file path="package.json">
+{
+  "name": "ink",
+  "version": "1.0.0",
+  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
+  "homepage": "https://github.com/feddernico/ink#readme",
+  "bugs": {
+    "url": "https://github.com/feddernico/ink/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/feddernico/ink.git"
+  },
+  "license": "MIT",
+  "author": "Federico Viscioletti",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build/compile-and-assemble.js",
+    "watch": "node build/watch.js",
+    "build:favicon": "node build/generate-favicons.js",
+    "build:test": "node build/build-test.js",
+    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
+    "serve:test": "http-server . -p 4173 -s",
+    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
+    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
+    "test": "npm run test:qunit && npm run test:cypress"
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.29.2",
+    "@cypress/code-coverage": "^4.0.2",
+    "babel-plugin-istanbul": "^7.0.1",
+    "chokidar": "^4.0.3",
+    "cypress": "^15.12.0",
+    "esbuild": "^0.27.3",
+    "http-server": "^14.1.1",
+    "nyc": "^18.0.0",
+    "qunit": "^2.24.2",
+    "sass": "^1.97.3",
+    "start-server-and-test": "^2.0.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "marked": "^17.0.4"
+  },
+  "overrides": {
+    "immutable": "^5.1.5"
+  }
+}
 </file>
 
 <file path="ink-app.html">
