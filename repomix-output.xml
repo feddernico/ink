@@ -202,7 +202,9 @@ tests/
 .replit
 AGENTS.md
 babel.config.json
+CONTRIBUTING.md
 cypress.config.mjs
+FUNDING.yml
 ink-app.html
 ink.code-workspace
 ink.template.html
@@ -234,6 +236,96 @@ This section contains the contents of the repository's files.
     ]
   }
 }
+</file>
+
+<file path="CONTRIBUTING.md">
+# Contributing to ink
+
+Thank you for your interest in contributing to ink! We appreciate every improvement, whether it is a bug fix, a documentation update, a design refinement, or a new feature. This guide is here to make contributing straightforward and consistent with how the project is built and maintained.
+
+## Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [How to Contribute](#how-to-contribute)
+  - [Reporting Bugs](#reporting-bugs)
+  - [Suggesting Features](#suggesting-features)
+  - [Submitting Changes](#submitting-changes)
+- [Coding Guidelines](#coding-guidelines)
+- [Commit Messages](#commit-messages)
+- [Style Guide](#style-guide)
+- [Testing and Build Checks](#testing-and-build-checks)
+- [License](#license)
+
+## Code of Conduct
+
+Please be respectful, constructive, and patient in all project discussions. We want ink to stay welcoming to contributors of all experience levels.
+
+## Getting Started
+
+1. **Fork the repository**: Create a fork of the repository to work on your changes.
+2. **Clone your fork**: Clone the repository to your local machine using `git clone`.
+3. **Install dependencies**: Run `npm install`.
+4. **Create a branch**: Create a branch for your work using `git checkout -b your-branch-name`.
+
+## How to Contribute
+
+### Reporting Bugs
+
+If you find a bug, please open an issue with clear reproduction steps, the expected behavior, the actual behavior, and any screenshots or console output that help explain the problem.
+
+### Suggesting Features
+
+Feature ideas are welcome. Open an issue describing the problem you want to solve, how you expect the feature to work, and whether it affects editing, workspace management, export flows, or the single-file build output.
+
+### Submitting Changes
+
+1. **Keep changes focused**: Prefer small pull requests that solve one problem well.
+2. **Follow the existing structure**: ink favors simple, explicit modules and predictable file organization.
+3. **Run the relevant checks**: Build the app and run tests before opening a pull request.
+4. **Open a pull request**: Include a clear summary of what changed, why it changed, and how you verified it.
+
+## Coding Guidelines
+
+- Follow the current project structure and keep `src/app.ts` as a thin entrypoint.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Preserve the single-file app output, `ink-app.html`.
+- Add comments only when they explain an invariant, assumption, or external requirement.
+- Keep changes easy to debug and easy to regenerate.
+
+## Commit Messages
+
+- Use the present tense, such as `Add export validation`.
+- Use the imperative mood, such as `Update workspace refresh flow`.
+- Limit the first line to 72 characters or less when possible.
+- Reference related issues or pull requests after the first line when relevant.
+
+## Style Guide
+
+- **JavaScript and TypeScript**: Prefer explicit, readable code over clever abstractions.
+- **SCSS**: Keep styles aligned with the existing structure in `src/styles.scss`.
+- **HTML**: Update `ink.template.html` when changing the app shell or document structure.
+- **Build scripts**: Keep build logic simple and compatible with the single-file assembly flow in `build/compile-and-assemble.js`.
+
+## Testing and Build Checks
+
+Before submitting changes, run the checks that match your work:
+
+- `npm run build` to regenerate `ink-app.html`
+- `npm run test:qunit` for unit and integration coverage
+- `npm run test:cypress` for end-to-end coverage
+- `npm test` for the full automated suite
+- `make build` and `make test` are available as convenience wrappers
+
+If your change affects favicon or branding assets, also run `npm run build:favicon`.
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+Thank you for contributing to ink!
 </file>
 
 <file path=".github/workflows/codeql.yml">
@@ -7549,6 +7641,11 @@ QUnit.test("leaves plain text unchanged", (assert) => {
 }
 </file>
 
+<file path="FUNDING.yml">
+github: feddernico
+ko_fi: feddernico
+</file>
+
 <file path="ink.code-workspace">
 {
     "folders": [
@@ -7645,19 +7742,6 @@ jobs:
         with:
           name: cypress-screenshots
           path: cypress/screenshots
-</file>
-
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 </file>
 
 <file path="cypress/support/commands.ts">
@@ -8058,6 +8142,20 @@ jobs:
           files: ink-app.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+</file>
+
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 </file>
 
 <file path="cypress/e2e/mobile-fallback.cy.js">
