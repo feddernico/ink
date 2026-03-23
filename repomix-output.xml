@@ -244,90 +244,6 @@ This section contains the contents of the repository's files.
 }
 </file>
 
-<file path="openspec/changes/fix-export-json-shortcut-precedence/specs/keyboard-shortcuts/spec.md">
-## MODIFIED Requirements
-
-### Requirement: Keyboard Shortcuts for Common Operations
-The application SHALL provide standard keyboard shortcuts for frequently used operations accessible through the menu bar.
-
-#### Scenario: Save shortcut
-- **WHEN** a user presses the platform-appropriate plain save shortcut (Ctrl+S on Windows/Linux, Cmd+S on Mac)
-- **THEN** the saveCurrentNote functionality is triggered
-- **AND** the shortcut displayed in the menu reflects the user's platform
-
-#### Scenario: Export JSON shortcut
-- **WHEN** a user presses the platform-appropriate export shortcut (Ctrl+Shift+S on Windows/Linux, Cmd+Shift+S on Mac)
-- **THEN** the exportAsJson functionality is triggered
-- **AND** the shortcut displayed in the menu reflects the user's platform
-- **AND** saveCurrentNote is not triggered for that same key press
-
-### Requirement: Shortcut Key Conflict Resolution
-The application SHALL resolve overlapping shortcut chords so the documented action still runs in every supported focus state.
-
-#### Scenario: Focused editor does not swallow export chord
-- **WHEN** the editor textarea has focus and a user presses Ctrl+Shift+S on Windows/Linux or Cmd+Shift+S on Mac
-- **THEN** the exportAsJson functionality is triggered
-- **AND** the focused-editor save handler does not intercept the chord as plain save
-
-#### Scenario: Focused editor still saves with plain save chord
-- **WHEN** the editor textarea has focus and a user presses Ctrl+S on Windows/Linux or Cmd+S on Mac
-- **THEN** the saveCurrentNote functionality is triggered
-- **AND** no export action is triggered
-</file>
-
-<file path="openspec/changes/fix-export-json-shortcut-precedence/proposal.md">
-# Change: Fix Export JSON Shortcut Precedence
-
-## Why
-
-The application advertises Cmd/Ctrl+Shift+S as the Export JSON shortcut, but when the editor has focus that chord is currently captured by the editor's Cmd/Ctrl+S save handler. This causes the current note to save instead of exporting all notes as JSON, which breaks the documented shortcut behavior.
-
-## What Changes
-
-- Ensure the editor-scoped save shortcut only handles the plain Cmd/Ctrl+S chord
-- Preserve Cmd/Ctrl+Shift+S for Export JSON even when the editor has focus
-- Document shortcut precedence so longer modified chords are not swallowed by shorter handlers
-- Add regression coverage for focused-editor shortcut behavior
-
-## Non-Regression Guarantees
-
-- Plain Cmd/Ctrl+S continues to save the current note from the editor and window scope
-- Cmd/Ctrl+Shift+S exports JSON from the editor and window scope
-- Existing shortcuts for new note, open workspace, refresh, and markdown export continue to work
-- The documented platform-aware shortcut labels remain unchanged
-
-## Testing Requirements
-
-- Add automated coverage for Cmd/Ctrl+Shift+S while the editor textarea has focus
-- Add automated coverage confirming plain Cmd/Ctrl+S still saves while the editor textarea has focus
-- Validate that shortcut handling does not trigger both save and export for a single key press
-
-## Impact
-
-- Affected specs: `keyboard-shortcuts`
-- Affected code: `src/app/ui-events.ts`, focused-editor shortcut handling, Cypress shortcut regression coverage
-- User experience: Export JSON matches the documented Cmd/Ctrl+Shift+S shortcut in all focus states
-</file>
-
-<file path="openspec/changes/fix-export-json-shortcut-precedence/tasks.md">
-## 1. Implementation
-
-- [x] 1.1 Update the editor keydown handler to reserve Cmd/Ctrl+Shift+S for JSON export instead of save
-- [x] 1.2 Keep plain Cmd/Ctrl+S mapped to save in both editor-focused and global shortcut paths
-- [x] 1.3 Keep shortcut handling linear so a single key chord triggers at most one action
-
-## 2. Testing
-
-- [x] 2.1 Add Cypress coverage for Cmd/Ctrl+Shift+S while `#editor` has focus
-- [x] 2.2 Add Cypress coverage for Cmd/Ctrl+S while `#editor` has focus
-- [x] 2.3 Verify the JSON export shortcut does not also trigger save side effects
-
-## 3. Validation
-
-- [x] 3.1 Run `openspec validate fix-export-json-shortcut-precedence --strict`
-- [x] 3.2 Run the relevant automated shortcut regression tests after implementation
-</file>
-
 <file path="assets/branding/favicon.svg">
 <svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
   <!-- Background circle -->
@@ -2149,6 +2065,90 @@ The ink markdown note-taking application currently lacks a proper office-style m
 - [ ] 1.8.3 Test responsive design for mobile/tablet
 - [x] 1.8.4 Ensure proper error handling and user feedback
 - [x] 1.8.5 Code review and cleanup
+</file>
+
+<file path="openspec/changes/fix-export-json-shortcut-precedence/specs/keyboard-shortcuts/spec.md">
+## MODIFIED Requirements
+
+### Requirement: Keyboard Shortcuts for Common Operations
+The application SHALL provide standard keyboard shortcuts for frequently used operations accessible through the menu bar.
+
+#### Scenario: Save shortcut
+- **WHEN** a user presses the platform-appropriate plain save shortcut (Ctrl+S on Windows/Linux, Cmd+S on Mac)
+- **THEN** the saveCurrentNote functionality is triggered
+- **AND** the shortcut displayed in the menu reflects the user's platform
+
+#### Scenario: Export JSON shortcut
+- **WHEN** a user presses the platform-appropriate export shortcut (Ctrl+Shift+S on Windows/Linux, Cmd+Shift+S on Mac)
+- **THEN** the exportAsJson functionality is triggered
+- **AND** the shortcut displayed in the menu reflects the user's platform
+- **AND** saveCurrentNote is not triggered for that same key press
+
+### Requirement: Shortcut Key Conflict Resolution
+The application SHALL resolve overlapping shortcut chords so the documented action still runs in every supported focus state.
+
+#### Scenario: Focused editor does not swallow export chord
+- **WHEN** the editor textarea has focus and a user presses Ctrl+Shift+S on Windows/Linux or Cmd+Shift+S on Mac
+- **THEN** the exportAsJson functionality is triggered
+- **AND** the focused-editor save handler does not intercept the chord as plain save
+
+#### Scenario: Focused editor still saves with plain save chord
+- **WHEN** the editor textarea has focus and a user presses Ctrl+S on Windows/Linux or Cmd+S on Mac
+- **THEN** the saveCurrentNote functionality is triggered
+- **AND** no export action is triggered
+</file>
+
+<file path="openspec/changes/fix-export-json-shortcut-precedence/proposal.md">
+# Change: Fix Export JSON Shortcut Precedence
+
+## Why
+
+The application advertises Cmd/Ctrl+Shift+S as the Export JSON shortcut, but when the editor has focus that chord is currently captured by the editor's Cmd/Ctrl+S save handler. This causes the current note to save instead of exporting all notes as JSON, which breaks the documented shortcut behavior.
+
+## What Changes
+
+- Ensure the editor-scoped save shortcut only handles the plain Cmd/Ctrl+S chord
+- Preserve Cmd/Ctrl+Shift+S for Export JSON even when the editor has focus
+- Document shortcut precedence so longer modified chords are not swallowed by shorter handlers
+- Add regression coverage for focused-editor shortcut behavior
+
+## Non-Regression Guarantees
+
+- Plain Cmd/Ctrl+S continues to save the current note from the editor and window scope
+- Cmd/Ctrl+Shift+S exports JSON from the editor and window scope
+- Existing shortcuts for new note, open workspace, refresh, and markdown export continue to work
+- The documented platform-aware shortcut labels remain unchanged
+
+## Testing Requirements
+
+- Add automated coverage for Cmd/Ctrl+Shift+S while the editor textarea has focus
+- Add automated coverage confirming plain Cmd/Ctrl+S still saves while the editor textarea has focus
+- Validate that shortcut handling does not trigger both save and export for a single key press
+
+## Impact
+
+- Affected specs: `keyboard-shortcuts`
+- Affected code: `src/app/ui-events.ts`, focused-editor shortcut handling, Cypress shortcut regression coverage
+- User experience: Export JSON matches the documented Cmd/Ctrl+Shift+S shortcut in all focus states
+</file>
+
+<file path="openspec/changes/fix-export-json-shortcut-precedence/tasks.md">
+## 1. Implementation
+
+- [x] 1.1 Update the editor keydown handler to reserve Cmd/Ctrl+Shift+S for JSON export instead of save
+- [x] 1.2 Keep plain Cmd/Ctrl+S mapped to save in both editor-focused and global shortcut paths
+- [x] 1.3 Keep shortcut handling linear so a single key chord triggers at most one action
+
+## 2. Testing
+
+- [x] 2.1 Add Cypress coverage for Cmd/Ctrl+Shift+S while `#editor` has focus
+- [x] 2.2 Add Cypress coverage for Cmd/Ctrl+S while `#editor` has focus
+- [x] 2.3 Verify the JSON export shortcut does not also trigger save side effects
+
+## 3. Validation
+
+- [x] 3.1 Run `openspec validate fix-export-json-shortcut-precedence --strict`
+- [x] 3.2 Run the relevant automated shortcut regression tests after implementation
 </file>
 
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/specs/mobile-layout/spec.md">
@@ -5920,215 +5920,6 @@ export function createTreeRenderer({
 }
 </file>
 
-<file path="src/app/ui-events.ts">
-import type { AppState, DomRefs } from "./types";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-
-export type UiActions = {
-  handleMenuAction: (action: string) => void;
-  toggleSidebar: () => void;
-  handleRefresh: () => void;
-  toggleSort: () => void;
-  handleSearchInput: (value: string) => void;
-  handleEditorInput: (value: string) => void;
-  saveCurrentNote: () => Promise<void>;
-  createNewNote: () => Promise<void>;
-  openWorkspace: () => Promise<void>;
-  exportAsJson: () => void;
-  exportAsMarkdown: () => void;
-  hideToast: () => void;
-  showToast: ToastFn;
-};
-
-export function attachUiEvents({
-  state,
-  els,
-  actions,
-}: {
-  state: AppState;
-  els: DomRefs;
-  actions: UiActions;
-}): void {
-  attachMenuEventListeners(els, actions.handleMenuAction);
-
-  els.sidebarToggleBtn.addEventListener("click", () => {
-    actions.toggleSidebar();
-  });
-
-  els.refreshBtn.addEventListener("click", () => {
-    actions.handleRefresh();
-  });
-
-  els.sortBtn.addEventListener("click", () => {
-    actions.toggleSort();
-  });
-
-  els.searchInput.addEventListener("input", () => {
-    actions.handleSearchInput(els.searchInput.value);
-  });
-
-  els.editor.addEventListener("input", () => {
-    if (!state.currentRelPath) {
-      return;
-    }
-
-    actions.handleEditorInput(els.editor.value);
-  });
-
-  els.editor.addEventListener("keydown", (event: KeyboardEvent) => {
-    const isMac = navigator.platform.toLowerCase().includes("mac");
-    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
-
-    if (isModifierPressed && !event.shiftKey && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      actions.saveCurrentNote().catch((error: unknown) => {
-        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const start = els.editor.selectionStart;
-      els.editor.setRangeText("  ", start, start, "end");
-    }
-  });
-
-  els.toastCloseBtn.addEventListener("click", () => {
-    actions.hideToast();
-  });
-
-  window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {
-    if (state.isDirty) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-  });
-
-  attachGlobalKeyboardShortcuts(actions);
-}
-
-function attachMenuEventListeners(els: DomRefs, handleMenuAction: (action: string) => void): void {
-  const menuItems = els.menuBar.querySelectorAll(".menu-item");
-
-  menuItems.forEach((item) => {
-    item.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isExpanded = item.getAttribute("aria-expanded") === "true";
-
-      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-
-      if (!isExpanded) {
-        item.setAttribute("aria-expanded", "true");
-      }
-    });
-
-    item.addEventListener("keydown", (event: Event) => {
-      const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.key === "Escape") {
-        item.setAttribute("aria-expanded", "false");
-      }
-    });
-  });
-
-  const submenuParents = els.menuBar.querySelectorAll(".submenu-parent");
-  submenuParents.forEach((item) => {
-    item.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const isExpanded = item.getAttribute("aria-expanded") === "true";
-
-      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-
-      if (!isExpanded) {
-        item.setAttribute("aria-expanded", "true");
-      }
-    });
-
-    item.addEventListener("keydown", (event: Event) => {
-      const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.key === "Escape") {
-        item.setAttribute("aria-expanded", "false");
-      }
-    });
-  });
-
-  document.addEventListener("click", () => {
-    menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-    submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-  });
-
-  const dropdownItems = els.menuBar.querySelectorAll(".dropdown li[data-action]");
-  dropdownItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      const action = item.getAttribute("data-action");
-      if (action) {
-        handleMenuAction(action);
-      }
-      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
-      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
-    });
-  });
-}
-
-function attachGlobalKeyboardShortcuts(actions: UiActions): void {
-  window.addEventListener("keydown", (event: KeyboardEvent) => {
-    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
-    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
-    const isAltPressed = event.altKey;
-
-    if (isModifierPressed && event.key.toLowerCase() === "l") {
-      event.preventDefault();
-      actions.handleRefresh();
-      return;
-    }
-
-    if (isModifierPressed && event.key.toLowerCase() === "s" && !event.shiftKey) {
-      event.preventDefault();
-      actions.saveCurrentNote().catch((error: unknown) => {
-        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "s") {
-      event.preventDefault();
-      actions.exportAsJson();
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "m") {
-      event.preventDefault();
-      actions.exportAsMarkdown();
-      return;
-    }
-
-    if (isModifierPressed && event.key.toLowerCase() === "e") {
-      event.preventDefault();
-      actions.createNewNote().catch((error: unknown) => {
-        actions.showToast(`Create note failed: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "o") {
-      event.preventDefault();
-      actions.openWorkspace().catch((error: unknown) => {
-        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-      });
-      return;
-    }
-
-    if (isAltPressed && event.shiftKey && event.key.toLowerCase() === "o") {
-      event.preventDefault();
-      actions.openWorkspace().catch((error: unknown) => {
-        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
-      });
-    }
-  });
-}
-</file>
-
 <file path="src/app/utils.ts">
 export function escapeHtml(value: string): string {
   return String(value)
@@ -8063,6 +7854,215 @@ export async function ensurePermission(
 }
 </file>
 
+<file path="src/app/ui-events.ts">
+import type { AppState, DomRefs } from "./types";
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+
+export type UiActions = {
+  handleMenuAction: (action: string) => void;
+  toggleSidebar: () => void;
+  handleRefresh: () => void;
+  toggleSort: () => void;
+  handleSearchInput: (value: string) => void;
+  handleEditorInput: (value: string) => void;
+  saveCurrentNote: () => Promise<void>;
+  createNewNote: () => Promise<void>;
+  openWorkspace: () => Promise<void>;
+  exportAsJson: () => void;
+  exportAsMarkdown: () => void;
+  hideToast: () => void;
+  showToast: ToastFn;
+};
+
+export function attachUiEvents({
+  state,
+  els,
+  actions,
+}: {
+  state: AppState;
+  els: DomRefs;
+  actions: UiActions;
+}): void {
+  attachMenuEventListeners(els, actions.handleMenuAction);
+
+  els.sidebarToggleBtn.addEventListener("click", () => {
+    actions.toggleSidebar();
+  });
+
+  els.refreshBtn.addEventListener("click", () => {
+    actions.handleRefresh();
+  });
+
+  els.sortBtn.addEventListener("click", () => {
+    actions.toggleSort();
+  });
+
+  els.searchInput.addEventListener("input", () => {
+    actions.handleSearchInput(els.searchInput.value);
+  });
+
+  els.editor.addEventListener("input", () => {
+    if (!state.currentRelPath) {
+      return;
+    }
+
+    actions.handleEditorInput(els.editor.value);
+  });
+
+  els.editor.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isMac = navigator.platform.toLowerCase().includes("mac");
+    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+
+    if (isModifierPressed && !event.shiftKey && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      actions.saveCurrentNote().catch((error: unknown) => {
+        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const start = els.editor.selectionStart;
+      els.editor.setRangeText("  ", start, start, "end");
+    }
+  });
+
+  els.toastCloseBtn.addEventListener("click", () => {
+    actions.hideToast();
+  });
+
+  window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {
+    if (state.isDirty) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
+
+  attachGlobalKeyboardShortcuts(actions);
+}
+
+function attachMenuEventListeners(els: DomRefs, handleMenuAction: (action: string) => void): void {
+  const menuItems = els.menuBar.querySelectorAll(".menu-item");
+
+  menuItems.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isExpanded = item.getAttribute("aria-expanded") === "true";
+
+      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+
+      if (!isExpanded) {
+        item.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    item.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Escape") {
+        item.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  const submenuParents = els.menuBar.querySelectorAll(".submenu-parent");
+  submenuParents.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isExpanded = item.getAttribute("aria-expanded") === "true";
+
+      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+
+      if (!isExpanded) {
+        item.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    item.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Escape") {
+        item.setAttribute("aria-expanded", "false");
+      }
+    });
+  });
+
+  document.addEventListener("click", () => {
+    menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+    submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+  });
+
+  const dropdownItems = els.menuBar.querySelectorAll(".dropdown li[data-action]");
+  dropdownItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      const action = item.getAttribute("data-action");
+      if (action) {
+        handleMenuAction(action);
+      }
+      menuItems.forEach((mi) => mi.setAttribute("aria-expanded", "false"));
+      submenuParents.forEach((sp) => sp.setAttribute("aria-expanded", "false"));
+    });
+  });
+}
+
+function attachGlobalKeyboardShortcuts(actions: UiActions): void {
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+    const isAltPressed = event.altKey;
+
+    if (isModifierPressed && event.key.toLowerCase() === "l") {
+      event.preventDefault();
+      actions.handleRefresh();
+      return;
+    }
+
+    if (isModifierPressed && event.key.toLowerCase() === "s" && !event.shiftKey) {
+      event.preventDefault();
+      actions.saveCurrentNote().catch((error: unknown) => {
+        actions.showToast(`Save failed: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      actions.exportAsJson();
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "m") {
+      event.preventDefault();
+      actions.exportAsMarkdown();
+      return;
+    }
+
+    if (isModifierPressed && event.key.toLowerCase() === "e") {
+      event.preventDefault();
+      actions.createNewNote().catch((error: unknown) => {
+        actions.showToast(`Create note failed: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isModifierPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      actions.openWorkspace().catch((error: unknown) => {
+        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+      });
+      return;
+    }
+
+    if (isAltPressed && event.shiftKey && event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      actions.openWorkspace().catch((error: unknown) => {
+        actions.showToast(`Failed to open workspace: ${String(error)}`, { persist: true });
+      });
+    }
+  });
+}
+</file>
+
 <file path=".gitignore">
 # Dependencies
 node_modules/
@@ -8311,181 +8311,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </file>
 
-<file path="cypress/e2e/mobile-fallback.cy.js">
-function dispatchShortcut(target, { key, ctrlKey = false, metaKey = false, shiftKey = false, altKey = false }) {
-  const view = target.ownerDocument.defaultView;
-  const event = new view.KeyboardEvent("keydown", {
-    key,
-    ctrlKey,
-    metaKey,
-    shiftKey,
-    altKey,
-    bubbles: true,
-    cancelable: true,
-  });
-
-  target.dispatchEvent(event);
-}
-
-describe("mobile fallback functionality", () => {
-  const workspaceName = "temp-workspace";
-  const fileStem = "test-note";
-  const fileName = `${fileStem}.md`;
-  const markdown = "# Test Note\n\nThis is test content.";
-
-  beforeEach(() => {
-    cy.visit("/ink-app.html", {
-      onBeforeLoad(win) {
-        delete win.showDirectoryPicker;
-        delete win.FileSystemHandle;
-        win.prompt = (message) => {
-          if (message.includes("New note name")) {
-            return fileStem;
-          }
-          return null;
-        };
-        win.confirm = () => true;
-      },
-    });
-  });
-
-  it("shows temporary session when FS API is unavailable after clicking Open Workspace", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get("#workspaceName").should("contain", "Temporary Session");
-    cy.get("#temporarySessionBadge").should("be.visible");
-    cy.get("#temporarySessionBadge").should("contain", "Temporary Session");
-    cy.get("#statusBadge").should("contain", "Temporary session");
-    cy.get("#tree").should("contain", "Temporary session");
-  });
-
-  it("allows creating and editing notes in temporary session", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#currentFilename").should("contain", fileName);
-
-    cy.get("#editor").clear().type(markdown);
-    cy.get("#dirtyDot").should("be.visible");
-
-    cy.get('[data-action="save"]').click({ force: true });
-    cy.get("#dirtyDot").should("not.be.visible");
-    cy.get("#statusBadge").should("contain", "Saved");
-
-    cy.get("#tree").should("contain", fileName);
-  });
-
-  it("enables export functionality after creating notes", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-
-    cy.get('[data-action="export-json"]').should("exist");
-    cy.get('[data-action="export-markdown"]').should("exist");
-  });
-
-  it("exports current note as markdown", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type(markdown);
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get('[data-action="export-markdown"]').click({ force: true });
-
-    cy.readFile("cypress/downloads/test-note.md", { timeout: 5000 }).then((content) => {
-      expect(content).to.include("# Test Note");
-      expect(content).to.include("This is test content.");
-    });
-  });
-
-  it("exports all notes as JSON", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# First Note\n\nContent 1");
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# Second Note\n\nContent 2");
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get('[data-action="export-json"]').click({ force: true });
-    cy.get("#statusBadge").should("contain", "Exported JSON");
-  });
-
-  it("exports JSON from the focused editor with Cmd+Shift+S without saving", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# Shortcut Export\n\nUnsaved content");
-    cy.get("#dirtyDot").should("be.visible");
-
-    cy.get("#editor")
-      .focus()
-      .then(($editor) => {
-        dispatchShortcut($editor[0], { key: "s", metaKey: true, shiftKey: true });
-      });
-
-    cy.get("#statusBadge").should("contain", "Exported JSON");
-    cy.get("#dirtyDot").should("be.visible");
-  });
-
-  it("saves from the focused editor with Cmd+S", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type(markdown);
-    cy.get("#dirtyDot").should("be.visible");
-
-    cy.get("#editor")
-      .focus()
-      .then(($editor) => {
-        dispatchShortcut($editor[0], { key: "s", metaKey: true });
-      });
-
-    cy.get("#statusBadge").should("contain", "Saved");
-    cy.get("#dirtyDot").should("not.be.visible");
-  });
-
-  it("opens existing note from tree in temporary session", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# Original Content");
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# Another Note");
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get(".node").first().click();
-
-    cy.get("#currentFilename").should("contain", ".md");
-  });
-
-  it("shows unsaved changes indicator when editing", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#currentFilename").should("contain", ".md");
-    
-    cy.get("#editor").type(" - added content", { force: true });
-    cy.get("#dirtyDot").should("be.visible");
-  });
-
-  it("renders markdown preview in temporary session", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-
-    cy.get("#editor").clear().type("## Section\n\nSome **bold** text.");
-
-    cy.get("#preview").find("h2").should("contain", "Section");
-    cy.get("#preview").find("strong").should("contain", "bold");
-  });
-
-  it("displays tags after creating notes with hashtags", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
-    cy.get("#editor").clear().type("# Note with work tag");
-    cy.get('[data-action="save"]').click({ force: true });
-
-    cy.get(".tagrow").should("exist");
-  });
-});
-</file>
-
 <file path="cypress/support/e2e.ts">
 import "./commands";
 import "@cypress/code-coverage/support";
@@ -8639,6 +8464,195 @@ chmod +x .git/hooks/pre-commit
 ```
 </file>
 
+<file path="cypress/e2e/mobile-fallback.cy.js">
+function dispatchShortcut(target, { key, ctrlKey = false, metaKey = false, shiftKey = false, altKey = false }) {
+  const view = target.ownerDocument.defaultView;
+  const event = new view.KeyboardEvent("keydown", {
+    key,
+    ctrlKey,
+    metaKey,
+    shiftKey,
+    altKey,
+    bubbles: true,
+    cancelable: true,
+  });
+
+  target.dispatchEvent(event);
+}
+
+function getPlatformModifier(target) {
+  const view = target.ownerDocument.defaultView;
+  const isMac = /Mac|iPod|iPhone|iPad/.test(view.navigator.userAgent);
+
+  return isMac ? { metaKey: true } : { ctrlKey: true };
+}
+
+describe("mobile fallback functionality", () => {
+  const workspaceName = "temp-workspace";
+  const fileStem = "test-note";
+  const fileName = `${fileStem}.md`;
+  const markdown = "# Test Note\n\nThis is test content.";
+
+  beforeEach(() => {
+    cy.visit("/ink-app.html", {
+      onBeforeLoad(win) {
+        delete win.showDirectoryPicker;
+        delete win.FileSystemHandle;
+        win.prompt = (message) => {
+          if (message.includes("New note name")) {
+            return fileStem;
+          }
+          return null;
+        };
+        win.confirm = () => true;
+      },
+    });
+  });
+
+  it("shows temporary session when FS API is unavailable after clicking Open Workspace", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("#workspaceName").should("contain", "Temporary Session");
+    cy.get("#temporarySessionBadge").should("be.visible");
+    cy.get("#temporarySessionBadge").should("contain", "Temporary Session");
+    cy.get("#statusBadge").should("contain", "Temporary session");
+    cy.get("#tree").should("contain", "Temporary session");
+  });
+
+  it("allows creating and editing notes in temporary session", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#currentFilename").should("contain", fileName);
+
+    cy.get("#editor").clear().type(markdown);
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get('[data-action="save"]').click({ force: true });
+    cy.get("#dirtyDot").should("not.be.visible");
+    cy.get("#statusBadge").should("contain", "Saved");
+
+    cy.get("#tree").should("contain", fileName);
+  });
+
+  it("enables export functionality after creating notes", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+
+    cy.get('[data-action="export-json"]').should("exist");
+    cy.get('[data-action="export-markdown"]').should("exist");
+  });
+
+  it("exports current note as markdown", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type(markdown);
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get('[data-action="export-markdown"]').click({ force: true });
+
+    cy.readFile("cypress/downloads/test-note.md", { timeout: 5000 }).then((content) => {
+      expect(content).to.include("# Test Note");
+      expect(content).to.include("This is test content.");
+    });
+  });
+
+  it("exports all notes as JSON", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# First Note\n\nContent 1");
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Second Note\n\nContent 2");
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get('[data-action="export-json"]').click({ force: true });
+    cy.get("#statusBadge").should("contain", "Exported JSON");
+  });
+
+  it("exports JSON from the focused editor with Ctrl/Cmd+Shift+S without saving", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Shortcut Export\n\nUnsaved content");
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], {
+          key: "s",
+          shiftKey: true,
+          ...getPlatformModifier($editor[0]),
+        });
+      });
+
+    cy.get("#statusBadge").should("contain", "Exported JSON");
+    cy.get("#dirtyDot").should("be.visible");
+  });
+
+  it("saves from the focused editor with the platform save shortcut", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type(markdown);
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], {
+          key: "s",
+          ...getPlatformModifier($editor[0]),
+        });
+      });
+
+    cy.get("#statusBadge").should("contain", "Saved");
+    cy.get("#dirtyDot").should("not.be.visible");
+  });
+
+  it("opens existing note from tree in temporary session", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Original Content");
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Another Note");
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get(".node").first().click();
+
+    cy.get("#currentFilename").should("contain", ".md");
+  });
+
+  it("shows unsaved changes indicator when editing", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#currentFilename").should("contain", ".md");
+    
+    cy.get("#editor").type(" - added content", { force: true });
+    cy.get("#dirtyDot").should("be.visible");
+  });
+
+  it("renders markdown preview in temporary session", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+
+    cy.get("#editor").clear().type("## Section\n\nSome **bold** text.");
+
+    cy.get("#preview").find("h2").should("contain", "Section");
+    cy.get("#preview").find("strong").should("contain", "bold");
+  });
+
+  it("displays tags after creating notes with hashtags", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Note with work tag");
+    cy.get('[data-action="save"]').click({ force: true });
+
+    cy.get(".tagrow").should("exist");
+  });
+});
+</file>
+
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
 ## 1. Sidebar Toggle Visibility on Mobile
 
@@ -8759,22 +8773,6 @@ test-cypress:
 
 repomix:
 	npx repomix@latest
-</file>
-
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
-- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
-- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 </file>
 
 <file path="cypress/e2e/editor-flow.cy.js">
@@ -8981,6 +8979,22 @@ export function getDomRefs(): DomRefs {
     temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
   };
 }
+</file>
+
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 </file>
 
 <file path="openspec/project.md">
