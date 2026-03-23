@@ -20,8 +20,48 @@ on:
     - cron: '30 16 * * 2'
 
 jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Classify event changes
+      id: filter
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        base_sha="${{ github.event.pull_request.base.sha }}"
+        head_sha="${{ github.event.pull_request.head.sha }}"
+        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+        printf '%s\n' "$changed_files"
+
+        if [ -z "$changed_files" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
   analyze:
     name: Analyze (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
     #   - https://gh.io/supported-runners-and-hardware-resources

@@ -238,96 +238,6 @@ This section contains the contents of the repository's files.
 }
 </file>
 
-<file path="CONTRIBUTING.md">
-# Contributing to ink
-
-Thank you for your interest in contributing to ink! We appreciate every improvement, whether it is a bug fix, a documentation update, a design refinement, or a new feature. This guide is here to make contributing straightforward and consistent with how the project is built and maintained.
-
-## Table of Contents
-
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Submitting Changes](#submitting-changes)
-- [Coding Guidelines](#coding-guidelines)
-- [Commit Messages](#commit-messages)
-- [Style Guide](#style-guide)
-- [Testing and Build Checks](#testing-and-build-checks)
-- [License](#license)
-
-## Code of Conduct
-
-Please be respectful, constructive, and patient in all project discussions. We want ink to stay welcoming to contributors of all experience levels.
-
-## Getting Started
-
-1. **Fork the repository**: Create a fork of the repository to work on your changes.
-2. **Clone your fork**: Clone the repository to your local machine using `git clone`.
-3. **Install dependencies**: Run `npm install`.
-4. **Create a branch**: Create a branch for your work using `git checkout -b your-branch-name`.
-
-## How to Contribute
-
-### Reporting Bugs
-
-If you find a bug, please open an issue with clear reproduction steps, the expected behavior, the actual behavior, and any screenshots or console output that help explain the problem.
-
-### Suggesting Features
-
-Feature ideas are welcome. Open an issue describing the problem you want to solve, how you expect the feature to work, and whether it affects editing, workspace management, export flows, or the single-file build output.
-
-### Submitting Changes
-
-1. **Keep changes focused**: Prefer small pull requests that solve one problem well.
-2. **Follow the existing structure**: ink favors simple, explicit modules and predictable file organization.
-3. **Run the relevant checks**: Build the app and run tests before opening a pull request.
-4. **Open a pull request**: Include a clear summary of what changed, why it changed, and how you verified it.
-
-## Coding Guidelines
-
-- Follow the current project structure and keep `src/app.ts` as a thin entrypoint.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Preserve the single-file app output, `ink-app.html`.
-- Add comments only when they explain an invariant, assumption, or external requirement.
-- Keep changes easy to debug and easy to regenerate.
-
-## Commit Messages
-
-- Use the present tense, such as `Add export validation`.
-- Use the imperative mood, such as `Update workspace refresh flow`.
-- Limit the first line to 72 characters or less when possible.
-- Reference related issues or pull requests after the first line when relevant.
-
-## Style Guide
-
-- **JavaScript and TypeScript**: Prefer explicit, readable code over clever abstractions.
-- **SCSS**: Keep styles aligned with the existing structure in `src/styles.scss`.
-- **HTML**: Update `ink.template.html` when changing the app shell or document structure.
-- **Build scripts**: Keep build logic simple and compatible with the single-file assembly flow in `build/compile-and-assemble.js`.
-
-## Testing and Build Checks
-
-Before submitting changes, run the checks that match your work:
-
-- `npm run build` to regenerate `ink-app.html`
-- `npm run test:qunit` for unit and integration coverage
-- `npm run test:cypress` for end-to-end coverage
-- `npm test` for the full automated suite
-- `make build` and `make test` are available as convenience wrappers
-
-If your change affects favicon or branding assets, also run `npm run build:favicon`.
-
-## License
-
-By contributing to this project, you agree that your contributions will be licensed under the MIT License.
-
----
-
-Thank you for contributing to ink!
-</file>
-
 <file path=".github/workflows/codeql.yml">
 # For most projects, this workflow file will not need changing; you simply need
 # to commit it to your repository.
@@ -351,8 +261,48 @@ on:
     - cron: '30 16 * * 2'
 
 jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Classify event changes
+      id: filter
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        base_sha="${{ github.event.pull_request.base.sha }}"
+        head_sha="${{ github.event.pull_request.head.sha }}"
+        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+        printf '%s\n' "$changed_files"
+
+        if [ -z "$changed_files" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
   analyze:
     name: Analyze (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
     #   - https://gh.io/supported-runners-and-hardware-resources
@@ -7641,6 +7591,96 @@ QUnit.test("leaves plain text unchanged", (assert) => {
 }
 </file>
 
+<file path="CONTRIBUTING.md">
+# Contributing to ink
+
+Thank you for your interest in contributing to ink! We appreciate every improvement, whether it is a bug fix, a documentation update, a design refinement, or a new feature. This guide is here to make contributing straightforward and consistent with how the project is built and maintained.
+
+## Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [How to Contribute](#how-to-contribute)
+  - [Reporting Bugs](#reporting-bugs)
+  - [Suggesting Features](#suggesting-features)
+  - [Submitting Changes](#submitting-changes)
+- [Coding Guidelines](#coding-guidelines)
+- [Commit Messages](#commit-messages)
+- [Style Guide](#style-guide)
+- [Testing and Build Checks](#testing-and-build-checks)
+- [License](#license)
+
+## Code of Conduct
+
+Please be respectful, constructive, and patient in all project discussions. We want ink to stay welcoming to contributors of all experience levels.
+
+## Getting Started
+
+1. **Fork the repository**: Create a fork of the repository to work on your changes.
+2. **Clone your fork**: Clone the repository to your local machine using `git clone`.
+3. **Install dependencies**: Run `npm install`.
+4. **Create a branch**: Create a branch for your work using `git checkout -b your-branch-name`.
+
+## How to Contribute
+
+### Reporting Bugs
+
+If you find a bug, please open an issue with clear reproduction steps, the expected behavior, the actual behavior, and any screenshots or console output that help explain the problem.
+
+### Suggesting Features
+
+Feature ideas are welcome. Open an issue describing the problem you want to solve, how you expect the feature to work, and whether it affects editing, workspace management, export flows, or the single-file build output.
+
+### Submitting Changes
+
+1. **Keep changes focused**: Prefer small pull requests that solve one problem well.
+2. **Follow the existing structure**: ink favors simple, explicit modules and predictable file organization.
+3. **Run the relevant checks**: Build the app and run tests before opening a pull request.
+4. **Open a pull request**: Include a clear summary of what changed, why it changed, and how you verified it.
+
+## Coding Guidelines
+
+- Follow the current project structure and keep `src/app.ts` as a thin entrypoint.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Preserve the single-file app output, `ink-app.html`.
+- Add comments only when they explain an invariant, assumption, or external requirement.
+- Keep changes easy to debug and easy to regenerate.
+
+## Commit Messages
+
+- Use the present tense, such as `Add export validation`.
+- Use the imperative mood, such as `Update workspace refresh flow`.
+- Limit the first line to 72 characters or less when possible.
+- Reference related issues or pull requests after the first line when relevant.
+
+## Style Guide
+
+- **JavaScript and TypeScript**: Prefer explicit, readable code over clever abstractions.
+- **SCSS**: Keep styles aligned with the existing structure in `src/styles.scss`.
+- **HTML**: Update `ink.template.html` when changing the app shell or document structure.
+- **Build scripts**: Keep build logic simple and compatible with the single-file assembly flow in `build/compile-and-assemble.js`.
+
+## Testing and Build Checks
+
+Before submitting changes, run the checks that match your work:
+
+- `npm run build` to regenerate `ink-app.html`
+- `npm run test:qunit` for unit and integration coverage
+- `npm run test:cypress` for end-to-end coverage
+- `npm test` for the full automated suite
+- `make build` and `make test` are available as convenience wrappers
+
+If your change affects favicon or branding assets, also run `npm run build:favicon`.
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+Thank you for contributing to ink!
+</file>
+
 <file path="FUNDING.yml">
 github: feddernico
 ko_fi: feddernico
@@ -7705,9 +7745,45 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  changes:
+    name: Detect changed files
     runs-on: ubuntu-latest
-    
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify pull request changes
+        id: filter
+        shell: bash
+        run: |
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          printf '%s\n' "$changed_files"
+
+          if [ -z "$changed_files" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Build and test
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -8144,20 +8220,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 </file>
 
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
-- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
-</file>
-
 <file path="cypress/e2e/mobile-fallback.cy.js">
 describe("mobile fallback functionality", () => {
   const workspaceName = "temp-workspace";
@@ -8437,6 +8499,21 @@ git add repomix-output.xml
 EOF
 chmod +x .git/hooks/pre-commit
 ```
+</file>
+
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 </file>
 
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
@@ -9687,116 +9764,6 @@ declare global {
     }
 </file>
 
-<file path="README.md">
-# ink
-<p align="center">
-  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
-</p>
-
-Ink is a functional and minimalistic webapp to write documents in markdown and export them.
-
-## Repo Structure
-
-The structure of the repo is as follows:
-
-```
-src/
-  app.ts         (Thin app entrypoint)
-  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
-  tags.ts        (Tag/frontmatter parsing utilities)
-  test-support/
-    storage-fixture.ts  (Test-only storage helpers)
-  styles.scss    (The app styles, in SCSS)
-dist/
-  app.min.js
-  styles.min.css
-ink.template.html  (The HTML template source)
-ink-app.html       (The final single-page app, with inline <style> and <script>)
-build/
-  assemble-single-file.js
-  compile-and-assemble.js
-  build-test.js
-  generate-favicons.js
-  watch.js
-  inject.js  (Compatibility alias)
-  build.js   (Compatibility alias)
-assets/
-  branding/
-    logo.svg
-    favicon.svg
-tests/
-  qunit/
-cypress/
-  e2e/
-repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
-```
-
-## Building Process
-
-The workflow uses `esbuild` and `sass`.
-
-- Build once: `npm run build`
-- Build on file changes: `npm run watch`
-- Makefile wrappers:
-  - `make build`
-  - `make watch`
-
-The webapp is released as a single HTML file (`ink-app.html`).
-
-Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
-
-## Branding Assets
-
-- Canonical logo source: `assets/branding/logo.svg`
-- Generated favicon: `assets/branding/favicon.svg`
-- Regenerate favicon after logo updates: `npm run build:favicon`
-
-`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
-
-## Workflow Cheat Sheet
-
-Use this sequence when working on the app:
-
-1. Install dependencies (first time only): `npm install`
-2. Edit source files:
-   - `src/app.ts`
-   - `src/tags.ts`
-   - `src/styles.scss`
-   - `ink.template.html`
-3. Rebuild output: `npm run build`
-4. Open/use `ink-app.html`
-
-If you want automatic rebuilds while editing:
-
-1. Run: `npm run watch`
-2. Keep editing source files
-3. `ink-app.html` will be regenerated after changes
-
-## Testing
-
-Automated testing includes both QUnit and Cypress.
-
-- QUnit: `npm run test:qunit`
-- Cypress end-to-end: `npm run test:cypress`
-- Full suite: `npm test`
-
-The Cypress flow test verifies:
-
-1. Open/select a workspace
-2. Create a new markdown file
-3. Enter markdown content
-4. Save and verify persisted content
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-</file>
-
 <file path="ink.template.html">
 <!doctype html>
 <html lang="en">
@@ -10050,6 +10017,122 @@ The Cypress flow test verifies:
     "immutable": "^5.1.5"
   }
 }
+</file>
+
+<file path="README.md">
+# ink
+<p align="center">
+  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
+</p>
+
+Ink is a functional and minimalistic webapp to write documents in markdown and export them.
+
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![Sass](https://img.shields.io/badge/Sass-SCSS-CC6699?logo=sass&logoColor=white)
+![Cypress](https://img.shields.io/badge/Tested%20with-Cypress-17202C?logo=cypress&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## Repo Structure
+
+The structure of the repo is as follows:
+
+```
+src/
+  app.ts         (Thin app entrypoint)
+  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
+  tags.ts        (Tag/frontmatter parsing utilities)
+  test-support/
+    storage-fixture.ts  (Test-only storage helpers)
+  styles.scss    (The app styles, in SCSS)
+dist/
+  app.min.js
+  styles.min.css
+ink.template.html  (The HTML template source)
+ink-app.html       (The final single-page app, with inline <style> and <script>)
+build/
+  assemble-single-file.js
+  compile-and-assemble.js
+  build-test.js
+  generate-favicons.js
+  watch.js
+  inject.js  (Compatibility alias)
+  build.js   (Compatibility alias)
+assets/
+  branding/
+    logo.svg
+    favicon.svg
+tests/
+  qunit/
+cypress/
+  e2e/
+repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
+```
+
+## Building Process
+
+The workflow uses `esbuild` and `sass`.
+
+- Build once: `npm run build`
+- Build on file changes: `npm run watch`
+- Makefile wrappers:
+  - `make build`
+  - `make watch`
+
+The webapp is released as a single HTML file (`ink-app.html`).
+
+Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
+
+## Branding Assets
+
+- Canonical logo source: `assets/branding/logo.svg`
+- Generated favicon: `assets/branding/favicon.svg`
+- Regenerate favicon after logo updates: `npm run build:favicon`
+
+`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
+
+## Workflow Cheat Sheet
+
+Use this sequence when working on the app:
+
+1. Install dependencies (first time only): `npm install`
+2. Edit source files:
+   - `src/app.ts`
+   - `src/tags.ts`
+   - `src/styles.scss`
+   - `ink.template.html`
+3. Rebuild output: `npm run build`
+4. Open/use `ink-app.html`
+
+If you want automatic rebuilds while editing:
+
+1. Run: `npm run watch`
+2. Keep editing source files
+3. `ink-app.html` will be regenerated after changes
+
+## Testing
+
+Automated testing includes both QUnit and Cypress.
+
+- QUnit: `npm run test:qunit`
+- Cypress end-to-end: `npm run test:cypress`
+- Full suite: `npm test`
+
+The Cypress flow test verifies:
+
+1. Open/select a workspace
+2. Create a new markdown file
+3. Enter markdown content
+4. Save and verify persisted content
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
 </file>
 
 <file path="ink-app.html">
