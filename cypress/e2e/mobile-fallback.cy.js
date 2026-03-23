@@ -1,3 +1,18 @@
+function dispatchShortcut(target, { key, ctrlKey = false, metaKey = false, shiftKey = false, altKey = false }) {
+  const view = target.ownerDocument.defaultView;
+  const event = new view.KeyboardEvent("keydown", {
+    key,
+    ctrlKey,
+    metaKey,
+    shiftKey,
+    altKey,
+    bubbles: true,
+    cancelable: true,
+  });
+
+  target.dispatchEvent(event);
+}
+
 describe("mobile fallback functionality", () => {
   const workspaceName = "temp-workspace";
   const fileStem = "test-note";
@@ -78,6 +93,38 @@ describe("mobile fallback functionality", () => {
 
     cy.get('[data-action="export-json"]').click({ force: true });
     cy.get("#statusBadge").should("contain", "Exported JSON");
+  });
+
+  it("exports JSON from the focused editor with Cmd+Shift+S without saving", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Shortcut Export\n\nUnsaved content");
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], { key: "s", metaKey: true, shiftKey: true });
+      });
+
+    cy.get("#statusBadge").should("contain", "Exported JSON");
+    cy.get("#dirtyDot").should("be.visible");
+  });
+
+  it("saves from the focused editor with Cmd+S", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type(markdown);
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], { key: "s", metaKey: true });
+      });
+
+    cy.get("#statusBadge").should("contain", "Saved");
+    cy.get("#dirtyDot").should("not.be.visible");
   });
 
   it("opens existing note from tree in temporary session", () => {

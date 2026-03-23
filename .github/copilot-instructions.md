@@ -6,6 +6,7 @@
 - Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
 - Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
 - The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
 - Test bundles are built via `build/build-test.js`.
 - Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 - GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.

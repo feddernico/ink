@@ -57,11 +57,12 @@ export function attachUiEvents({
     const isMac = navigator.platform.toLowerCase().includes("mac");
     const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
 
-    if (isModifierPressed && event.key.toLowerCase() === "s") {
+    if (isModifierPressed && !event.shiftKey && event.key.toLowerCase() === "s") {
       event.preventDefault();
       actions.saveCurrentNote().catch((error: unknown) => {
         actions.showToast(`Save failed: ${String(error)}`, { persist: true });
       });
+      return;
     }
 
     if (event.key === "Tab") {

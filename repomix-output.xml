@@ -111,6 +111,12 @@ openspec/
       design.md
       proposal.md
       tasks.md
+    fix-export-json-shortcut-precedence/
+      specs/
+        keyboard-shortcuts/
+          spec.md
+      proposal.md
+      tasks.md
     fix-mobile-sidebar-and-layout/
       specs/
         mobile-layout/
@@ -238,146 +244,88 @@ This section contains the contents of the repository's files.
 }
 </file>
 
-<file path=".github/workflows/codeql.yml">
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
-name: "CodeQL Advanced"
+<file path="openspec/changes/fix-export-json-shortcut-precedence/specs/keyboard-shortcuts/spec.md">
+## MODIFIED Requirements
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '30 16 * * 2'
+### Requirement: Keyboard Shortcuts for Common Operations
+The application SHALL provide standard keyboard shortcuts for frequently used operations accessible through the menu bar.
 
-jobs:
-  changes:
-    name: Detect changed files
-    runs-on: ubuntu-latest
-    outputs:
-      docs_only: ${{ steps.filter.outputs.docs_only }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+#### Scenario: Save shortcut
+- **WHEN** a user presses the platform-appropriate plain save shortcut (Ctrl+S on Windows/Linux, Cmd+S on Mac)
+- **THEN** the saveCurrentNote functionality is triggered
+- **AND** the shortcut displayed in the menu reflects the user's platform
 
-    - name: Classify event changes
-      id: filter
-      shell: bash
-      run: |
-        if [ "${{ github.event_name }}" != "pull_request" ]; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
+#### Scenario: Export JSON shortcut
+- **WHEN** a user presses the platform-appropriate export shortcut (Ctrl+Shift+S on Windows/Linux, Cmd+Shift+S on Mac)
+- **THEN** the exportAsJson functionality is triggered
+- **AND** the shortcut displayed in the menu reflects the user's platform
+- **AND** saveCurrentNote is not triggered for that same key press
 
-        base_sha="${{ github.event.pull_request.base.sha }}"
-        head_sha="${{ github.event.pull_request.head.sha }}"
-        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+### Requirement: Shortcut Key Conflict Resolution
+The application SHALL resolve overlapping shortcut chords so the documented action still runs in every supported focus state.
 
-        printf '%s\n' "$changed_files"
+#### Scenario: Focused editor does not swallow export chord
+- **WHEN** the editor textarea has focus and a user presses Ctrl+Shift+S on Windows/Linux or Cmd+Shift+S on Mac
+- **THEN** the exportAsJson functionality is triggered
+- **AND** the focused-editor save handler does not intercept the chord as plain save
 
-        if [ -z "$changed_files" ]; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
+#### Scenario: Focused editor still saves with plain save chord
+- **WHEN** the editor textarea has focus and a user presses Ctrl+S on Windows/Linux or Cmd+S on Mac
+- **THEN** the saveCurrentNote functionality is triggered
+- **AND** no export action is triggered
+</file>
 
-        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
+<file path="openspec/changes/fix-export-json-shortcut-precedence/proposal.md">
+# Change: Fix Export JSON Shortcut Precedence
 
-        echo "docs_only=true" >> "$GITHUB_OUTPUT"
+## Why
 
-  analyze:
-    name: Analyze (${{ matrix.language }})
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
-    # Runner size impacts CodeQL analysis time. To learn more, please see:
-    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
-    #   - https://gh.io/supported-runners-and-hardware-resources
-    #   - https://gh.io/using-larger-runners (GitHub.com only)
-    # Consider using larger runners or machines with greater resources for possible analysis time improvements.
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
-    permissions:
-      # required for all workflows
-      security-events: write
+The application advertises Cmd/Ctrl+Shift+S as the Export JSON shortcut, but when the editor has focus that chord is currently captured by the editor's Cmd/Ctrl+S save handler. This causes the current note to save instead of exporting all notes as JSON, which breaks the documented shortcut behavior.
 
-      # required to fetch internal or private CodeQL packs
-      packages: read
+## What Changes
 
-      # only required for workflows in private repositories
-      actions: read
-      contents: read
+- Ensure the editor-scoped save shortcut only handles the plain Cmd/Ctrl+S chord
+- Preserve Cmd/Ctrl+Shift+S for Export JSON even when the editor has focus
+- Document shortcut precedence so longer modified chords are not swallowed by shorter handlers
+- Add regression coverage for focused-editor shortcut behavior
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - language: javascript-typescript
-          build-mode: none
-        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
-        # Use `c-cpp` to analyze code written in C, C++ or both
-        # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
-        # Use 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
-        # To learn more about changing the languages that are analyzed or customizing the build mode for your analysis,
-        # see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning.
-        # If you are analyzing a compiled language, you can modify the 'build-mode' for that language to customize how
-        # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+## Non-Regression Guarantees
 
-    # Add any setup steps before running the `github/codeql-action/init` action.
-    # This includes steps like installing compilers or runtimes (`actions/setup-node`
-    # or others). This is typically only required for manual builds.
-    # - name: Setup runtime (example)
-    #   uses: actions/setup-example@v1
+- Plain Cmd/Ctrl+S continues to save the current note from the editor and window scope
+- Cmd/Ctrl+Shift+S exports JSON from the editor and window scope
+- Existing shortcuts for new note, open workspace, refresh, and markdown export continue to work
+- The documented platform-aware shortcut labels remain unchanged
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v4
-      with:
-        languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
+## Testing Requirements
 
-        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
-        # queries: security-extended,security-and-quality
+- Add automated coverage for Cmd/Ctrl+Shift+S while the editor textarea has focus
+- Add automated coverage confirming plain Cmd/Ctrl+S still saves while the editor textarea has focus
+- Validate that shortcut handling does not trigger both save and export for a single key press
 
-    # If the analyze step fails for one of the languages you are analyzing with
-    # "We were unable to automatically build your code", modify the matrix above
-    # to set the build mode to "manual" for that language. Then modify this step
-    # to build your code.
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-    - name: Run manual build steps
-      if: matrix.build-mode == 'manual'
-      shell: bash
-      run: |
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
+## Impact
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:${{matrix.language}}"
+- Affected specs: `keyboard-shortcuts`
+- Affected code: `src/app/ui-events.ts`, focused-editor shortcut handling, Cypress shortcut regression coverage
+- User experience: Export JSON matches the documented Cmd/Ctrl+Shift+S shortcut in all focus states
+</file>
+
+<file path="openspec/changes/fix-export-json-shortcut-precedence/tasks.md">
+## 1. Implementation
+
+- [x] 1.1 Update the editor keydown handler to reserve Cmd/Ctrl+Shift+S for JSON export instead of save
+- [x] 1.2 Keep plain Cmd/Ctrl+S mapped to save in both editor-focused and global shortcut paths
+- [x] 1.3 Keep shortcut handling linear so a single key chord triggers at most one action
+
+## 2. Testing
+
+- [x] 2.1 Add Cypress coverage for Cmd/Ctrl+Shift+S while `#editor` has focus
+- [x] 2.2 Add Cypress coverage for Cmd/Ctrl+S while `#editor` has focus
+- [x] 2.3 Verify the JSON export shortcut does not also trigger save side effects
+
+## 3. Validation
+
+- [x] 3.1 Run `openspec validate fix-export-json-shortcut-precedence --strict`
+- [x] 3.2 Run the relevant automated shortcut regression tests after implementation
 </file>
 
 <file path="assets/branding/favicon.svg">
@@ -6032,11 +5980,12 @@ export function attachUiEvents({
     const isMac = navigator.platform.toLowerCase().includes("mac");
     const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
 
-    if (isModifierPressed && event.key.toLowerCase() === "s") {
+    if (isModifierPressed && !event.shiftKey && event.key.toLowerCase() === "s") {
       event.preventDefault();
       actions.saveCurrentNote().catch((error: unknown) => {
         actions.showToast(`Save failed: ${String(error)}`, { persist: true });
       });
+      return;
     }
 
     if (event.key === "Tab") {
@@ -7737,12 +7686,27 @@ SOFTWARE.
 }
 </file>
 
-<file path=".github/workflows/pr-checks.yml">
-name: PR Checks
+<file path=".github/workflows/codeql.yml">
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL Advanced"
 
 on:
+  push:
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 16 * * 2'
 
 jobs:
   changes:
@@ -7751,73 +7715,117 @@ jobs:
     outputs:
       docs_only: ${{ steps.filter.outputs.docs_only }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Classify pull request changes
-        id: filter
-        shell: bash
-        run: |
-          base_sha="${{ github.event.pull_request.base.sha }}"
-          head_sha="${{ github.event.pull_request.head.sha }}"
-          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+    - name: Classify event changes
+      id: filter
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-          printf '%s\n' "$changed_files"
+        base_sha="${{ github.event.pull_request.base.sha }}"
+        head_sha="${{ github.event.pull_request.head.sha }}"
+        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
 
-          if [ -z "$changed_files" ]; then
-            echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+        printf '%s\n' "$changed_files"
 
-          if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
-            echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+        if [ -z "$changed_files" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-          echo "docs_only=true" >> "$GITHUB_OUTPUT"
+        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-  test:
-    name: Build and test
+        echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
     needs: changes
     if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ubuntu-latest
+    # Runner size impacts CodeQL analysis time. To learn more, please see:
+    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
+    #   - https://gh.io/supported-runners-and-hardware-resources
+    #   - https://gh.io/using-larger-runners (GitHub.com only)
+    # Consider using larger runners or machines with greater resources for possible analysis time improvements.
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      # required for all workflows
+      security-events: write
 
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: javascript-typescript
+          build-mode: none
+        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
+        # Use `c-cpp` to analyze code written in C, C++ or both
+        # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
+        # Use 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
+        # To learn more about changing the languages that are analyzed or customizing the build mode for your analysis,
+        # see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning.
+        # If you are analyzing a compiled language, you can modify the 'build-mode' for that language to customize how
+        # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
+    # Add any setup steps before running the `github/codeql-action/init` action.
+    # This includes steps like installing compilers or runtimes (`actions/setup-node`
+    # or others). This is typically only required for manual builds.
+    # - name: Setup runtime (example)
+    #   uses: actions/setup-example@v1
 
-      - name: Install dependencies
-        run: npm ci
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
 
-      - name: Build
-        run: npm run build
+        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
 
-      - name: Run QUnit tests
-        run: npm run test:qunit
+    # If the analyze step fails for one of the languages you are analyzing with
+    # "We were unable to automatically build your code", modify the matrix above
+    # to set the build mode to "manual" for that language. Then modify this step
+    # to build your code.
+    # ℹ️ Command-line programs to run using the OS shell.
+    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+    - name: Run manual build steps
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
+        echo 'If you are using a "manual" build mode for one or more of the' \
+          'languages you are analyzing, replace this with the commands to build' \
+          'your code, for example:'
+        echo '  make bootstrap'
+        echo '  make release'
+        exit 1
 
-      - name: Run Cypress tests
-        uses: cypress-io/github-action@v6
-        with:
-          start: npm run serve:test
-          wait-on: 'http://127.0.0.1:4173/ink-app.html'
-          browser: chrome
-          headless: true
-          config: video=false
-
-      - name: Upload Cypress Screenshots
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: cypress-screenshots
-          path: cypress/screenshots
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:${{matrix.language}}"
 </file>
 
 <file path="cypress/support/commands.ts">
@@ -8150,6 +8158,89 @@ The selected theme is persisted in `localStorage` under the key `ink-theme`. The
 - Full suite: `npm test`
 </file>
 
+<file path=".github/workflows/pr-checks.yml">
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify pull request changes
+        id: filter
+        shell: bash
+        run: |
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          printf '%s\n' "$changed_files"
+
+          if [ -z "$changed_files" ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Build and test
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run QUnit tests
+        run: npm run test:qunit
+
+      - name: Run Cypress tests
+        uses: cypress-io/github-action@v6
+        with:
+          start: npm run serve:test
+          wait-on: 'http://127.0.0.1:4173/ink-app.html'
+          browser: chrome
+          headless: true
+          config: video=false
+
+      - name: Upload Cypress Screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+</file>
+
 <file path=".github/workflows/release.yml">
 name: Release
 
@@ -8221,6 +8312,21 @@ jobs:
 </file>
 
 <file path="cypress/e2e/mobile-fallback.cy.js">
+function dispatchShortcut(target, { key, ctrlKey = false, metaKey = false, shiftKey = false, altKey = false }) {
+  const view = target.ownerDocument.defaultView;
+  const event = new view.KeyboardEvent("keydown", {
+    key,
+    ctrlKey,
+    metaKey,
+    shiftKey,
+    altKey,
+    bubbles: true,
+    cancelable: true,
+  });
+
+  target.dispatchEvent(event);
+}
+
 describe("mobile fallback functionality", () => {
   const workspaceName = "temp-workspace";
   const fileStem = "test-note";
@@ -8301,6 +8407,38 @@ describe("mobile fallback functionality", () => {
 
     cy.get('[data-action="export-json"]').click({ force: true });
     cy.get("#statusBadge").should("contain", "Exported JSON");
+  });
+
+  it("exports JSON from the focused editor with Cmd+Shift+S without saving", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type("# Shortcut Export\n\nUnsaved content");
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], { key: "s", metaKey: true, shiftKey: true });
+      });
+
+    cy.get("#statusBadge").should("contain", "Exported JSON");
+    cy.get("#dirtyDot").should("be.visible");
+  });
+
+  it("saves from the focused editor with Cmd+S", () => {
+    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("#editor").clear().type(markdown);
+    cy.get("#dirtyDot").should("be.visible");
+
+    cy.get("#editor")
+      .focus()
+      .then(($editor) => {
+        dispatchShortcut($editor[0], { key: "s", metaKey: true });
+      });
+
+    cy.get("#statusBadge").should("contain", "Saved");
+    cy.get("#dirtyDot").should("not.be.visible");
   });
 
   it("opens existing note from tree in temporary session", () => {
@@ -8501,21 +8639,6 @@ chmod +x .git/hooks/pre-commit
 ```
 </file>
 
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
-- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
-- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
-</file>
-
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
 ## 1. Sidebar Toggle Visibility on Mobile
 
@@ -8636,6 +8759,22 @@ test-cypress:
 
 repomix:
 	npx repomix@latest
+</file>
+
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 </file>
 
 <file path="cypress/e2e/editor-flow.cy.js">
@@ -10405,7 +10544,7 @@ Please report this to https://github.com/markedjs/marked.`,t){let n="<p>An error
       <span class="icon">\u{1F4DD}</span>
       <span class="name" title="${H(p.relPath)}">${H(p.name)}</span>
       <span class="meta">${H(m)}</span>
-    `,g.addEventListener("click",()=>{r.openInMemoryNote(p.relPath)}),e.tree.appendChild(g)}function k(){let p=t.inMemoryNotes.length;e.countsPill.textContent=`${p} note${p===1?"":"s"}`}return{computeMatches:s,renderTree:a,renderTags:i,renderInMemoryTree:l,updateCountsPill:k}}function et({state:t,els:e,actions:r}){tr(e,r.handleMenuAction),e.sidebarToggleBtn.addEventListener("click",()=>{r.toggleSidebar()}),e.refreshBtn.addEventListener("click",()=>{r.handleRefresh()}),e.sortBtn.addEventListener("click",()=>{r.toggleSort()}),e.searchInput.addEventListener("input",()=>{r.handleSearchInput(e.searchInput.value)}),e.editor.addEventListener("input",()=>{t.currentRelPath&&r.handleEditorInput(e.editor.value)}),e.editor.addEventListener("keydown",n=>{if((navigator.platform.toLowerCase().includes("mac")?n.metaKey:n.ctrlKey)&&n.key.toLowerCase()==="s"&&(n.preventDefault(),r.saveCurrentNote().catch(a=>{r.showToast(`Save failed: ${String(a)}`,{persist:!0})})),n.key==="Tab"){n.preventDefault();let a=e.editor.selectionStart;e.editor.setRangeText("  ",a,a,"end")}}),e.toastCloseBtn.addEventListener("click",()=>{r.hideToast()}),window.addEventListener("beforeunload",n=>{t.isDirty&&(n.preventDefault(),n.returnValue="")}),rr(r)}function tr(t,e){let r=t.menuBar.querySelectorAll(".menu-item");r.forEach(s=>{s.addEventListener("click",a=>{a.stopPropagation();let o=s.getAttribute("aria-expanded")==="true";r.forEach(u=>u.setAttribute("aria-expanded","false")),o||s.setAttribute("aria-expanded","true")}),s.addEventListener("keydown",a=>{a.key==="Escape"&&s.setAttribute("aria-expanded","false")})});let n=t.menuBar.querySelectorAll(".submenu-parent");n.forEach(s=>{s.addEventListener("click",a=>{a.stopPropagation();let o=s.getAttribute("aria-expanded")==="true";n.forEach(u=>u.setAttribute("aria-expanded","false")),o||s.setAttribute("aria-expanded","true")}),s.addEventListener("keydown",a=>{a.key==="Escape"&&s.setAttribute("aria-expanded","false")})}),document.addEventListener("click",()=>{r.forEach(s=>s.setAttribute("aria-expanded","false")),n.forEach(s=>s.setAttribute("aria-expanded","false"))}),t.menuBar.querySelectorAll(".dropdown li[data-action]").forEach(s=>{s.addEventListener("click",()=>{let a=s.getAttribute("data-action");a&&e(a),r.forEach(o=>o.setAttribute("aria-expanded","false")),n.forEach(o=>o.setAttribute("aria-expanded","false"))})})}function rr(t){window.addEventListener("keydown",e=>{let n=/Mac|iPod|iPhone|iPad/.test(navigator.userAgent)?e.metaKey:e.ctrlKey,i=e.altKey;if(n&&e.key.toLowerCase()==="l"){e.preventDefault(),t.handleRefresh();return}if(n&&e.key.toLowerCase()==="s"&&!e.shiftKey){e.preventDefault(),t.saveCurrentNote().catch(s=>{t.showToast(`Save failed: ${String(s)}`,{persist:!0})});return}if(n&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault(),t.exportAsJson();return}if(n&&e.shiftKey&&e.key.toLowerCase()==="m"){e.preventDefault(),t.exportAsMarkdown();return}if(n&&e.key.toLowerCase()==="e"){e.preventDefault(),t.createNewNote().catch(s=>{t.showToast(`Create note failed: ${String(s)}`,{persist:!0})});return}if(n&&e.shiftKey&&e.key.toLowerCase()==="o"){e.preventDefault(),t.openWorkspace().catch(s=>{t.showToast(`Failed to open workspace: ${String(s)}`,{persist:!0})});return}i&&e.shiftKey&&e.key.toLowerCase()==="o"&&(e.preventDefault(),t.openWorkspace().catch(s=>{t.showToast(`Failed to open workspace: ${String(s)}`,{persist:!0})}))})}function tt({state:t,els:e,showToast:r,setStatus:n,renderPreview:i,updateDirtyUi:s,renderTree:a,renderInMemoryTree:o,renderTags:u,updateCountsPill:l,fsApi:d,parseTags:k,autoRefresh:p}){async function g(){if(!d.isFileSystemApiAvailable()){t.isTemporarySession=!0,t.workspaceName="Temporary Session",t.inMemoryNotes=[],t.isDirty=!1,t.currentRelPath="",t.currentContent="",t.fileTree=null,e.workspaceName.textContent=t.workspaceName,e.workspaceName.title="Temporary Session - Data not persisted",e.temporarySessionBadge.style.display="inline",e.countsPill.textContent="0 notes",e.tagRow.innerHTML="",e.tree.innerHTML='<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>',r("Temporary in-memory workspace enabled. Use Export to save your notes.",{persist:!0}),n("Temporary session","warn");return}e.temporarySessionBadge.style.display="none";try{if(!window.showDirectoryPicker)throw new Error("File System Access API not available");let f=await window.showDirectoryPicker({id:"local-md-workspace",mode:"readwrite"});if(!await d.ensurePermission(f,"readwrite")){r("Permission denied. Please allow access to the folder.",{persist:!0}),n("Permission denied","err");return}t.workspaceHandle=f,t.workspaceName=f.name||"Selected folder",t.collapsedDirs.clear(),t.tagFilter="",e.workspaceName.textContent=t.workspaceName,e.workspaceName.title=t.workspaceName,e.tagRow.innerHTML="",n("Scanning folder..."),await c(),p.startAutoRefresh(),r("Workspace opened."),n("Workspace ready","ok")}catch(f){if(f instanceof Error&&f.name==="AbortError"){n("Open folder cancelled");return}let b=f instanceof Error?f.message:String(f);r(`Failed to open folder: ${b}`,{persist:!0}),n("Failed to open folder","err")}}async function c(f={}){if(t.workspaceHandle)try{if(!await d.ensurePermission(t.workspaceHandle,"read"))throw new Error("Folder permission not granted (read)");let w=[],x={type:"dir",name:t.workspaceName,relPath:"",children:[]};await m(t.workspaceHandle,x,"",w),await h(w),t.notes=w,t.fileTree=x,e.countsPill.textContent=`${w.length} note${w.length===1?"":"s"}`,u(),await a(),f.silent||(r("Workspace refreshed."),n("Refreshed","ok"))}catch(b){let w=b instanceof Error?b.message:String(b);r(`Refresh failed: ${w}`,{persist:!0}),n("Refresh failed","err")}}async function m(f,b,w,x){for await(let[v,T]of f.entries()){if(v.startsWith("."))continue;if(T.kind==="directory"){let _=w?`${w}/${v}`:v,Ae={type:"dir",name:v,relPath:_,children:[]};b.children.push(Ae),await m(T,Ae,_,x);continue}if(!v.toLowerCase().endsWith(".md"))continue;let M=w?`${w}/${v}`:v,ve=0,Re=0;try{let _=await T.getFile();ve=_.lastModified||0,Re=_.size||0}catch(_){r(`Skipped a file that couldn't be read: ${M}`);continue}let Te={handle:T,name:v,relPath:M,lastModified:ve,size:Re,tags:new Set};x.push(Te);let at={type:"file",name:v,relPath:M,handle:T,noteRef:Te};b.children.push(at)}b.children.sort((v,T)=>v.type!==T.type?v.type==="dir"?-1:1:v.name.localeCompare(T.name))}async function h(f){for(let w of f)try{let x=await w.handle.getFile(),T=await(x.size>262144?x.slice(0,262144):x).text();w.tags=k(T)}catch(x){w.tags=new Set}}async function A(f,b=null){var w;if(!(t.isDirty&&t.currentFileHandle&&!confirm("You have unsaved changes. Discard them?")))try{let x=b||((w=t.notes.find(M=>M.relPath===f))==null?void 0:w.handle);if(!x)throw new Error("File not found");let T=await(await x.getFile()).text();t.currentFileHandle=x,t.currentRelPath=f,t.currentContent=T,t.isDirty=!1,e.editor.value=T,i(e,T),s(e,t,n),n("Opened \u2713","ok"),await a()}catch(x){let v=x instanceof Error?x.message:String(x);r(`Failed to open note: ${v}`,{persist:!0}),n("Open failed","err")}}async function $(){if(t.isTemporarySession)return F();if(t.currentFileHandle)try{let f=await t.currentFileHandle.createWritable();await f.write(e.editor.value),await f.close(),t.currentContent=e.editor.value,t.isDirty=!1,s(e,t,n),n("Saved \u2713","ok"),r("Saved \u2713"),await c({silent:!0})}catch(f){let b=f instanceof Error?f.message:String(f);r(`Save failed: ${b}`,{persist:!0}),n("Save failed","err")}}async function L(){if(!t.workspaceHandle&&!t.isTemporarySession){r("Open a workspace first.");return}if(t.isDirty&&!confirm("You have unsaved changes. Continue and discard them?"))return;let f=prompt("New note name (without .md)");if(!f)return;let b=f.endsWith(".md")?f:`${f}.md`;if(t.isTemporarySession)return W(b,f);try{if(!t.workspaceHandle)throw new Error("Workspace handle is not available");let w=t.workspaceHandle;for await(let[M]of w.entries())if(M===b){r("A file with that name already exists.",{persist:!0});return}let x=await t.workspaceHandle.getFileHandle(b,{create:!0}),v=`# ${f}
+    `,g.addEventListener("click",()=>{r.openInMemoryNote(p.relPath)}),e.tree.appendChild(g)}function k(){let p=t.inMemoryNotes.length;e.countsPill.textContent=`${p} note${p===1?"":"s"}`}return{computeMatches:s,renderTree:a,renderTags:i,renderInMemoryTree:l,updateCountsPill:k}}function et({state:t,els:e,actions:r}){tr(e,r.handleMenuAction),e.sidebarToggleBtn.addEventListener("click",()=>{r.toggleSidebar()}),e.refreshBtn.addEventListener("click",()=>{r.handleRefresh()}),e.sortBtn.addEventListener("click",()=>{r.toggleSort()}),e.searchInput.addEventListener("input",()=>{r.handleSearchInput(e.searchInput.value)}),e.editor.addEventListener("input",()=>{t.currentRelPath&&r.handleEditorInput(e.editor.value)}),e.editor.addEventListener("keydown",n=>{if((navigator.platform.toLowerCase().includes("mac")?n.metaKey:n.ctrlKey)&&!n.shiftKey&&n.key.toLowerCase()==="s"){n.preventDefault(),r.saveCurrentNote().catch(a=>{r.showToast(`Save failed: ${String(a)}`,{persist:!0})});return}if(n.key==="Tab"){n.preventDefault();let a=e.editor.selectionStart;e.editor.setRangeText("  ",a,a,"end")}}),e.toastCloseBtn.addEventListener("click",()=>{r.hideToast()}),window.addEventListener("beforeunload",n=>{t.isDirty&&(n.preventDefault(),n.returnValue="")}),rr(r)}function tr(t,e){let r=t.menuBar.querySelectorAll(".menu-item");r.forEach(s=>{s.addEventListener("click",a=>{a.stopPropagation();let o=s.getAttribute("aria-expanded")==="true";r.forEach(u=>u.setAttribute("aria-expanded","false")),o||s.setAttribute("aria-expanded","true")}),s.addEventListener("keydown",a=>{a.key==="Escape"&&s.setAttribute("aria-expanded","false")})});let n=t.menuBar.querySelectorAll(".submenu-parent");n.forEach(s=>{s.addEventListener("click",a=>{a.stopPropagation();let o=s.getAttribute("aria-expanded")==="true";n.forEach(u=>u.setAttribute("aria-expanded","false")),o||s.setAttribute("aria-expanded","true")}),s.addEventListener("keydown",a=>{a.key==="Escape"&&s.setAttribute("aria-expanded","false")})}),document.addEventListener("click",()=>{r.forEach(s=>s.setAttribute("aria-expanded","false")),n.forEach(s=>s.setAttribute("aria-expanded","false"))}),t.menuBar.querySelectorAll(".dropdown li[data-action]").forEach(s=>{s.addEventListener("click",()=>{let a=s.getAttribute("data-action");a&&e(a),r.forEach(o=>o.setAttribute("aria-expanded","false")),n.forEach(o=>o.setAttribute("aria-expanded","false"))})})}function rr(t){window.addEventListener("keydown",e=>{let n=/Mac|iPod|iPhone|iPad/.test(navigator.userAgent)?e.metaKey:e.ctrlKey,i=e.altKey;if(n&&e.key.toLowerCase()==="l"){e.preventDefault(),t.handleRefresh();return}if(n&&e.key.toLowerCase()==="s"&&!e.shiftKey){e.preventDefault(),t.saveCurrentNote().catch(s=>{t.showToast(`Save failed: ${String(s)}`,{persist:!0})});return}if(n&&e.shiftKey&&e.key.toLowerCase()==="s"){e.preventDefault(),t.exportAsJson();return}if(n&&e.shiftKey&&e.key.toLowerCase()==="m"){e.preventDefault(),t.exportAsMarkdown();return}if(n&&e.key.toLowerCase()==="e"){e.preventDefault(),t.createNewNote().catch(s=>{t.showToast(`Create note failed: ${String(s)}`,{persist:!0})});return}if(n&&e.shiftKey&&e.key.toLowerCase()==="o"){e.preventDefault(),t.openWorkspace().catch(s=>{t.showToast(`Failed to open workspace: ${String(s)}`,{persist:!0})});return}i&&e.shiftKey&&e.key.toLowerCase()==="o"&&(e.preventDefault(),t.openWorkspace().catch(s=>{t.showToast(`Failed to open workspace: ${String(s)}`,{persist:!0})}))})}function tt({state:t,els:e,showToast:r,setStatus:n,renderPreview:i,updateDirtyUi:s,renderTree:a,renderInMemoryTree:o,renderTags:u,updateCountsPill:l,fsApi:d,parseTags:k,autoRefresh:p}){async function g(){if(!d.isFileSystemApiAvailable()){t.isTemporarySession=!0,t.workspaceName="Temporary Session",t.inMemoryNotes=[],t.isDirty=!1,t.currentRelPath="",t.currentContent="",t.fileTree=null,e.workspaceName.textContent=t.workspaceName,e.workspaceName.title="Temporary Session - Data not persisted",e.temporarySessionBadge.style.display="inline",e.countsPill.textContent="0 notes",e.tagRow.innerHTML="",e.tree.innerHTML='<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>',r("Temporary in-memory workspace enabled. Use Export to save your notes.",{persist:!0}),n("Temporary session","warn");return}e.temporarySessionBadge.style.display="none";try{if(!window.showDirectoryPicker)throw new Error("File System Access API not available");let f=await window.showDirectoryPicker({id:"local-md-workspace",mode:"readwrite"});if(!await d.ensurePermission(f,"readwrite")){r("Permission denied. Please allow access to the folder.",{persist:!0}),n("Permission denied","err");return}t.workspaceHandle=f,t.workspaceName=f.name||"Selected folder",t.collapsedDirs.clear(),t.tagFilter="",e.workspaceName.textContent=t.workspaceName,e.workspaceName.title=t.workspaceName,e.tagRow.innerHTML="",n("Scanning folder..."),await c(),p.startAutoRefresh(),r("Workspace opened."),n("Workspace ready","ok")}catch(f){if(f instanceof Error&&f.name==="AbortError"){n("Open folder cancelled");return}let b=f instanceof Error?f.message:String(f);r(`Failed to open folder: ${b}`,{persist:!0}),n("Failed to open folder","err")}}async function c(f={}){if(t.workspaceHandle)try{if(!await d.ensurePermission(t.workspaceHandle,"read"))throw new Error("Folder permission not granted (read)");let w=[],x={type:"dir",name:t.workspaceName,relPath:"",children:[]};await m(t.workspaceHandle,x,"",w),await h(w),t.notes=w,t.fileTree=x,e.countsPill.textContent=`${w.length} note${w.length===1?"":"s"}`,u(),await a(),f.silent||(r("Workspace refreshed."),n("Refreshed","ok"))}catch(b){let w=b instanceof Error?b.message:String(b);r(`Refresh failed: ${w}`,{persist:!0}),n("Refresh failed","err")}}async function m(f,b,w,x){for await(let[v,T]of f.entries()){if(v.startsWith("."))continue;if(T.kind==="directory"){let _=w?`${w}/${v}`:v,Ae={type:"dir",name:v,relPath:_,children:[]};b.children.push(Ae),await m(T,Ae,_,x);continue}if(!v.toLowerCase().endsWith(".md"))continue;let M=w?`${w}/${v}`:v,ve=0,Re=0;try{let _=await T.getFile();ve=_.lastModified||0,Re=_.size||0}catch(_){r(`Skipped a file that couldn't be read: ${M}`);continue}let Te={handle:T,name:v,relPath:M,lastModified:ve,size:Re,tags:new Set};x.push(Te);let at={type:"file",name:v,relPath:M,handle:T,noteRef:Te};b.children.push(at)}b.children.sort((v,T)=>v.type!==T.type?v.type==="dir"?-1:1:v.name.localeCompare(T.name))}async function h(f){for(let w of f)try{let x=await w.handle.getFile(),T=await(x.size>262144?x.slice(0,262144):x).text();w.tags=k(T)}catch(x){w.tags=new Set}}async function A(f,b=null){var w;if(!(t.isDirty&&t.currentFileHandle&&!confirm("You have unsaved changes. Discard them?")))try{let x=b||((w=t.notes.find(M=>M.relPath===f))==null?void 0:w.handle);if(!x)throw new Error("File not found");let T=await(await x.getFile()).text();t.currentFileHandle=x,t.currentRelPath=f,t.currentContent=T,t.isDirty=!1,e.editor.value=T,i(e,T),s(e,t,n),n("Opened \u2713","ok"),await a()}catch(x){let v=x instanceof Error?x.message:String(x);r(`Failed to open note: ${v}`,{persist:!0}),n("Open failed","err")}}async function $(){if(t.isTemporarySession)return F();if(t.currentFileHandle)try{let f=await t.currentFileHandle.createWritable();await f.write(e.editor.value),await f.close(),t.currentContent=e.editor.value,t.isDirty=!1,s(e,t,n),n("Saved \u2713","ok"),r("Saved \u2713"),await c({silent:!0})}catch(f){let b=f instanceof Error?f.message:String(f);r(`Save failed: ${b}`,{persist:!0}),n("Save failed","err")}}async function L(){if(!t.workspaceHandle&&!t.isTemporarySession){r("Open a workspace first.");return}if(t.isDirty&&!confirm("You have unsaved changes. Continue and discard them?"))return;let f=prompt("New note name (without .md)");if(!f)return;let b=f.endsWith(".md")?f:`${f}.md`;if(t.isTemporarySession)return W(b,f);try{if(!t.workspaceHandle)throw new Error("Workspace handle is not available");let w=t.workspaceHandle;for await(let[M]of w.entries())if(M===b){r("A file with that name already exists.",{persist:!0});return}let x=await t.workspaceHandle.getFileHandle(b,{create:!0}),v=`# ${f}
 
 Created ${new Date().toLocaleString()}
 `,T=await x.createWritable();await T.write(v),await T.close(),await c({silent:!0}),await A(b,x),r("New note created \u2713"),n("New note","ok")}catch(w){let x=w instanceof Error?w.message:String(w);r(`Failed to create note: ${x}`,{persist:!0}),n("Create failed","err")}}async function j(){if(!t.workspaceHandle&&!t.isTemporarySession){r("Open a workspace first.");return}let f=t.isTemporarySession?e.editor.value:t.currentContent;if(!f){r("Nothing to save.");return}let b=prompt("Save note as (filename without .md):");if(!b)return;let w=b.endsWith(".md")?b:`${b}.md`;if(t.isTemporarySession)return W(w,b);try{if(!t.workspaceHandle)throw new Error("Workspace handle is not available");for await(let[T]of t.workspaceHandle.entries())if(T===w){r("A file with that name already exists.",{persist:!0});return}let x=await t.workspaceHandle.getFileHandle(w,{create:!0}),v=await x.createWritable();await v.write(f),await v.close(),await c({silent:!0}),await A(w,x),r(`Saved as ${w} \u2713`),n("Saved as","ok")}catch(x){let v=x instanceof Error?x.message:String(x);r(`Failed to save: ${v}`,{persist:!0}),n("Save failed","err")}}async function ie(f=t.workspaceHandle){if(!f){if(t.isTemporarySession){r("Folders are not supported in temporary session.");return}r("Open a workspace first.");return}let b=prompt("Folder name:");if(b)try{await f.getDirectoryHandle(b,{create:!0}),await c({silent:!0}),r("Folder created \u2713"),n("Folder created","ok")}catch(w){let x=w instanceof Error?w.message:String(w);r(`Failed to create folder: ${x}`,{persist:!0}),n("Create folder failed","err")}}async function W(f,b){if(t.inMemoryNotes.find(T=>T.relPath===f)){r("A note with that name already exists.",{persist:!0});return}let x=`# ${b}
