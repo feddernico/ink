@@ -126,26 +126,26 @@ describe("menu bar functionality", () => {
     });
 
     it("New Note menu item exists and triggers createNewNote", () => {
-      cy.get('[data-action="new-note"]').should("exist");
-      cy.get('[data-action="open-workspace"]').click({ force: true });
-      cy.get('[data-action="new-note"]').click({ force: true });
+      cy.get("[data-action=\"new-note\"]").should("exist");
+      cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+      cy.get("[data-action=\"new-note\"]").click({ force: true });
       cy.get("#currentFilename").should("contain", ".md");
     });
 
     it("New Folder menu item exists", () => {
-      cy.get('[data-action="new-folder"]').should("exist");
+      cy.get("[data-action=\"new-folder\"]").should("exist");
     });
 
     it("Open Workspace menu item exists", () => {
-      cy.get('[data-action="open-workspace"]').should("exist");
+      cy.get("[data-action=\"open-workspace\"]").should("exist");
     });
 
     it("Close Workspace menu item exists", () => {
-      cy.get('[data-action="close-workspace"]').should("exist");
+      cy.get("[data-action=\"close-workspace\"]").should("exist");
     });
 
     it("Exit menu item exists", () => {
-      cy.get('[data-action="exit"]').should("exist");
+      cy.get("[data-action=\"exit\"]").should("exist");
     });
   });
 
@@ -155,19 +155,19 @@ describe("menu bar functionality", () => {
     });
 
     it("Save menu item exists", () => {
-      cy.get('[data-action="save"]').should("exist");
+      cy.get("[data-action=\"save\"]").should("exist");
     });
 
     it("Save As menu item exists", () => {
-      cy.get('[data-action="save-as"]').should("exist");
+      cy.get("[data-action=\"save-as\"]").should("exist");
     });
 
     it("Refresh menu item exists", () => {
-      cy.get('[data-action="refresh"]').should("exist");
+      cy.get("[data-action=\"refresh\"]").should("exist");
     });
 
     it("Sort menu item exists", () => {
-      cy.get('[data-action="sort"]').should("exist");
+      cy.get("[data-action=\"sort\"]").should("exist");
     });
   });
 
@@ -177,13 +177,13 @@ describe("menu bar functionality", () => {
     });
 
     it("theme menu items exist", () => {
-      cy.get('[data-action="theme-default"]').should("exist");
-      cy.get('[data-action="theme-classic"]').should("exist");
-      cy.get('[data-action="theme-cobalt"]').should("exist");
-      cy.get('[data-action="theme-monokai"]').should("exist");
-      cy.get('[data-action="theme-office"]').should("exist");
-      cy.get('[data-action="theme-twilight"]').should("exist");
-      cy.get('[data-action="theme-xcode"]').should("exist");
+      cy.get("[data-action=\"theme-default\"]").should("exist");
+      cy.get("[data-action=\"theme-classic\"]").should("exist");
+      cy.get("[data-action=\"theme-cobalt\"]").should("exist");
+      cy.get("[data-action=\"theme-monokai\"]").should("exist");
+      cy.get("[data-action=\"theme-office\"]").should("exist");
+      cy.get("[data-action=\"theme-twilight\"]").should("exist");
+      cy.get("[data-action=\"theme-xcode\"]").should("exist");
     });
   });
 
@@ -194,11 +194,11 @@ describe("menu bar functionality", () => {
     });
 
     it("Export JSON menu item exists in submenu", () => {
-      cy.get('[data-action="export-json"]').should("exist");
+      cy.get("[data-action=\"export-json\"]").should("exist");
     });
 
     it("Export Markdown menu item exists in submenu", () => {
-      cy.get('[data-action="export-markdown"]').should("exist");
+      cy.get("[data-action=\"export-markdown\"]").should("exist");
     });
   });
 
@@ -218,7 +218,7 @@ describe("menu bar functionality", () => {
         },
       });
       cy.get(".menu-text").contains("File").click();
-      cy.get('[data-action="new-note"]').within(() => {
+      cy.get("[data-action=\"new-note\"]").within(() => {
         cy.get(".menu-shortcut").should("contain", "Cmd");
       });
     });
@@ -238,7 +238,7 @@ describe("menu bar functionality", () => {
         },
       });
       cy.get(".menu-text").contains("File").click();
-      cy.get('[data-action="new-note"]').within(() => {
+      cy.get("[data-action=\"new-note\"]").within(() => {
         cy.get(".menu-shortcut").should("contain", "Ctrl");
       });
     });
@@ -258,7 +258,7 @@ describe("menu bar functionality", () => {
         },
       });
       cy.get(".menu-text").contains("File").click();
-      cy.get('[data-action="new-note"]').within(() => {
+      cy.get("[data-action=\"new-note\"]").within(() => {
         cy.get(".menu-shortcut").should("contain", "Ctrl");
       });
     });

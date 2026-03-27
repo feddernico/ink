@@ -9,12 +9,12 @@ import {
 QUnit.module("tags parsing");
 
 QUnit.test("extracts YAML frontmatter", (assert) => {
-  const text = `---\ntags: [work, docs]\n---\n\n# Note`;
+  const text = "---\ntags: [work, docs]\n---\n\n# Note";
   assert.strictEqual(extractFrontMatter(text), "tags: [work, docs]");
 });
 
 QUnit.test("returns empty frontmatter when closing delimiter is missing", (assert) => {
-  const text = `---\ntags: [work, docs]\n\n# Note`;
+  const text = "---\ntags: [work, docs]\n\n# Note";
   assert.strictEqual(extractFrontMatter(text), "");
 });
 

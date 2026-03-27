@@ -24,7 +24,7 @@ QUnit.test("escapes greater-than", (assert) => {
 });
 
 QUnit.test("escapes double quotes", (assert) => {
-  assert.strictEqual(escapeHtml('say "hello"'), "say &quot;hello&quot;");
+  assert.strictEqual(escapeHtml("say \"hello\""), "say &quot;hello&quot;");
 });
 
 QUnit.test("escapes single quotes", (assert) => {
@@ -33,7 +33,7 @@ QUnit.test("escapes single quotes", (assert) => {
 
 QUnit.test("escapes all special characters together", (assert) => {
   assert.strictEqual(
-    escapeHtml('<script>alert("xss & \'fun\'");</script>'),
+    escapeHtml("<script>alert(\"xss & 'fun'\");</script>"),
     "&lt;script&gt;alert(&quot;xss &amp; &#039;fun&#039;&quot;);&lt;/script&gt;"
   );
 });
