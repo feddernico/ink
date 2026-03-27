@@ -155,6 +155,48 @@
         </div>
 
         <div class="tagrow" id="tagRow" aria-label="Tags"></div>
+
+        <details aria-label="Agent note tools">
+          <summary class="small">Agent Note Tool</summary>
+          <form
+            id="webmcpNoteForm"
+            toolname="create_note"
+            tooldescription="Create a markdown note with a title, body, and optional tag."
+            action="/notes"
+            method="post"
+          >
+            <label class="small" for="webmcpTitleInput">Title</label>
+            <input
+              id="webmcpTitleInput"
+              class="input"
+              type="text"
+              name="title"
+              required
+              toolparamdescription="Short title for the new markdown note"
+            />
+
+            <label class="small" for="webmcpBodyInput">Body</label>
+            <textarea
+              id="webmcpBodyInput"
+              class="input"
+              name="body"
+              rows="6"
+              required
+              toolparamdescription="Markdown body content for the note"
+            ></textarea>
+
+            <label class="small" for="webmcpTagInput">Tag</label>
+            <input
+              id="webmcpTagInput"
+              class="input"
+              type="text"
+              name="tag"
+              toolparamdescription="Optional tag to add as note frontmatter"
+            />
+
+            <button type="submit">Create note</button>
+          </form>
+        </details>
       </header>
 
       <div class="treeWrap">

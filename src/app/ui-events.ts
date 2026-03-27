@@ -1,4 +1,4 @@
-import type { AppState, DomRefs } from "./types";
+import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
 
 type ToastFn = (message: string, options?: { persist?: boolean }) => void;
 
@@ -11,11 +11,17 @@ export type UiActions = {
   handleEditorInput: (value: string) => void;
   saveCurrentNote: () => Promise<void>;
   createNewNote: () => Promise<void>;
+  createNoteFromTool: (input: DeclarativeNoteInput) => Promise<DeclarativeNoteResult>; 
   openWorkspace: () => Promise<void>;
   exportAsJson: () => void;
   exportAsMarkdown: () => void;
   hideToast: () => void;
   showToast: ToastFn;
+};
+
+type WebMcpSubmitEvent = SubmitEvent & {
+  agentInvoked?: boolean;
+  respondWith?: (response: Promise<unknown>) => void;
 };
 
 export function attachUiEvents({
@@ -43,6 +49,33 @@ export function attachUiEvents({
 
   els.searchInput.addEventListener("input", () => {
     actions.handleSearchInput(els.searchInput.value);
+  });
+
+  els.webmcpNoteForm.addEventListener("submit", (event: Event) => {
+    const submitEvent = event as WebMcpSubmitEvent;
+    event.preventDefault();
+
+    const input: DeclarativeNoteInput = {
+      title: els.webmcpTitleInput.value,
+      body: els.webmcpBodyInput.value,
+      tag: els.webmcpTagInput.value,
+    };
+
+    const resultPromise = actions.createNoteFromTool(input).then((result) => {
+      if (result.ok) {
+        els.webmcpNoteForm.reset();
+      }
+      return result;
+    });
+
+    if (typeof submitEvent.respondWith === "function") {
+      submitEvent.respondWith(resultPromise);
+      return;
+    }
+
+    resultPromise.catch((error: unknown) => {
+      actions.showToast(`WebMCP note creation failed: ${String(error)}`, { persist: true });
+    });
   });
 
   els.editor.addEventListener("input", () => {
