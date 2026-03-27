@@ -101,14 +101,14 @@ describe("ink authoring flow", () => {
   });
 
   it("selects workspace, creates a new file, edits markdown, and saves", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
     cy.get("#workspaceName").should("contain", workspaceName);
 
-    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
     cy.get("#currentFilename").should("contain", fileName);
 
     cy.get("#editor").clear().type(markdown);
-    cy.get('[data-action="save"]').click({ force: true });
+    cy.get("[data-action=\"save\"]").click({ force: true });
     cy.get("#statusBadge").should("contain", "Saved");
 
     cy.window().then(async (win) => {
@@ -118,8 +118,8 @@ describe("ink authoring flow", () => {
   });
 
   it("renders markdown preview when editing a note", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
 
     cy.get("#editor").clear().type("# Hello World\n\nThis is a paragraph.");
 

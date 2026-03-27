@@ -135,35 +135,35 @@ describe("removed toolbar buttons verification", () => {
   describe("6. Cypress integration tests for menu and keyboard shortcuts", () => {
     it("6.1 Save button is absent from the editor header but save menu item exists", () => {
       cy.get("#saveBtn").should("not.exist");
-      cy.get('[data-action="save"]').should("exist");
-      cy.get('[data-action="save"]').contains("Save");
+      cy.get("[data-action=\"save\"]").should("exist");
+      cy.get("[data-action=\"save\"]").contains("Save");
     });
 
     it("6.2 Menu items for New Note and Open Workspace exist", () => {
-      cy.get('[data-action="new-note"]').should("exist");
-      cy.get('[data-action="new-note"]').contains("New Note");
-      cy.get('[data-action="open-workspace"]').should("exist");
-      cy.get('[data-action="open-workspace"]').contains("Open Workspace");
+      cy.get("[data-action=\"new-note\"]").should("exist");
+      cy.get("[data-action=\"new-note\"]").contains("New Note");
+      cy.get("[data-action=\"open-workspace\"]").should("exist");
+      cy.get("[data-action=\"open-workspace\"]").contains("Open Workspace");
     });
 
     it("6.3 Export menu items exist", () => {
-      cy.get('[data-action="export-json"]').should("exist");
-      cy.get('[data-action="export-json"]').contains("Export JSON");
-      cy.get('[data-action="export-markdown"]').should("exist");
-      cy.get('[data-action="export-markdown"]').contains("Export Markdown");
+      cy.get("[data-action=\"export-json\"]").should("exist");
+      cy.get("[data-action=\"export-json\"]").contains("Export JSON");
+      cy.get("[data-action=\"export-markdown\"]").should("exist");
+      cy.get("[data-action=\"export-markdown\"]").contains("Export Markdown");
     });
 
     it("6.4 Keyboard shortcut hints are shown in menu items", () => {
-      cy.get('[data-action="save"]').should("exist");
-      cy.get('[data-action="new-note"]').should("exist");
-      cy.get('[data-action="open-workspace"]').should("exist");
+      cy.get("[data-action=\"save\"]").should("exist");
+      cy.get("[data-action=\"new-note\"]").should("exist");
+      cy.get("[data-action=\"open-workspace\"]").should("exist");
     });
 
     it("6.5 Status badge and dirty dot are in the correct location after button removal", () => {
       cy.get("#editor").should("exist");
       cy.get("#dirtyDot").should("exist");
       cy.get("#statusBadge").should("exist");
-      
+
       cy.get("#dirtyDot").parent().within(() => {
         cy.get("#statusBadge").should("exist");
       });

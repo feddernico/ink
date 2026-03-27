@@ -123,15 +123,15 @@ describe("workspace actions regression", () => {
   });
 
   it("save as creates a new file with the saved content", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
     cy.get("#workspaceName").should("contain", workspaceName);
 
-    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
     cy.get("#editor").clear().type(markdown);
-    cy.get('[data-action="save"]').click({ force: true });
+    cy.get("[data-action=\"save\"]").click({ force: true });
     cy.get("#statusBadge").should("contain", "Saved");
 
-    cy.get('[data-action="save-as"]').click({ force: true });
+    cy.get("[data-action=\"save-as\"]").click({ force: true });
     cy.get("#statusBadge").should("contain", "Saved as");
     cy.get("#currentFilename").should("contain", `${saveAsName}.md`);
 
@@ -142,7 +142,7 @@ describe("workspace actions regression", () => {
   });
 
   it("refresh button rescans workspace and updates status", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
     cy.get("#workspaceName").should("contain", workspaceName);
 
     cy.get("body").click("topLeft");
@@ -151,10 +151,10 @@ describe("workspace actions regression", () => {
   });
 
   it("close workspace resets UI state", () => {
-    cy.get('[data-action="open-workspace"]').click({ force: true });
-    cy.get('[data-action="new-note"]').click({ force: true });
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
 
-    cy.get('[data-action="close-workspace"]').click({ force: true });
+    cy.get("[data-action=\"close-workspace\"]").click({ force: true });
     cy.get("#workspaceName").should("contain", "No folder selected");
     cy.get("#tree").should("contain", "Open a folder to begin.");
     cy.get("#currentFilename").should("contain", "No note open");
@@ -163,11 +163,11 @@ describe("workspace actions regression", () => {
 
   it("sort toggle updates labels", () => {
     cy.get("#sortBtn").should("contain", "Sort: Name");
-    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Name");
+    cy.get("[data-action=\"sort\"] .menu-label").should("contain", "Sort: Name");
 
     cy.get("#sortBtn").click();
     cy.get("#sortBtn").should("contain", "Sort: Last modified");
-    cy.get('[data-action="sort"] .menu-label').should("contain", "Sort: Modified");
+    cy.get("[data-action=\"sort\"] .menu-label").should("contain", "Sort: Modified");
   });
 
   it("keyboard shortcuts trigger key workspace actions", () => {

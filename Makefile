@@ -1,13 +1,18 @@
-.PHONY: help build watch test test-qunit test-cypress update-repomix
+.PHONY: help lint build watch test test-qunit test-cypress update-repomix
 
 help:
 	@echo "Available targets:"
+	@echo "  lint           - Run ESLint"
 	@echo "  build          - Build the project"
 	@echo "  watch          - Watch for changes and rebuild"
 	@echo "  test           - Run all tests (QUnit and Cypress)"
 	@echo "  test-qunit     - Run QUnit tests"
 	@echo "  test-cypress   - Run Cypress tests"
 	@echo "  repomix        - Update repomix to the latest version"
+
+lint:
+	@echo "Running ESLint..."
+	npm run lint
 
 build:
 	@echo "Building the project..."
