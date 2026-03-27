@@ -42,7 +42,7 @@ export interface InMemoryNoteRecord {
   tags: Set<string>;
 }
 
-xport interface DeclarativeNoteInput {
+export interface DeclarativeNoteInput {
   title: string;
   body: string;
   tag: string;
