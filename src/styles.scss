@@ -328,10 +328,12 @@
     .icon{
       width: 16px;
       height: 16px;
-      display: inline-grid;
-      place-items: center;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+      color: inherit;
+      pointer-events: none;
       opacity: .85;
-      flex: 0 0 auto;
     }
 
     .node .name{

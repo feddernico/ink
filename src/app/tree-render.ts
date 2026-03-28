@@ -1,4 +1,5 @@
 import { escapeHtml } from "./utils";
+import { icon } from "./icons";
 import type {
   AppState,
   DomRefs,
@@ -179,7 +180,7 @@ export function createTreeRenderer({
       const isCollapsed = state.collapsedDirs.has(node.relPath);
       row.innerHTML = `
         <span class="icon">${isCollapsed ? "▶" : "▼"}</span>
-        <span class="icon">${isCollapsed ? "📁" : "📂"}</span>
+        <span>${isCollapsed ? icon.folder() : icon.folderOpen()}</span>
         <span class="name">${escapeHtml(node.name)}</span>
       `;
 
@@ -216,7 +217,7 @@ export function createTreeRenderer({
         : "";
 
     row.innerHTML = `
-      <span class="icon">📝</span>
+      <span>${icon.fileText()}</span>
       <span class="name" title="${escapeHtml(node.noteRef.relPath)}">${escapeHtml(node.noteRef.name)}</span>
       <span class="meta">${escapeHtml(meta)}</span>
     `;
@@ -259,7 +260,7 @@ export function createTreeRenderer({
     const meta = state.sortMode === "modified" ? new Date(note.lastModified).toLocaleDateString() : "";
 
     row.innerHTML = `
-      <span class="icon">📝</span>
+      <span>${icon.fileText()}</span>
       <span class="name" title="${escapeHtml(note.relPath)}">${escapeHtml(note.name)}</span>
       <span class="meta">${escapeHtml(meta)}</span>
     `;

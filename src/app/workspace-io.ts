@@ -1,3 +1,4 @@
+import { icon } from "./icons";
 import type {
   AppState,
   DirectoryHandleLike,
@@ -283,7 +284,7 @@ export function createWorkspaceActions({
       els.editor.value = text;
       renderPreview(els, text);
       updateDirtyUi(els, state, setStatus);
-      setStatus("Opened ✓", "ok");
+      setStatus(`${icon.check()} Opened`, "ok");
 
       await renderTree();
     } catch (error) {
@@ -311,8 +312,8 @@ export function createWorkspaceActions({
       state.isDirty = false;
       updateDirtyUi(els, state, setStatus);
 
-      setStatus("Saved ✓", "ok");
-      showToast("Saved ✓");
+      setStatus(`${icon.check()} Saved`, "ok");
+      showToast(`${icon.check()} Saved`);
 
       await rescanWorkspace({ silent: true });
     } catch (error) {
@@ -369,7 +370,7 @@ export function createWorkspaceActions({
       await rescanWorkspace({ silent: true });
       await openNoteByRelPath(fileName, fileHandle);
 
-      showToast("New note created ✓");
+      showToast(`${icon.check()} New note created`);
       setStatus("New note", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -422,7 +423,7 @@ export function createWorkspaceActions({
       await rescanWorkspace({ silent: true });
       await openNoteByRelPath(fileName, fileHandle);
 
-      showToast(`Saved as ${fileName} ✓`);
+      showToast(`${icon.check()} Saved as ${fileName}`);
       setStatus("Saved as", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -449,7 +450,7 @@ export function createWorkspaceActions({
     try {
       await parentHandle.getDirectoryHandle(folderName, { create: true });
       await rescanWorkspace({ silent: true });
-      showToast("Folder created ✓");
+      showToast(`${icon.check()} Folder created`);
       setStatus("Folder created", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
