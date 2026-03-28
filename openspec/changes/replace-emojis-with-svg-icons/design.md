@@ -39,13 +39,13 @@ Additionally, the `✓` character is used in status bar messages and toast notif
 
 **Mapping**:
 
-| Emoji | Lucide icon name | SVG element |
-|---|---|---|
-| 📁 | `folder` | `<svg>` with folder closed path |
-| 📂 | `folder-open` | `<svg>` with folder open path |
-| 📝 | `file-text` | `<svg>` with lined document path |
-| 🗂️ | `folder-open` | Same as expanded folder (contextually correct for "open workspace") |
-| ✓  | `check` | Small inline check SVG, or replaced by a CSS `::before` pseudo-element on `.status-ok` |
+| Emoji | Lucide icon name | SVG element | Rationale |
+|---|---|---|---|
+| 📁 | `folder` | `<svg>` with folder closed path | Standard closed folder |
+| 📂 | `folder-open` | `<svg>` with folder open path | Standard open folder |
+| 📝 | `file-text` | `<svg>` with lined document path | Markdown file / note |
+| 🗂️ | `library` | `<svg>` with stacked books path | A workspace is a *collection* of folders and notes, not a single folder; `library` communicates organised multi-item structure |
+| ✓  | `check` | Small inline check SVG, or replaced by a CSS `::before` pseudo-element on `.status-ok` | Success indicator |
 
 **Alternatives considered**:
 - Heroicons: Similar quality but slightly heavier paths; rejected in favour of Lucide's tighter output
@@ -125,7 +125,7 @@ export const icon = {
 2. Build and visually verify the file tree.
 
 ### Phase 3: Template Icon
-1. Replace the 🗂️ emoji in `ink.template.html` with the inline Lucide `folder-open` SVG.
+1. Replace the 🗂️ emoji in `ink.template.html` with the inline Lucide `library` SVG — chosen over `folder-open` to distinguish "workspace" (a collection of folders and notes) from a single folder.
 
 ### Phase 4: Status / Toast Checkmark
 1. Update `workspace-io.ts` status and toast strings to use `icon.check()` prepended to message text.

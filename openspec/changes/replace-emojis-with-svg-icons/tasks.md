@@ -7,8 +7,9 @@
 - [ ] 1.1.2 Add `folder` icon (Lucide `folder` — closed folder path)
 - [ ] 1.1.3 Add `folderOpen` icon (Lucide `folder-open` — open folder path)
 - [ ] 1.1.4 Add `fileText` icon (Lucide `file-text` — lined document path)
-- [ ] 1.1.5 Add `check` icon (Lucide `check` — simple checkmark path)
-- [ ] 1.1.6 All SVG elements include `aria-hidden="true"`, `stroke="currentColor"`, `class="icon"`, and `width`/`height` attributes
+- [ ] 1.1.5 Add `library` icon (Lucide `library` — stacked books path; used for "Open Workspace" to convey a collection of folders and notes)
+- [ ] 1.1.6 Add `check` icon (Lucide `check` — simple checkmark path)
+- [ ] 1.1.7 All SVG elements include `aria-hidden="true"`, `stroke="currentColor"`, `class="icon"`, and `width`/`height` attributes
 
 ### 1.2 SCSS Utility
 - [ ] 1.2.1 Add `.icon` utility class to `src/styles.scss` (`display: inline-block`, `vertical-align: middle`, `flex-shrink: 0`, `pointer-events: none`, `color: inherit`)
@@ -23,7 +24,7 @@
 
 ## 3. Sidebar Template Icon (`ink.template.html`)
 
-- [ ] 3.1 Replace the `🗂️` emoji inside the Open Workspace `<span class="icon">` with the inline Lucide `folder-open` SVG markup
+- [ ] 3.1 Replace the `🗂️` emoji inside the Open Workspace `<span class="icon">` with the inline Lucide `library` SVG markup (conveys a collection of folders and notes, distinct from the file-tree folder icons)
 - [ ] 3.2 Verify the button layout and hover state are unaffected
 
 ## 4. Status & Toast Checkmark (`src/app/workspace-io.ts`)
