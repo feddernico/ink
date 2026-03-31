@@ -328,10 +328,12 @@
     .icon{
       width: 16px;
       height: 16px;
-      display: inline-grid;
-      place-items: center;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+      color: inherit;
+      pointer-events: none;
       opacity: .85;
-      flex: 0 0 auto;
     }
 
     .node .name{
@@ -556,6 +558,9 @@
     }
 
     .menu-text{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text);
@@ -615,8 +620,15 @@
     }
 
     .menu-label{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       font-size: 13px;
       color: var(--text);
+    }
+
+    .menu-label-text{
+      min-width: 0;
     }
 
     .menu-shortcut{
