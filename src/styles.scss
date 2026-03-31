@@ -558,6 +558,9 @@
     }
 
     .menu-text{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text);
@@ -617,8 +620,15 @@
     }
 
     .menu-label{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       font-size: 13px;
       color: var(--text);
+    }
+
+    .menu-label-text{
+      min-width: 0;
     }
 
     .menu-shortcut{
