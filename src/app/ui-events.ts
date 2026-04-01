@@ -14,6 +14,9 @@ export type UiActions = {
   openWorkspace: () => Promise<void>;
   exportAsJson: () => void;
   exportAsMarkdown: () => void;
+  toggleCogitoPanel: () => void;
+  generateCogitoQuestions: () => Promise<void>;
+  insertCogitoQuestion: (index: number) => void;
   hideToast: () => void;
   showToast: ToastFn;
 };
@@ -74,6 +77,33 @@ export function attachUiEvents({
 
   els.toastCloseBtn.addEventListener("click", () => {
     actions.hideToast();
+  });
+
+  els.cogitoToggleBtn.addEventListener("click", () => {
+    actions.toggleCogitoPanel();
+  });
+
+  els.cogitoGenerateBtn.addEventListener("click", () => {
+    actions.generateCogitoQuestions().catch((error: unknown) => {
+      actions.showToast(`Cogito generation failed: ${String(error)}`, { persist: true });
+    });
+  });
+
+  els.cogitoQuestionList.addEventListener("click", (event: Event) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+    const insertButton = target.closest("[data-question-index]");
+    if (!insertButton) {
+      return;
+    }
+    const indexText = insertButton.getAttribute("data-question-index");
+    const index = Number(indexText);
+    if (Number.isNaN(index)) {
+      return;
+    }
+    actions.insertCogitoQuestion(index);
   });
 
   window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {

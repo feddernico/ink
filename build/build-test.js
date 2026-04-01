@@ -18,6 +18,10 @@ const bundles = [
     entryPoints: ["src/app/utils.ts"],
     outfile: "dist/test/utils.js",
   },
+  {
+    entryPoints: ["src/app/cogito.ts"],
+    outfile: "dist/test/cogito.js",
+  },
 ];
 
 function ensureTestDist() {

@@ -15,3 +15,4 @@
 - Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 - Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
 - Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
+- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.

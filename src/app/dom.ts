@@ -30,5 +30,10 @@ export function getDomRefs(): DomRefs {
     toastMsg: requiredElement<HTMLElement>("toastMsg"),
     toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
     temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
+    cogitoToggleBtn: requiredElement<HTMLButtonElement>("cogitoToggleBtn"),
+    cogitoPanel: requiredElement<HTMLElement>("cogitoPanel"),
+    cogitoGenerateBtn: requiredElement<HTMLButtonElement>("cogitoGenerateBtn"),
+    cogitoStatus: requiredElement<HTMLElement>("cogitoStatus"),
+    cogitoQuestionList: requiredElement<HTMLElement>("cogitoQuestionList"),
   };
 }

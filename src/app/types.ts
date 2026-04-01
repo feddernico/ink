@@ -77,6 +77,7 @@ export interface AppState {
   autoRefreshTimer: ReturnType<typeof setInterval> | null;
   isSidebarCollapsed: boolean;
   isTemporarySession: boolean;
+  isCogitoModeEnabled: boolean;
 }
 
 export interface DomRefs {
@@ -100,6 +101,11 @@ export interface DomRefs {
   toastMsg: HTMLElement;
   toastCloseBtn: HTMLButtonElement;
   temporarySessionBadge: HTMLElement;
+  cogitoToggleBtn: HTMLButtonElement;
+  cogitoPanel: HTMLElement;
+  cogitoGenerateBtn: HTMLButtonElement;
+  cogitoStatus: HTMLElement;
+  cogitoQuestionList: HTMLElement;
 }
 
 declare global {

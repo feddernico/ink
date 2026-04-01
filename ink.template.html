@@ -179,6 +179,20 @@
           </li>
         </ul>
       </div>
+
+      <div class="menubar-spacer" aria-hidden="true"></div>
+      <button
+        id="cogitoToggleBtn"
+        class="menu-action-btn ghost"
+        type="button"
+        title="Toggle Cogito Mode"
+        aria-label="Toggle Cogito Mode"
+        aria-expanded="false"
+        aria-controls="cogitoPanel"
+      >
+        <span class="glyphicon glyphicon-education" aria-hidden="true"></span>
+        <span class="menu-action-label">Cogito</span>
+      </button>
     </nav>
 
     <!-- Sidebar -->
@@ -249,6 +263,14 @@
         <div class="previewPane" aria-label="Markdown preview">
           <div class="preview" id="preview"></div>
         </div>
+        <aside id="cogitoPanel" class="cogitoPanel" aria-label="Cogito Mode panel" hidden>
+          <header class="cogitoHeader">
+            <strong>Cogito Mode</strong>
+            <button id="cogitoGenerateBtn" class="ghost" type="button" title="Generate 3 questions">Generate</button>
+          </header>
+          <p id="cogitoStatus" class="small">Enable Cogito Mode and generate questions from your last sentence.</p>
+          <ul id="cogitoQuestionList" class="cogitoQuestionList" aria-label="Cogito questions"></ul>
+        </aside>
       </section>
     </main>
   </div>
