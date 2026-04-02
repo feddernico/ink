@@ -226,6 +226,7 @@ tests/
     utils.test.js
 .gitignore
 .nycrc
+.release-please-manifest.json
 .replit
 AGENTS.md
 babel.config.json
@@ -241,11 +242,101 @@ Makefile
 opencode.json
 package.json
 README.md
+release-please-config.json
 replit.md
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path=".release-please-manifest.json">
+{
+  ".": "1.1.4"
+}
+</file>
+
+<file path="release-please-config.json">
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-v-in-tag": true,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "ink"
+    }
+  }
+}
+</file>
+
+<file path=".githooks/pre-commit">
+#!/bin/sh
+# Pre-commit hook to run lint and update repomix output
+
+echo "Running ESLint..."
+npm run lint || exit 1
+
+echo "Running repomix..."
+npx repomix@latest
+
+# Add the repomix output
+git add repomix-output.xml
+</file>
+
+<file path="assets/branding/favicon.svg">
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
+
+  <!-- Ink drop -->
+  <path
+    d="M300 150
+       C330 200 360 260 330 320
+       C300 380 240 380 210 320
+       C180 260 240 200 270 170
+       C285 155 300 150 300 150 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Stylized text -->
+  <text x="300" y="460"
+        text-anchor="middle"
+        font-family="Inter, sans-serif"
+        font-size="100"
+        font-weight="700"
+        fill="#ffffff"
+        letter-spacing="-5">
+    ink
+  </text>
+</svg>
+</file>
+
+<file path="assets/branding/logo.svg">
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
+
+  <!-- Ink drop -->
+  <path
+    d="M300 150
+       C330 200 360 260 330 320
+       C300 380 240 380 210 320
+       C180 260 240 200 270 170
+       C285 155 300 150 300 150 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Stylized text -->
+  <text x="300" y="460"
+        text-anchor="middle"
+        font-family="Inter, sans-serif"
+        font-size="100"
+        font-weight="700"
+        fill="#ffffff"
+        letter-spacing="-5">
+    ink
+  </text>
+</svg>
+</file>
 
 <file path="cypress/e2e/cogito-mode.cy.js">
 function createFakeFileHandle(name, initialContent = "") {
@@ -417,76 +508,6 @@ describe("cogito mode", () => {
     cy.get("#editor").should("have.value", `${markdown}> ### AI\nWhat problem does local-first editing solve here?\n`);
   });
 });
-</file>
-
-<file path=".githooks/pre-commit">
-#!/bin/sh
-# Pre-commit hook to run lint and update repomix output
-
-echo "Running ESLint..."
-npm run lint || exit 1
-
-echo "Running repomix..."
-npx repomix@latest
-
-# Add the repomix output
-git add repomix-output.xml
-</file>
-
-<file path="assets/branding/favicon.svg">
-<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
-
-  <!-- Ink drop -->
-  <path
-    d="M300 150
-       C330 200 360 260 330 320
-       C300 380 240 380 210 320
-       C180 260 240 200 270 170
-       C285 155 300 150 300 150 Z"
-    fill="#ffffff"
-  />
-
-  <!-- Stylized text -->
-  <text x="300" y="460"
-        text-anchor="middle"
-        font-family="Inter, sans-serif"
-        font-size="100"
-        font-weight="700"
-        fill="#ffffff"
-        letter-spacing="-5">
-    ink
-  </text>
-</svg>
-</file>
-
-<file path="assets/branding/logo.svg">
-<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
-
-  <!-- Ink drop -->
-  <path
-    d="M300 150
-       C330 200 360 260 330 320
-       C300 380 240 380 210 320
-       C180 260 240 200 270 170
-       C285 155 300 150 300 150 Z"
-    fill="#ffffff"
-  />
-
-  <!-- Stylized text -->
-  <text x="300" y="460"
-        text-anchor="middle"
-        font-family="Inter, sans-serif"
-        font-size="100"
-        font-weight="700"
-        fill="#ffffff"
-        letter-spacing="-5">
-    ink
-  </text>
-</svg>
 </file>
 
 <file path="cypress/tsconfig.json">
@@ -5839,6 +5860,15 @@ Feature ideas are welcome. Open an issue describing the problem you want to solv
 - Use the imperative mood, such as `Update workspace refresh flow`.
 - Limit the first line to 72 characters or less when possible.
 - Reference related issues or pull requests after the first line when relevant.
+- Prefer Conventional Commit prefixes so release automation can classify changes:
+  `fix:` for patch releases, `feat:` for minor releases, and `feat!:` or a `BREAKING CHANGE:` footer for major releases.
+- If you need to force a specific next version, add a `Release-As: x.y.z` footer to the merged commit body or release PR description.
+
+## Release Process
+
+- Releases are prepared with `release-please`, which opens a release PR that updates `package.json`, `package-lock.json`, and the changelog.
+- Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
+- If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
 
 ## Style Guide
 
@@ -7175,295 +7205,6 @@ No data or logic is affected.
 - [ ] 5.7 Verify no layout regressions in sidebar, file tree, or status bar on a standard viewport
 </file>
 
-<file path="src/app/cogito.ts">
-import type { DomRefs } from "./types";
-
-export const COGITO_PROMPT = `You are a writing coach.
-
-Rules:
-- Do NOT write prose.
-- Do NOT suggest sentences.
-- Ask exactly 3 questions.
-- Questions must be grounded in the user's last sentence.
-- Output JSON only in this format:
-{
-  "questions": ["...", "...", "..."]
-}`;
-
-export const LITE_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
-export const DEEP_MODEL = "Qwen3-8B-q4f16_1-MLC";
-
-export type CogitoModel = "lite" | "deep";
-
-type ChatEngine = {
-  chat: {
-    completions: {
-      create: (payload: {
-        messages: Array<{ role: "system" | "user"; content: string }>;
-        temperature?: number;
-      }) => Promise<{ choices?: Array<{ message?: { content?: unknown } }> }>;
-    };
-  };
-};
-
-type WebLlmModule = {
-  CreateMLCEngine: (
-    modelId: string,
-    options?: {
-      initProgressCallback?: (progress: { text?: string }) => void;
-    },
-  ) => Promise<ChatEngine>;
-};
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-
-type SetStatusFn = (message: string, kind?: "ok" | "warn" | "err") => void;
-
-type CogitoController = {
-  togglePanel: () => void;
-  selectModel: (model: CogitoModel) => void;
-  generateQuestions: () => Promise<void>;
-  insertQuestionAtIndex: (index: number) => void;
-};
-
-export function extractLastSentence(text: string): string {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) {
-    return "";
-  }
-
-  const fragments = normalized
-    .split(/(?<=[.!?])\s+/)
-    .map((fragment) => fragment.trim())
-    .filter(Boolean);
-
-  if (fragments.length === 0) {
-    return "";
-  }
-
-  return fragments[fragments.length - 1];
-}
-
-export function parseCogitoQuestionPayload(raw: string): string[] {
-  const jsonText = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```\s*$/, "")
-    .trim();
-  const parsed = JSON.parse(jsonText) as { questions?: unknown };
-
-  if (!parsed || !Array.isArray(parsed.questions)) {
-    throw new Error("Cogito response did not include a questions array.");
-  }
-
-  const sanitized = parsed.questions
-    .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
-    .map((q) => q.trim());
-
-  if (sanitized.length === 0) {
-    throw new Error("Cogito response contained no valid questions.");
-  }
-
-  if (sanitized.length !== 3) {
-    throw new Error("Cogito response must contain exactly 3 questions.");
-  }
-
-  return sanitized;
-}
-
-export function formatCogitoQuestionBlock(question: string): string {
-  return `> ### AI\n${question.trim()}\n`;
-}
-
-export function insertTextAtCursor(textarea: HTMLTextAreaElement, text: string): void {
-  const { selectionStart, selectionEnd, value } = textarea;
-  const before = value.slice(0, selectionStart);
-  const after = value.slice(selectionEnd);
-  textarea.value = `${before}${text}${after}`;
-  const nextCursor = before.length + text.length;
-  textarea.setSelectionRange(nextCursor, nextCursor);
-}
-
-export function createCogitoController({
-  els,
-  getEditorText,
-  onEditorContentReplaced,
-  showToast,
-  setStatus,
-}: {
-  els: DomRefs;
-  getEditorText: () => string;
-  onEditorContentReplaced: (text: string) => void;
-  showToast: ToastFn;
-  setStatus: SetStatusFn;
-}): CogitoController {
-  let isPanelOpen = false;
-  let generatedQuestions: string[] = [];
-  let selectedModel: CogitoModel = "lite";
-  const engineCache: Partial<Record<CogitoModel, Promise<ChatEngine>>> = {};
-
-  async function loadWebLlmModule(): Promise<WebLlmModule> {
-    const testModule = (
-      globalThis as typeof globalThis & {
-        __INK_TEST_WEBLLM__?: WebLlmModule;
-      }
-    ).__INK_TEST_WEBLLM__;
-
-    if (testModule) {
-      return testModule;
-    }
-
-    return import("https://esm.run/@mlc-ai/web-llm") as Promise<WebLlmModule>;
-  }
-
-  function selectModel(model: CogitoModel): void {
-    selectedModel = model;
-    els.cogitoLiteBtn.classList.toggle("active", model === "lite");
-    els.cogitoDeepBtn.classList.toggle("active", model === "deep");
-  }
-
-  function setPanelVisibility(isOpen: boolean): void {
-    isPanelOpen = isOpen;
-    els.cogitoPanel.hidden = !isOpen;
-    els.cogitoToggleBtn.setAttribute("aria-expanded", String(isOpen));
-    const split = els.cogitoPanel.closest(".split");
-    if (split) {
-      split.classList.toggle("with-cogito", isOpen);
-    }
-  }
-
-  function updateQuestionList(questions: string[]): void {
-    els.cogitoQuestionList.innerHTML = "";
-    questions.forEach((question, index) => {
-      const item = document.createElement("li");
-      item.className = "cogitoQuestionItem";
-
-      const text = document.createElement("p");
-      text.className = "cogitoQuestionText";
-      text.textContent = question;
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "ghost cogitoInsertBtn";
-      button.dataset.questionIndex = String(index);
-      button.textContent = "Insert";
-      button.title = "Insert question into markdown";
-
-      item.append(text, button);
-      els.cogitoQuestionList.appendChild(item);
-    });
-  }
-
-  function setCogitoStatus(text: string): void {
-    els.cogitoStatus.textContent = text;
-  }
-
-  async function getOrCreateEngine(): Promise<ChatEngine> {
-    const modelId = selectedModel === "deep" ? DEEP_MODEL : LITE_MODEL;
-
-    if (engineCache[selectedModel]) {
-      return engineCache[selectedModel]!;
-    }
-
-    engineCache[selectedModel] = (async () => {
-      setCogitoStatus(`Loading ${selectedModel === "deep" ? "Deep (Qwen3 8B)" : "Lite (Llama 1B)"} model...`);
-      const webllm = await loadWebLlmModule();
-      const engine = await webllm.CreateMLCEngine(modelId, {
-        initProgressCallback: (progress: { text?: string }) => {
-          if (progress?.text) {
-            setCogitoStatus(progress.text);
-          }
-        },
-      });
-      return engine as ChatEngine;
-    })().catch((error: unknown) => {
-      delete engineCache[selectedModel];
-      throw error;
-    });
-
-    return engineCache[selectedModel]!;
-  }
-
-  async function generateQuestions(): Promise<void> {
-    const lastSentence = extractLastSentence(getEditorText());
-    if (!lastSentence) {
-      setCogitoStatus("Write at least one sentence first, then generate Cogito questions.");
-      setStatus("Cogito needs a sentence", "warn");
-      return;
-    }
-
-    try {
-      els.cogitoGenerateBtn.disabled = true;
-      setCogitoStatus("Generating 3 questions...");
-
-      const engine = await getOrCreateEngine();
-      const completion = await engine.chat.completions.create({
-        messages: [
-          { role: "system", content: COGITO_PROMPT },
-          { role: "user", content: `Last sentence: ${lastSentence}` },
-        ],
-        temperature: 0.2,
-      });
-
-      const rawContent = completion.choices?.[0]?.message?.content;
-      const textContent = Array.isArray(rawContent)
-        ? rawContent
-            .map((chunk) => (typeof chunk === "string" ? chunk : ""))
-            .join("")
-            .trim()
-        : typeof rawContent === "string"
-          ? rawContent.trim()
-          : "";
-
-      if (!textContent) {
-        throw new Error("Cogito returned an empty response.");
-      }
-
-      generatedQuestions = parseCogitoQuestionPayload(textContent);
-      updateQuestionList(generatedQuestions);
-      setCogitoStatus("Questions ready. Insert one into your markdown when useful.");
-      setStatus("Cogito questions ready", "ok");
-    } catch (error: unknown) {
-      generatedQuestions = [];
-      updateQuestionList(generatedQuestions);
-      const message = error instanceof Error ? error.message : String(error);
-      setCogitoStatus(`Cogito error: ${message}`);
-      setStatus("Cogito unavailable", "warn");
-      showToast(`Cogito failed: ${message}`, { persist: true });
-    } finally {
-      els.cogitoGenerateBtn.disabled = false;
-    }
-  }
-
-  function insertQuestionAtIndex(index: number): void {
-    const question = generatedQuestions[index];
-    if (!question) {
-      showToast("Cogito question not found.", { persist: true });
-      return;
-    }
-
-    const block = formatCogitoQuestionBlock(question);
-    insertTextAtCursor(els.editor, block);
-    onEditorContentReplaced(els.editor.value);
-    setStatus("Inserted AI question", "ok");
-  }
-
-  setPanelVisibility(false);
-
-  return {
-    togglePanel: () => {
-      setPanelVisibility(!isPanelOpen);
-      if (isPanelOpen) {
-        setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
-      }
-    },
-    selectModel,
-    generateQuestions,
-    insertQuestionAtIndex,
-  };
-}
-</file>
-
 <file path="src/app/fs-api.ts">
 import type { PermissionCapableHandle } from "./types";
 
@@ -8442,6 +8183,295 @@ export function createAppController(els: DomRefs) {
 }
 </file>
 
+<file path="src/app/cogito.ts">
+import type { DomRefs } from "./types";
+
+export const COGITO_PROMPT = `You are a writing coach.
+
+Rules:
+- Do NOT write prose.
+- Do NOT suggest sentences.
+- Ask exactly 3 questions.
+- Questions must be grounded in the user's last sentence.
+- Output JSON only in this format:
+{
+  "questions": ["...", "...", "..."]
+}`;
+
+export const LITE_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+export const DEEP_MODEL = "Qwen3-8B-q4f16_1-MLC";
+
+export type CogitoModel = "lite" | "deep";
+
+type ChatEngine = {
+  chat: {
+    completions: {
+      create: (payload: {
+        messages: Array<{ role: "system" | "user"; content: string }>;
+        temperature?: number;
+      }) => Promise<{ choices?: Array<{ message?: { content?: unknown } }> }>;
+    };
+  };
+};
+
+type WebLlmModule = {
+  CreateMLCEngine: (
+    modelId: string,
+    options?: {
+      initProgressCallback?: (progress: { text?: string }) => void;
+    },
+  ) => Promise<ChatEngine>;
+};
+
+type ToastFn = (message: string, options?: { persist?: boolean }) => void;
+
+type SetStatusFn = (message: string, kind?: "ok" | "warn" | "err") => void;
+
+type CogitoController = {
+  togglePanel: () => void;
+  selectModel: (model: CogitoModel) => void;
+  generateQuestions: () => Promise<void>;
+  insertQuestionAtIndex: (index: number) => void;
+};
+
+export function extractLastSentence(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const fragments = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((fragment) => fragment.trim())
+    .filter(Boolean);
+
+  if (fragments.length === 0) {
+    return "";
+  }
+
+  return fragments[fragments.length - 1];
+}
+
+export function parseCogitoQuestionPayload(raw: string): string[] {
+  const jsonText = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
+  const parsed = JSON.parse(jsonText) as { questions?: unknown };
+
+  if (!parsed || !Array.isArray(parsed.questions)) {
+    throw new Error("Cogito response did not include a questions array.");
+  }
+
+  const sanitized = parsed.questions
+    .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+    .map((q) => q.trim());
+
+  if (sanitized.length === 0) {
+    throw new Error("Cogito response contained no valid questions.");
+  }
+
+  if (sanitized.length !== 3) {
+    throw new Error("Cogito response must contain exactly 3 questions.");
+  }
+
+  return sanitized;
+}
+
+export function formatCogitoQuestionBlock(question: string): string {
+  return `> ### AI\n${question.trim()}\n`;
+}
+
+export function insertTextAtCursor(textarea: HTMLTextAreaElement, text: string): void {
+  const { selectionStart, selectionEnd, value } = textarea;
+  const before = value.slice(0, selectionStart);
+  const after = value.slice(selectionEnd);
+  textarea.value = `${before}${text}${after}`;
+  const nextCursor = before.length + text.length;
+  textarea.setSelectionRange(nextCursor, nextCursor);
+}
+
+export function createCogitoController({
+  els,
+  getEditorText,
+  onEditorContentReplaced,
+  showToast,
+  setStatus,
+}: {
+  els: DomRefs;
+  getEditorText: () => string;
+  onEditorContentReplaced: (text: string) => void;
+  showToast: ToastFn;
+  setStatus: SetStatusFn;
+}): CogitoController {
+  let isPanelOpen = false;
+  let generatedQuestions: string[] = [];
+  let selectedModel: CogitoModel = "lite";
+  const engineCache: Partial<Record<CogitoModel, Promise<ChatEngine>>> = {};
+
+  async function loadWebLlmModule(): Promise<WebLlmModule> {
+    const testModule = (
+      globalThis as typeof globalThis & {
+        __INK_TEST_WEBLLM__?: WebLlmModule;
+      }
+    ).__INK_TEST_WEBLLM__;
+
+    if (testModule) {
+      return testModule;
+    }
+
+    return import("https://esm.run/@mlc-ai/web-llm") as Promise<WebLlmModule>;
+  }
+
+  function selectModel(model: CogitoModel): void {
+    selectedModel = model;
+    els.cogitoLiteBtn.classList.toggle("active", model === "lite");
+    els.cogitoDeepBtn.classList.toggle("active", model === "deep");
+  }
+
+  function setPanelVisibility(isOpen: boolean): void {
+    isPanelOpen = isOpen;
+    els.cogitoPanel.hidden = !isOpen;
+    els.cogitoToggleBtn.setAttribute("aria-expanded", String(isOpen));
+    const split = els.cogitoPanel.closest(".split");
+    if (split) {
+      split.classList.toggle("with-cogito", isOpen);
+    }
+  }
+
+  function updateQuestionList(questions: string[]): void {
+    els.cogitoQuestionList.innerHTML = "";
+    questions.forEach((question, index) => {
+      const item = document.createElement("li");
+      item.className = "cogitoQuestionItem";
+
+      const text = document.createElement("p");
+      text.className = "cogitoQuestionText";
+      text.textContent = question;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost cogitoInsertBtn";
+      button.dataset.questionIndex = String(index);
+      button.textContent = "Insert";
+      button.title = "Insert question into markdown";
+
+      item.append(text, button);
+      els.cogitoQuestionList.appendChild(item);
+    });
+  }
+
+  function setCogitoStatus(text: string): void {
+    els.cogitoStatus.textContent = text;
+  }
+
+  async function getOrCreateEngine(): Promise<ChatEngine> {
+    const modelId = selectedModel === "deep" ? DEEP_MODEL : LITE_MODEL;
+
+    if (engineCache[selectedModel]) {
+      return engineCache[selectedModel]!;
+    }
+
+    engineCache[selectedModel] = (async () => {
+      setCogitoStatus(`Loading ${selectedModel === "deep" ? "Deep (Qwen3 8B)" : "Lite (Llama 1B)"} model...`);
+      const webllm = await loadWebLlmModule();
+      const engine = await webllm.CreateMLCEngine(modelId, {
+        initProgressCallback: (progress: { text?: string }) => {
+          if (progress?.text) {
+            setCogitoStatus(progress.text);
+          }
+        },
+      });
+      return engine as ChatEngine;
+    })().catch((error: unknown) => {
+      delete engineCache[selectedModel];
+      throw error;
+    });
+
+    return engineCache[selectedModel]!;
+  }
+
+  async function generateQuestions(): Promise<void> {
+    const lastSentence = extractLastSentence(getEditorText());
+    if (!lastSentence) {
+      setCogitoStatus("Write at least one sentence first, then generate Cogito questions.");
+      setStatus("Cogito needs a sentence", "warn");
+      return;
+    }
+
+    try {
+      els.cogitoGenerateBtn.disabled = true;
+      setCogitoStatus("Generating 3 questions...");
+
+      const engine = await getOrCreateEngine();
+      const completion = await engine.chat.completions.create({
+        messages: [
+          { role: "system", content: COGITO_PROMPT },
+          { role: "user", content: `Last sentence: ${lastSentence}` },
+        ],
+        temperature: 0.2,
+      });
+
+      const rawContent = completion.choices?.[0]?.message?.content;
+      const textContent = Array.isArray(rawContent)
+        ? rawContent
+            .map((chunk) => (typeof chunk === "string" ? chunk : ""))
+            .join("")
+            .trim()
+        : typeof rawContent === "string"
+          ? rawContent.trim()
+          : "";
+
+      if (!textContent) {
+        throw new Error("Cogito returned an empty response.");
+      }
+
+      generatedQuestions = parseCogitoQuestionPayload(textContent);
+      updateQuestionList(generatedQuestions);
+      setCogitoStatus("Questions ready. Insert one into your markdown when useful.");
+      setStatus("Cogito questions ready", "ok");
+    } catch (error: unknown) {
+      generatedQuestions = [];
+      updateQuestionList(generatedQuestions);
+      const message = error instanceof Error ? error.message : String(error);
+      setCogitoStatus(`Cogito error: ${message}`);
+      setStatus("Cogito unavailable", "warn");
+      showToast(`Cogito failed: ${message}`, { persist: true });
+    } finally {
+      els.cogitoGenerateBtn.disabled = false;
+    }
+  }
+
+  function insertQuestionAtIndex(index: number): void {
+    const question = generatedQuestions[index];
+    if (!question) {
+      showToast("Cogito question not found.", { persist: true });
+      return;
+    }
+
+    const block = formatCogitoQuestionBlock(question);
+    insertTextAtCursor(els.editor, block);
+    onEditorContentReplaced(els.editor.value);
+    setStatus("Inserted AI question", "ok");
+  }
+
+  setPanelVisibility(false);
+
+  return {
+    togglePanel: () => {
+      setPanelVisibility(!isPanelOpen);
+      if (isPanelOpen) {
+        setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
+      }
+    },
+    selectModel,
+    generateQuestions,
+    insertQuestionAtIndex,
+  };
+}
+</file>
+
 <file path="src/app/workspace-io.ts">
 import { icon } from "./icons";
 import type {
@@ -9260,94 +9290,65 @@ chmod +x .git/hooks/pre-commit
 </file>
 
 <file path=".github/workflows/release.yml">
-name: Release
+name: release-please
 
 on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
-  release:
+  release-please:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
+
     steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
       - name: Checkout code
+        if: ${{ steps.release.outputs.release_created }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check if ink-app.html changed
-        id: check_changes
-        run: |
-          # Get the list of files changed in the latest commit
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          echo "Changed files: $CHANGED_FILES"
-          if echo "$CHANGED_FILES" | grep -q "ink-app.html"; then
-            echo "ink-app.html has changed"
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "ink-app.html has NOT changed"
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup Node.js
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm ci
 
       - name: Build
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm run build
 
       - name: Run tests
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm test
 
-      - name: Determine next release version
-        if: steps.check_changes.outputs.changed == 'true'
-        id: version
-        uses: mathieudutour/github-tag-action@v6.2
+      - name: Publish GitHub release
+        if: ${{ steps.release.outputs.release_created }}
+        uses: softprops/action-gh-release@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          dry_run: true
-
-      - name: Sync package metadata to release version
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_version != '' && steps.version.outputs.new_version != 'undefined'
-        run: npm version "${{ steps.version.outputs.new_version }}" --no-git-tag-version --allow-same-version
-
-      - name: Commit version files
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_version != '' && steps.version.outputs.new_version != 'undefined'
-        run: |
-          if git diff --quiet -- package.json package-lock.json; then
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore(release): ${{ steps.version.outputs.new_tag }}"
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Create release tag
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_tag != '' && steps.version.outputs.new_tag != 'undefined'
-        run: |
-          git tag "${{ steps.version.outputs.new_tag }}"
-          git push origin "${{ steps.version.outputs.new_tag }}"
-
-      - name: Create Release
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_tag != '' && steps.version.outputs.new_tag != 'undefined'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.new_tag }}
-          name: Release ${{ steps.version.outputs.new_tag }}
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          target_commitish: ${{ steps.release.outputs.sha }}
+          name: Release ${{ steps.release.outputs.tag_name }}
+          body: ${{ steps.release.outputs.body }}
           files: ink-app.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -10338,29 +10339,6 @@ declare global {
 }
 </file>
 
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Local git hooks are tracked under `.githooks/`; keep lint-plus-repomix pre-commit automation there and point setup docs at `git config core.hooksPath .githooks` instead of ad hoc hook creation snippets.
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Top menu visuals are authored directly in `ink.template.html`; when adding icons to dropdown rows, keep the text in a nested `.menu-label-text` span so dynamic updates like the Sort label do not remove the icon.
-- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
-- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
-- The release workflow must keep `package.json` and `package-lock.json` versions aligned with the generated GitHub release tag before creating the tag and release.
-- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
-- Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
-- Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
-- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
-- Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.
-</file>
-
 <file path="README.md">
 # ink
 <p align="center">
@@ -10477,10 +10455,34 @@ The Cypress flow test verifies:
 - **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
 </file>
 
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Local git hooks are tracked under `.githooks/`; keep lint-plus-repomix pre-commit automation there and point setup docs at `git config core.hooksPath .githooks` instead of ad hoc hook creation snippets.
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Top menu visuals are authored directly in `ink.template.html`; when adding icons to dropdown rows, keep the text in a nested `.menu-label-text` span so dynamic updates like the Sort label do not remove the icon.
+- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
+- Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
+- Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
+- Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
+- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
+- Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.
+</file>
+
 <file path="package.json">
 {
   "name": "ink",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
   "homepage": "https://github.com/feddernico/ink#readme",
   "bugs": {

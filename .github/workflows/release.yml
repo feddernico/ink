@@ -1,91 +1,62 @@
-name: Release
+name: release-please
 
 on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
-  release:
+  release-please:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
+
     steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
       - name: Checkout code
+        if: ${{ steps.release.outputs.release_created }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check if ink-app.html changed
-        id: check_changes
-        run: |
-          # Get the list of files changed in the latest commit
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          echo "Changed files: $CHANGED_FILES"
-          if echo "$CHANGED_FILES" | grep -q "ink-app.html"; then
-            echo "ink-app.html has changed"
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "ink-app.html has NOT changed"
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Setup Node.js
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm ci
 
       - name: Build
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm run build
 
       - name: Run tests
-        if: steps.check_changes.outputs.changed == 'true'
+        if: ${{ steps.release.outputs.release_created }}
         run: npm test
 
-      - name: Determine next release version
-        if: steps.check_changes.outputs.changed == 'true'
-        id: version
-        uses: mathieudutour/github-tag-action@v6.2
+      - name: Publish GitHub release
+        if: ${{ steps.release.outputs.release_created }}
+        uses: softprops/action-gh-release@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          dry_run: true
-
-      - name: Sync package metadata to release version
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_version != '' && steps.version.outputs.new_version != 'undefined'
-        run: npm version "${{ steps.version.outputs.new_version }}" --no-git-tag-version --allow-same-version
-
-      - name: Commit version files
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_version != '' && steps.version.outputs.new_version != 'undefined'
-        run: |
-          if git diff --quiet -- package.json package-lock.json; then
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore(release): ${{ steps.version.outputs.new_tag }}"
-          git push origin HEAD:${{ github.ref_name }}
-
-      - name: Create release tag
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_tag != '' && steps.version.outputs.new_tag != 'undefined'
-        run: |
-          git tag "${{ steps.version.outputs.new_tag }}"
-          git push origin "${{ steps.version.outputs.new_tag }}"
-
-      - name: Create Release
-        if: steps.check_changes.outputs.changed == 'true' && steps.version.outputs.new_tag != '' && steps.version.outputs.new_tag != 'undefined'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.new_tag }}
-          name: Release ${{ steps.version.outputs.new_tag }}
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          target_commitish: ${{ steps.release.outputs.sha }}
+          name: Release ${{ steps.release.outputs.tag_name }}
+          body: ${{ steps.release.outputs.body }}
           files: ink-app.html
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
