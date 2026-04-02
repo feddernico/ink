@@ -58,6 +58,15 @@ Feature ideas are welcome. Open an issue describing the problem you want to solv
 - Use the imperative mood, such as `Update workspace refresh flow`.
 - Limit the first line to 72 characters or less when possible.
 - Reference related issues or pull requests after the first line when relevant.
+- Prefer Conventional Commit prefixes so release automation can classify changes:
+  `fix:` for patch releases, `feat:` for minor releases, and `feat!:` or a `BREAKING CHANGE:` footer for major releases.
+- If you need to force a specific next version, add a `Release-As: x.y.z` footer to the merged commit body or release PR description.
+
+## Release Process
+
+- Releases are prepared with `release-please`, which opens a release PR that updates `package.json`, `package-lock.json`, and the changelog.
+- Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
+- If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
 
 ## Style Guide
 
