@@ -10,7 +10,8 @@ Rules:
 {
   "questions": ["...", "...", "..."]
 }`;
-var DEFAULT_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+var LITE_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+var DEEP_MODEL = "Qwen3-8B-q4f16_1-MLC";
 function extractLastSentence(text) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (!normalized) {
@@ -23,20 +24,18 @@ function extractLastSentence(text) {
   return fragments[fragments.length - 1];
 }
 function parseCogitoQuestionPayload(raw) {
-  const parsed = JSON.parse(raw);
-  if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length !== 3) {
-    throw new Error("Cogito response must include exactly 3 questions.");
+  const jsonText = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+  const parsed = JSON.parse(jsonText);
+  if (!parsed || !Array.isArray(parsed.questions)) {
+    throw new Error("Cogito response did not include a questions array.");
   }
-  const sanitized = parsed.questions.map((question, index) => {
-    if (typeof question !== "string") {
-      throw new Error(`Question ${index + 1} must be a string.`);
-    }
-    const trimmed = question.trim();
-    if (!trimmed) {
-      throw new Error(`Question ${index + 1} cannot be empty.`);
-    }
-    return trimmed;
-  });
+  const sanitized = parsed.questions.filter((q) => typeof q === "string" && q.trim().length > 0).map((q) => q.trim());
+  if (sanitized.length === 0) {
+    throw new Error("Cogito response contained no valid questions.");
+  }
+  if (sanitized.length !== 3) {
+    throw new Error("Cogito response must contain exactly 3 questions.");
+  }
   return sanitized;
 }
 function formatCogitoQuestionBlock(question) {
@@ -61,7 +60,20 @@ function createCogitoController({
 }) {
   let isPanelOpen = false;
   let generatedQuestions = [];
-  let enginePromise = null;
+  let selectedModel = "lite";
+  const engineCache = {};
+  async function loadWebLlmModule() {
+    const testModule = globalThis.__INK_TEST_WEBLLM__;
+    if (testModule) {
+      return testModule;
+    }
+    return import("https://esm.run/@mlc-ai/web-llm");
+  }
+  function selectModel(model) {
+    selectedModel = model;
+    els.cogitoLiteBtn.classList.toggle("active", model === "lite");
+    els.cogitoDeepBtn.classList.toggle("active", model === "deep");
+  }
   function setPanelVisibility(isOpen) {
     isPanelOpen = isOpen;
     els.cogitoPanel.hidden = !isOpen;
@@ -93,13 +105,14 @@ function createCogitoController({
     els.cogitoStatus.textContent = text;
   }
   async function getOrCreateEngine() {
-    if (enginePromise) {
-      return enginePromise;
+    const modelId = selectedModel === "deep" ? DEEP_MODEL : LITE_MODEL;
+    if (engineCache[selectedModel]) {
+      return engineCache[selectedModel];
     }
-    enginePromise = (async () => {
-      setCogitoStatus("Loading local model for Cogito Mode...");
-      const webllm = await import("https://esm.run/@mlc-ai/web-llm");
-      const engine = await webllm.CreateMLCEngine(DEFAULT_MODEL, {
+    engineCache[selectedModel] = (async () => {
+      setCogitoStatus(`Loading ${selectedModel === "deep" ? "Deep (Qwen3 8B)" : "Lite (Llama 1B)"} model...`);
+      const webllm = await loadWebLlmModule();
+      const engine = await webllm.CreateMLCEngine(modelId, {
         initProgressCallback: (progress) => {
           if (progress?.text) {
             setCogitoStatus(progress.text);
@@ -108,10 +121,10 @@ function createCogitoController({
       });
       return engine;
     })().catch((error) => {
-      enginePromise = null;
+      delete engineCache[selectedModel];
       throw error;
     });
-    return enginePromise;
+    return engineCache[selectedModel];
   }
   async function generateQuestions() {
     const lastSentence = extractLastSentence(getEditorText());
@@ -170,12 +183,15 @@ function createCogitoController({
         setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
       }
     },
+    selectModel,
     generateQuestions,
     insertQuestionAtIndex
   };
 }
 export {
   COGITO_PROMPT,
+  DEEP_MODEL,
+  LITE_MODEL,
   createCogitoController,
   extractLastSentence,
   formatCogitoQuestionBlock,

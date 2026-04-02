@@ -28,6 +28,15 @@ type ChatEngine = {
   };
 };
 
+type WebLlmModule = {
+  CreateMLCEngine: (
+    modelId: string,
+    options?: {
+      initProgressCallback?: (progress: { text?: string }) => void;
+    },
+  ) => Promise<ChatEngine>;
+};
+
 type ToastFn = (message: string, options?: { persist?: boolean }) => void;
 
 type SetStatusFn = (message: string, kind?: "ok" | "warn" | "err") => void;
@@ -71,11 +80,14 @@ export function parseCogitoQuestionPayload(raw: string): string[] {
 
   const sanitized = parsed.questions
     .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
-    .map((q) => q.trim())
-    .slice(0, 3);
+    .map((q) => q.trim());
 
   if (sanitized.length === 0) {
     throw new Error("Cogito response contained no valid questions.");
+  }
+
+  if (sanitized.length !== 3) {
+    throw new Error("Cogito response must contain exactly 3 questions.");
   }
 
   return sanitized;
@@ -111,6 +123,20 @@ export function createCogitoController({
   let generatedQuestions: string[] = [];
   let selectedModel: CogitoModel = "lite";
   const engineCache: Partial<Record<CogitoModel, Promise<ChatEngine>>> = {};
+
+  async function loadWebLlmModule(): Promise<WebLlmModule> {
+    const testModule = (
+      globalThis as typeof globalThis & {
+        __INK_TEST_WEBLLM__?: WebLlmModule;
+      }
+    ).__INK_TEST_WEBLLM__;
+
+    if (testModule) {
+      return testModule;
+    }
+
+    return import("https://esm.run/@mlc-ai/web-llm") as Promise<WebLlmModule>;
+  }
 
   function selectModel(model: CogitoModel): void {
     selectedModel = model;
@@ -163,7 +189,7 @@ export function createCogitoController({
 
     engineCache[selectedModel] = (async () => {
       setCogitoStatus(`Loading ${selectedModel === "deep" ? "Deep (Qwen3 8B)" : "Lite (Llama 1B)"} model...`);
-      const webllm = await import("https://esm.run/@mlc-ai/web-llm");
+      const webllm = await loadWebLlmModule();
       const engine = await webllm.CreateMLCEngine(modelId, {
         initProgressCallback: (progress: { text?: string }) => {
           if (progress?.text) {
