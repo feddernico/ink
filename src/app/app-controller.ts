@@ -158,6 +158,7 @@ export function createAppController(els: DomRefs) {
           state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
           cogitoController.togglePanel();
         },
+        selectCogitoModel: (model) => cogitoController.selectModel(model),
         generateCogitoQuestions: () => cogitoController.generateQuestions(),
         insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
         hideToast,

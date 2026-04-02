@@ -15,6 +15,7 @@ export type UiActions = {
   exportAsJson: () => void;
   exportAsMarkdown: () => void;
   toggleCogitoPanel: () => void;
+  selectCogitoModel: (model: "lite" | "deep") => void;
   generateCogitoQuestions: () => Promise<void>;
   insertCogitoQuestion: (index: number) => void;
   hideToast: () => void;
@@ -81,6 +82,14 @@ export function attachUiEvents({
 
   els.cogitoToggleBtn.addEventListener("click", () => {
     actions.toggleCogitoPanel();
+  });
+
+  els.cogitoLiteBtn.addEventListener("click", () => {
+    actions.selectCogitoModel("lite");
+  });
+
+  els.cogitoDeepBtn.addEventListener("click", () => {
+    actions.selectCogitoModel("deep");
   });
 
   els.cogitoGenerateBtn.addEventListener("click", () => {

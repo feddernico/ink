@@ -103,6 +103,8 @@ export interface DomRefs {
   temporarySessionBadge: HTMLElement;
   cogitoToggleBtn: HTMLButtonElement;
   cogitoPanel: HTMLElement;
+  cogitoLiteBtn: HTMLButtonElement;
+  cogitoDeepBtn: HTMLButtonElement;
   cogitoGenerateBtn: HTMLButtonElement;
   cogitoStatus: HTMLElement;
   cogitoQuestionList: HTMLElement;

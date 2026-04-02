@@ -12,7 +12,10 @@ Rules:
   "questions": ["...", "...", "..."]
 }`;
 
-const DEFAULT_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+export const LITE_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+export const DEEP_MODEL = "Qwen3-8B-q4f16_1-MLC";
+
+export type CogitoModel = "lite" | "deep";
 
 type ChatEngine = {
   chat: {
@@ -31,6 +34,7 @@ type SetStatusFn = (message: string, kind?: "ok" | "warn" | "err") => void;
 
 type CogitoController = {
   togglePanel: () => void;
+  selectModel: (model: CogitoModel) => void;
   generateQuestions: () => Promise<void>;
   insertQuestionAtIndex: (index: number) => void;
 };
@@ -54,24 +58,25 @@ export function extractLastSentence(text: string): string {
 }
 
 export function parseCogitoQuestionPayload(raw: string): string[] {
-  const parsed = JSON.parse(raw) as { questions?: unknown };
+  const jsonText = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
+  const parsed = JSON.parse(jsonText) as { questions?: unknown };
 
-  if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length !== 3) {
-    throw new Error("Cogito response must include exactly 3 questions.");
+  if (!parsed || !Array.isArray(parsed.questions)) {
+    throw new Error("Cogito response did not include a questions array.");
   }
 
-  const sanitized = parsed.questions.map((question, index) => {
-    if (typeof question !== "string") {
-      throw new Error(`Question ${index + 1} must be a string.`);
-    }
+  const sanitized = parsed.questions
+    .filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+    .map((q) => q.trim())
+    .slice(0, 3);
 
-    const trimmed = question.trim();
-    if (!trimmed) {
-      throw new Error(`Question ${index + 1} cannot be empty.`);
-    }
-
-    return trimmed;
-  });
+  if (sanitized.length === 0) {
+    throw new Error("Cogito response contained no valid questions.");
+  }
 
   return sanitized;
 }
@@ -104,7 +109,14 @@ export function createCogitoController({
 }): CogitoController {
   let isPanelOpen = false;
   let generatedQuestions: string[] = [];
-  let enginePromise: Promise<ChatEngine> | null = null;
+  let selectedModel: CogitoModel = "lite";
+  const engineCache: Partial<Record<CogitoModel, Promise<ChatEngine>>> = {};
+
+  function selectModel(model: CogitoModel): void {
+    selectedModel = model;
+    els.cogitoLiteBtn.classList.toggle("active", model === "lite");
+    els.cogitoDeepBtn.classList.toggle("active", model === "deep");
+  }
 
   function setPanelVisibility(isOpen: boolean): void {
     isPanelOpen = isOpen;
@@ -143,14 +155,16 @@ export function createCogitoController({
   }
 
   async function getOrCreateEngine(): Promise<ChatEngine> {
-    if (enginePromise) {
-      return enginePromise;
+    const modelId = selectedModel === "deep" ? DEEP_MODEL : LITE_MODEL;
+
+    if (engineCache[selectedModel]) {
+      return engineCache[selectedModel]!;
     }
 
-    enginePromise = (async () => {
-      setCogitoStatus("Loading local model for Cogito Mode...");
+    engineCache[selectedModel] = (async () => {
+      setCogitoStatus(`Loading ${selectedModel === "deep" ? "Deep (Qwen3 8B)" : "Lite (Llama 1B)"} model...`);
       const webllm = await import("https://esm.run/@mlc-ai/web-llm");
-      const engine = await webllm.CreateMLCEngine(DEFAULT_MODEL, {
+      const engine = await webllm.CreateMLCEngine(modelId, {
         initProgressCallback: (progress: { text?: string }) => {
           if (progress?.text) {
             setCogitoStatus(progress.text);
@@ -159,11 +173,11 @@ export function createCogitoController({
       });
       return engine as ChatEngine;
     })().catch((error: unknown) => {
-      enginePromise = null;
+      delete engineCache[selectedModel];
       throw error;
     });
 
-    return enginePromise;
+    return engineCache[selectedModel]!;
   }
 
   async function generateQuestions(): Promise<void> {
@@ -239,6 +253,7 @@ export function createCogitoController({
         setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
       }
     },
+    selectModel,
     generateQuestions,
     insertQuestionAtIndex,
   };

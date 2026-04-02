@@ -32,6 +32,8 @@ export function getDomRefs(): DomRefs {
     temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
     cogitoToggleBtn: requiredElement<HTMLButtonElement>("cogitoToggleBtn"),
     cogitoPanel: requiredElement<HTMLElement>("cogitoPanel"),
+    cogitoLiteBtn: requiredElement<HTMLButtonElement>("cogitoLiteBtn"),
+    cogitoDeepBtn: requiredElement<HTMLButtonElement>("cogitoDeepBtn"),
     cogitoGenerateBtn: requiredElement<HTMLButtonElement>("cogitoGenerateBtn"),
     cogitoStatus: requiredElement<HTMLElement>("cogitoStatus"),
     cogitoQuestionList: requiredElement<HTMLElement>("cogitoQuestionList"),
