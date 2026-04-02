@@ -12,4 +12,9 @@
 - Test bundles are built via `build/build-test.js`.
 - Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 - GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- The release workflow must keep `package.json` and `package-lock.json` versions aligned with the generated GitHub release tag before creating the tag and release.
 - Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
+- Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
+- Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
+- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
+- Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.

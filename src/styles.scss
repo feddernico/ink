@@ -438,8 +438,14 @@
       grid-template-columns: 1fr 1fr;
     }
 
+    .split.with-cogito{
+      grid-template-columns: 1fr 1fr 320px;
+    }
+
     .editorPane, .previewPane{
       min-height: 0;
+      min-width: 0;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
     }
@@ -466,10 +472,91 @@
       tab-size: 2;
     }
 
-    .preview{
+    .preview {
       padding: 14px 16px 18px;
-      overflow: auto;
+      min-width: 0;
       min-height: 0;
+      overflow-y: auto;
+    }
+
+    .cogitoPanel{
+      min-height: 0;
+      border-left: 1px solid var(--border);
+      background: var(--panel2);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: auto;
+    }
+
+    .cogitoPanel[hidden]{
+      display: none;
+    }
+
+    .cogitoHeader{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      min-height: 0;
+    }
+
+    .cogitoModelPicker{
+      display: flex;
+      gap: 4px;
+    }
+
+    .cogitoModelBtn{
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 8px;
+      opacity: 0.55;
+    }
+
+    .cogitoModelBtn.active{
+      opacity: 1;
+      border-color: rgba(94, 234, 212, 0.5);
+      background: rgba(94, 234, 212, 0.14);
+    }
+
+    .cogitoQuestionList{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cogitoQuestionItem{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cogitoQuestionText{
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .cogitoInsertBtn{
+      align-self: flex-end;
+      padding: 6px 10px;
+      font-size: 12px;
+      border-radius: 10px;
     }
 
     /* Preview typography */
@@ -488,11 +575,15 @@
       border: 1px solid var(--border);
     }
     .preview pre{
-      overflow: auto;
+      max-width: 100%;
       padding: 12px;
       border-radius: 12px;
       background: rgba(94, 234, 212, 0.06);
       border: 1px solid var(--border);
+
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;    
     }
     .preview pre code{
       padding: 0;
@@ -536,6 +627,42 @@
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 80%), var(--panel);
       flex-shrink: 0;
       overflow: visible;
+    }
+
+    .menubar-spacer{
+      flex: 1 1 auto;
+    }
+
+    .menu-action-btn{
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+
+    .menu-action-label{
+      font-weight: 700;
+    }
+
+    .menu-action-btn[aria-expanded="true"]{
+      border-color: rgba(94, 234, 212, 0.6);
+      background: rgba(94, 234, 212, 0.16);
+    }
+
+    .glyphicon{
+      display: inline-flex;
+      width: 16px;
+      justify-content: center;
+      align-items: center;
+      line-height: 1;
+      font-size: 14px;
+    }
+
+    .glyphicon-education::before{
+      content: "🧠";
     }
 
     .menu-item{
@@ -708,12 +835,18 @@
         grid-template-columns: 1fr;
       }
       .split{ grid-template-columns: 1fr; }
+      .split.with-cogito{ grid-template-columns: 1fr; }
       .editorPane{
         border-right: none;
         border-bottom: 1px solid var(--border);
         min-height: 40vh;
       }
       .previewPane{ min-height: 40vh; }
+      .cogitoPanel{
+        border-left: none;
+        border-top: 1px solid var(--border);
+        min-height: 30vh;
+      }
       .filename{ max-width: 70vw; }
       .sidebarToggle{
         position: static;

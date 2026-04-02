@@ -11,6 +11,7 @@ import { createToastController, setStatus } from "./toast-status";
 import { createTreeRenderer } from "./tree-render";
 import { attachUiEvents } from "./ui-events";
 import { createWorkspaceActions } from "./workspace-io";
+import { createCogitoController } from "./cogito";
 import type { AppState, DomRefs } from "./types";
 
 type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
@@ -39,6 +40,7 @@ export function createAppController(els: DomRefs) {
     autoRefreshTimer: null,
     isSidebarCollapsed: false,
     isTemporarySession: false,
+    isCogitoModeEnabled: false,
   };
 
   const toastTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
@@ -123,6 +125,14 @@ export function createAppController(els: DomRefs) {
     renderPreview(els, value);
   }
 
+  const cogitoController = createCogitoController({
+    els,
+    getEditorText: () => els.editor.value,
+    onEditorContentReplaced: (text) => handleEditorInput(text),
+    showToast,
+    setStatus: (message, kind) => setStatus(els, message, kind),
+  });
+
   function initialize(): void {
     marked.use({ breaks: true });
 
@@ -144,6 +154,13 @@ export function createAppController(els: DomRefs) {
         openWorkspace: workspaceActions.openWorkspace,
         exportAsJson: workspaceActions.exportAsJson,
         exportAsMarkdown: workspaceActions.exportAsMarkdown,
+        toggleCogitoPanel: () => {
+          state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
+          cogitoController.togglePanel();
+        },
+        selectCogitoModel: (model) => cogitoController.selectModel(model),
+        generateCogitoQuestions: () => cogitoController.generateQuestions(),
+        insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
         hideToast,
         showToast,
       },

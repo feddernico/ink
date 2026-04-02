@@ -284,7 +284,7 @@ export function createWorkspaceActions({
       els.editor.value = text;
       renderPreview(els, text);
       updateDirtyUi(els, state, setStatus);
-      setStatus(`${icon.check()} Opened`, "ok");
+      setStatus("Opened ✓", "ok");
 
       await renderTree();
     } catch (error) {
@@ -312,8 +312,8 @@ export function createWorkspaceActions({
       state.isDirty = false;
       updateDirtyUi(els, state, setStatus);
 
-      setStatus(`${icon.check()} Saved`, "ok");
-      showToast(`${icon.check()} Saved`);
+      setStatus("Saved ✓", "ok");
+      showToast("Saved ✓");
 
       await rescanWorkspace({ silent: true });
     } catch (error) {
@@ -370,7 +370,7 @@ export function createWorkspaceActions({
       await rescanWorkspace({ silent: true });
       await openNoteByRelPath(fileName, fileHandle);
 
-      showToast(`${icon.check()} New note created`);
+      showToast("New note created ✓");
       setStatus("New note", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -423,7 +423,7 @@ export function createWorkspaceActions({
       await rescanWorkspace({ silent: true });
       await openNoteByRelPath(fileName, fileHandle);
 
-      showToast(`${icon.check()} Saved as ${fileName}`);
+      showToast(`Saved as ${fileName} ✓`);
       setStatus("Saved as", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -450,7 +450,7 @@ export function createWorkspaceActions({
     try {
       await parentHandle.getDirectoryHandle(folderName, { create: true });
       await rescanWorkspace({ silent: true });
-      showToast(`${icon.check()} Folder created`);
+      showToast("Folder created ✓");
       setStatus("Folder created", "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
