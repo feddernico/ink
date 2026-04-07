@@ -47,7 +47,7 @@ export function createMenuActions({
     state.sortMode = state.sortMode === "name" ? "modified" : "name";
     els.sortBtn.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Last modified"}`;
 
-    const sortMenuItem = document.querySelector('[data-action="sort"] .menu-label');
+    const sortMenuItem = document.querySelector('[data-action="sort"] .menu-label-text');
     if (sortMenuItem) {
       sortMenuItem.textContent = `Sort: ${state.sortMode === "name" ? "Name" : "Modified"}`;
     }

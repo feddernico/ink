@@ -1,0 +1,11 @@
+#!/bin/sh
+# Pre-commit hook to run lint and update repomix output
+
+echo "Running ESLint..."
+npm run lint || exit 1
+
+echo "Running repomix..."
+npx repomix@latest
+
+# Add the repomix output
+git add repomix-output.xml

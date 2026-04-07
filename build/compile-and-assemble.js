@@ -21,7 +21,7 @@ async function buildJavaScript() {
 }
 
 function buildStyles() {
-  const result = sass.compile("src/styles.scss", { style: "compressed" });
+  const result = sass.compile("src/styles.scss", { style: "compressed", charset: false });
   const outputPath = path.join("dist", "styles.min.css");
   fs.writeFileSync(outputPath, result.css);
 }

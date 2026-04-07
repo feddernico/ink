@@ -1,3 +1,4 @@
+import { icon } from "./icons";
 import type {
   AppState,
   DeclarativeNoteInput,
