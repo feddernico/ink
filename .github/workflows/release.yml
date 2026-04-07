@@ -3,6 +3,7 @@ name: release-please
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,39 +25,138 @@ jobs:
           manifest-file: .release-please-manifest.json
           skip-github-release: true
 
+      - name: Detect merged release PR
+        id: merged_release
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const commitSha = context.sha;
+            const response = await github.request(
+              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
+              {
+                owner,
+                repo,
+                commit_sha: commitSha,
+                mediaType: { previews: ['groot'] },
+              },
+            );
+
+            const releasePr = response.data.find((pull) =>
+              /^chore\(main\): release ink \d+\.\d+\.\d+$/.test(pull.title),
+            );
+
+            if (!releasePr) {
+              core.setOutput('is_release_merge', 'false');
+              return;
+            }
+
+            const versionMatch = releasePr.title.match(/(\d+\.\d+\.\d+)$/);
+            if (!versionMatch) {
+              core.setFailed(`Could not determine release version from PR title: ${releasePr.title}`);
+              return;
+            }
+
+            core.setOutput('is_release_merge', 'true');
+            core.setOutput('pr_number', String(releasePr.number));
+            core.setOutput('version', versionMatch[1]);
+            core.setOutput('canonical_tag', `v${versionMatch[1]}`);
+            core.setOutput('compatibility_tag', `ink-v${versionMatch[1]}`);
+            core.setOutput('release_title', `Release v${versionMatch[1]}`);
+            const normalizedBody = (releasePr.body || `Release ${versionMatch[1]}`).replaceAll('ink-v', 'v');
+            core.setOutput('release_body', normalizedBody);
+
       - name: Checkout code
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         run: npm ci
 
       - name: Build
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         run: npm run build
 
       - name: Run tests
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         run: npm test
 
-      - name: Publish GitHub release
-        if: ${{ steps.release.outputs.release_created }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release.outputs.tag_name }}
-          target_commitish: ${{ steps.release.outputs.sha }}
-          name: Release ${{ steps.release.outputs.tag_name }}
-          body: ${{ steps.release.outputs.body }}
-          files: ink-app.html
+      - name: Create release tags
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          COMPATIBILITY_TAG: ${{ steps.merged_release.outputs.compatibility_tag }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          git fetch --tags origin
+
+          if ! git rev-parse "$CANONICAL_TAG" >/dev/null 2>&1; then
+            git tag "$CANONICAL_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git rev-parse "$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git tag "$COMPATIBILITY_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$CANONICAL_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$CANONICAL_TAG"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$COMPATIBILITY_TAG"
+          fi
+
+      - name: Publish GitHub release
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          RELEASE_TITLE: ${{ steps.merged_release.outputs.release_title }}
+          RELEASE_BODY: ${{ steps.merged_release.outputs.release_body }}
+        run: |
+          printf '%s' "$RELEASE_BODY" > release-notes.md
+
+          if gh release view "$CANONICAL_TAG" >/dev/null 2>&1; then
+            gh release edit "$CANONICAL_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md
+            gh release upload "$CANONICAL_TAG" ink-app.html --clobber
+          else
+            gh release create "$CANONICAL_TAG" \
+              --target "${GITHUB_SHA}" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              ink-app.html
+          fi
+
+      - name: Clear autorelease labels from merged release PR
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number(process.env.PR_NUMBER);
+            const labelsToRemove = ['autorelease: pending', 'autorelease: triggered'];
+
+            for (const name of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+        env:
+          PR_NUMBER: ${{ steps.merged_release.outputs.pr_number }}
