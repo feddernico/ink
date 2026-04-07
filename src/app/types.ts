@@ -103,6 +103,9 @@ export interface DomRefs {
   sortBtn: HTMLButtonElement;
   searchInput: HTMLInputElement;
   tree: HTMLElement;
+  webmcpNoteModal: HTMLElement;
+  webmcpNoteModalBackdrop: HTMLElement;
+  webmcpNoteModalCloseBtn: HTMLButtonElement;
   webmcpNoteForm: HTMLFormElement;
   webmcpTitleInput: HTMLInputElement;
   webmcpBodyInput: HTMLTextAreaElement;

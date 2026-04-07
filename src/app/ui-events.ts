@@ -28,6 +28,8 @@ type WebMcpSubmitEvent = SubmitEvent & {
   respondWith?: (response: Promise<unknown>) => void;
 };
 
+type WebMcpInputElement = HTMLInputElement | HTMLTextAreaElement;
+
 export function attachUiEvents({
   state,
   els,
@@ -37,6 +39,62 @@ export function attachUiEvents({
   els: DomRefs;
   actions: UiActions;
 }): void {
+  let wasWebMcpModalShownByAgent = false;
+  let webMcpAutofillSignature = getWebMcpValueSignature(els);
+  let webMcpWatcherTimer: ReturnType<typeof window.setInterval> | null = null;
+
+  function openWebMcpModal(options?: { focusTitle?: boolean }): void {
+    els.webmcpNoteModal.setAttribute("aria-hidden", "false");
+    els.webmcpNoteModal.classList.add("show");
+
+    if (options?.focusTitle) {
+      queueMicrotask(() => {
+        els.webmcpTitleInput.focus();
+      });
+    }
+  }
+
+  function closeWebMcpModal(): void {
+    els.webmcpNoteModal.classList.remove("show");
+    els.webmcpNoteModal.setAttribute("aria-hidden", "true");
+  }
+
+  function showWebMcpModalForAgent(options?: { focusTitle?: boolean }): void {
+    wasWebMcpModalShownByAgent = true;
+    openWebMcpModal(options);
+  }
+
+  function toggleWebMcpModalForDebug(): void {
+    if (els.webmcpNoteModal.classList.contains("show")) {
+      closeWebMcpModal();
+      return;
+    }
+    openWebMcpModal({ focusTitle: true });
+  }
+
+  function syncWebMcpModalToAutofill(): void {
+    const nextSignature = getWebMcpValueSignature(els);
+    if (nextSignature === webMcpAutofillSignature) {
+      return;
+    }
+
+    webMcpAutofillSignature = nextSignature;
+
+    if (hasAnyWebMcpValue(els)) {
+      showWebMcpModalForAgent();
+    }
+  }
+
+  function startWebMcpAutofillWatcher(): void {
+    if (webMcpWatcherTimer !== null) {
+      return;
+    }
+
+    webMcpWatcherTimer = window.setInterval(() => {
+      syncWebMcpModalToAutofill();
+    }, 150);
+  }
+
   attachMenuEventListeners(els, actions.handleMenuAction);
 
   els.sidebarToggleBtn.addEventListener("click", () => {
@@ -55,9 +113,42 @@ export function attachUiEvents({
     actions.handleSearchInput(els.searchInput.value);
   });
 
+  const webMcpInputs: WebMcpInputElement[] = [
+    els.webmcpTitleInput,
+    els.webmcpBodyInput,
+    els.webmcpTagInput,
+  ];
+
+  webMcpInputs.forEach((input) => {
+    input.addEventListener("input", syncWebMcpModalToAutofill);
+    input.addEventListener("change", syncWebMcpModalToAutofill);
+    input.addEventListener("focus", () => {
+      if (!els.webmcpNoteModal.classList.contains("show")) {
+        showWebMcpModalForAgent();
+      }
+    });
+  });
+
+  webMcpInputs.forEach((input) => {
+    instrumentWebMcpValueSetter(input, syncWebMcpModalToAutofill);
+  });
+
+  els.webmcpNoteModalCloseBtn.addEventListener("click", () => {
+    closeWebMcpModal();
+  });
+
+  els.webmcpNoteModalBackdrop.addEventListener("click", () => {
+    closeWebMcpModal();
+  });
+
   els.webmcpNoteForm.addEventListener("submit", (event: Event) => {
     const submitEvent = event as WebMcpSubmitEvent;
+    const isAgentSubmission = typeof submitEvent.respondWith === "function";
     event.preventDefault();
+
+    if (submitEvent.agentInvoked) {
+      showWebMcpModalForAgent();
+    }
 
     const input: DeclarativeNoteInput = {
       title: els.webmcpTitleInput.value,
@@ -67,7 +158,14 @@ export function attachUiEvents({
 
     const resultPromise = actions.createNoteFromTool(input).then((result) => {
       if (result.ok) {
-        els.webmcpNoteForm.reset();
+        if (!isAgentSubmission) {
+          els.webmcpNoteForm.reset();
+          webMcpAutofillSignature = getWebMcpValueSignature(els);
+        }
+        if (wasWebMcpModalShownByAgent) {
+          closeWebMcpModal();
+          wasWebMcpModalShownByAgent = false;
+        }
       }
       return result;
     });
@@ -155,7 +253,78 @@ export function attachUiEvents({
     }
   });
 
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key === "Escape" && els.webmcpNoteModal.classList.contains("show")) {
+      closeWebMcpModal();
+    }
+  });
+
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+    const isModifierPressed = isMac ? event.metaKey : event.ctrlKey;
+
+    if (isModifierPressed && event.altKey && event.key.toLowerCase() === "n") {
+      event.preventDefault();
+      toggleWebMcpModalForDebug();
+    }
+  });
+
+  if (shouldOpenWebMcpModalForDebug()) {
+    openWebMcpModal({ focusTitle: true });
+  }
+
+  startWebMcpAutofillWatcher();
+
   attachGlobalKeyboardShortcuts(actions);
+}
+
+function getWebMcpValueSignature(els: DomRefs): string {
+  return [
+    els.webmcpTitleInput.value,
+    els.webmcpBodyInput.value,
+    els.webmcpTagInput.value,
+  ].join("\u241f");
+}
+
+function hasAnyWebMcpValue(els: DomRefs): boolean {
+  return (
+    els.webmcpTitleInput.value.trim() !== "" ||
+    els.webmcpBodyInput.value.trim() !== "" ||
+    els.webmcpTagInput.value.trim() !== ""
+  );
+}
+
+function instrumentWebMcpValueSetter(
+  element: WebMcpInputElement,
+  onValueSet: () => void,
+): void {
+  const prototype = Object.getPrototypeOf(element) as HTMLInputElement | HTMLTextAreaElement;
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
+
+  if (!descriptor?.get || !descriptor.set) {
+    return;
+  }
+
+  Object.defineProperty(element, "value", {
+    configurable: true,
+    enumerable: descriptor.enumerable ?? true,
+    get() {
+      return descriptor.get!.call(this) as string;
+    },
+    set(nextValue: string) {
+      descriptor.set!.call(this, nextValue);
+      onValueSet();
+    },
+  });
+}
+
+function shouldOpenWebMcpModalForDebug(): boolean {
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get("debugWebMcpNote") === "1";
+  } catch {
+    return false;
+  }
 }
 
 function attachMenuEventListeners(els: DomRefs, handleMenuAction: (action: string) => void): void {

@@ -20,3 +20,6 @@
 - Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
 - Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
 - Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.
+- The WebMCP `create_note` tool is agent-facing only. Keep its form out of the always-visible sidebar UI and surface it as a modal only when the tool is being used.
+- The canonical implementation for the WebMCP note popup lives in `ink.template.html`, `src/styles.scss`, and `src/app/ui-events.ts`; rebuild `ink-app.html` after source edits.
+- For local debugging, the WebMCP popup can be opened manually with `Cmd/Ctrl+Alt+N` or automatically via `?debugWebMcpNote=1`; keep those hooks available without making the tool permanently visible.
