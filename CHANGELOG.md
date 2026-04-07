@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/feddernico/ink/compare/ink-v1.1.5...ink-v1.2.0) (2026-04-07)
+
+
+### Features
+
+* hide the WebMCP note tool behind an agent popup ([bed3cca](https://github.com/feddernico/ink/commit/bed3cca71b72be81af1159c307e6b5c1ea0abd82))
+
+
+### Bug Fixes
+
+* align release-please tags with v-tag history ([a58f478](https://github.com/feddernico/ink/commit/a58f4786594f70a87d650becbe7b249914101397))
+* align release-please tags with v-tag history ([36d04fa](https://github.com/feddernico/ink/commit/36d04fae0bcf942733db027c5ed95ab4ef0fa39f))
+
 ## [1.1.5](https://github.com/feddernico/ink/compare/ink-v1.1.4...ink-v1.1.5) (2026-04-02)
 
 
