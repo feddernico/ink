@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/feddernico/ink/compare/ink-v1.2.0...ink-v1.2.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* finalize merged release PRs with plain tags ([98a6bea](https://github.com/feddernico/ink/commit/98a6bea8da0c32d8d419000e9a0d023838230c99))
+* finalize merged release PRs with plain tags ([b02c526](https://github.com/feddernico/ink/commit/b02c526c7d5da3789d5e6f80273537437c7ea183))
+
 ## [1.2.0](https://github.com/feddernico/ink/compare/ink-v1.1.5...ink-v1.2.0) (2026-04-07)
 
 
