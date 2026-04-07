@@ -65,6 +65,7 @@ Feature ideas are welcome. Open an issue describing the problem you want to solv
 ## Release Process
 
 - Releases are prepared with `release-please`, which opens a release PR that updates `package.json`, `package-lock.json`, and the changelog.
+- This repository uses plain `v*` Git tags for releases; keep `release-please` configured to match that tag history.
 - Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
 - If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
 
