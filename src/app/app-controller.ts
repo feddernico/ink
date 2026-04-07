@@ -1,5 +1,5 @@
 import { marked } from "marked";
-import { parseTags } from "../tags";
+import { normalizeTag, parseTags } from "../tags";
 import { getDomRefs } from "./dom";
 import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
 import { createAutoRefresh } from "./auto-refresh";
@@ -12,7 +12,7 @@ import { createTreeRenderer } from "./tree-render";
 import { attachUiEvents } from "./ui-events";
 import { createWorkspaceActions } from "./workspace-io";
 import { createCogitoController } from "./cogito";
-import type { AppState, DomRefs } from "./types";
+import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
 
 type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
 
@@ -86,6 +86,7 @@ export function createAppController(els: DomRefs) {
       isFileSystemApiAvailable,
     },
     parseTags,
+    normalizeTag,
     autoRefresh,
   });
 
@@ -151,6 +152,8 @@ export function createAppController(els: DomRefs) {
         handleEditorInput,
         saveCurrentNote: workspaceActions.saveCurrentNote,
         createNewNote: workspaceActions.createNewNote,
+        createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
+          workspaceActions.createNoteFromTool(input),
         openWorkspace: workspaceActions.openWorkspace,
         exportAsJson: workspaceActions.exportAsJson,
         exportAsMarkdown: workspaceActions.exportAsMarkdown,

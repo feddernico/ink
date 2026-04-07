@@ -1,6 +1,8 @@
 import { icon } from "./icons";
 import type {
   AppState,
+  DeclarativeNoteInput,
+  DeclarativeNoteResult,
   DirectoryHandleLike,
   DirectoryNode,
   DomRefs,
@@ -35,6 +37,7 @@ type AutoRefreshFns = {
 };
 
 type TagParser = (text: string) => Set<string>;
+type TagNormalizer = (value: string) => string;
 
 export function createWorkspaceActions({
   state,
@@ -49,6 +52,7 @@ export function createWorkspaceActions({
   updateCountsPill,
   fsApi,
   parseTags,
+  normalizeTag,
   autoRefresh,
 }: {
   state: AppState;
@@ -63,25 +67,73 @@ export function createWorkspaceActions({
   updateCountsPill: TreeRenderFns["updateCountsPill"];
   fsApi: FsApi;
   parseTags: TagParser;
+  normalizeTag: TagNormalizer;
   autoRefresh: AutoRefreshFns;
 }) {
-  async function openWorkspace(): Promise<void> {
-    if (!fsApi.isFileSystemApiAvailable()) {
-      state.isTemporarySession = true;
-      state.workspaceName = "Temporary Session";
+  function activateTemporarySession(): void {
+    const wasTemporarySession = state.isTemporarySession;
+
+    state.workspaceHandle = null;
+    state.workspaceName = "Temporary Session";
+    state.fileTree = null;
+    state.notes = [];
+    state.currentFileHandle = null;
+
+    if (!wasTemporarySession) {
       state.inMemoryNotes = [];
-      state.isDirty = false;
       state.currentRelPath = "";
       state.currentContent = "";
-      state.fileTree = null;
+      state.isDirty = false;
+      els.editor.value = "";
+      renderPreview(els, "");
+      updateDirtyUi(els, state, setStatus);
+    }
 
-      els.workspaceName.textContent = state.workspaceName;
-      els.workspaceName.title = "Temporary Session - Data not persisted";
-      els.temporarySessionBadge.style.display = "inline";
-      els.countsPill.textContent = "0 notes";
-      els.tagRow.innerHTML = "";
-      els.tree.innerHTML =
-        '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
+    state.isTemporarySession = true;
+
+    els.workspaceName.textContent = state.workspaceName;
+    els.workspaceName.title = "Temporary Session - Data not persisted";
+    els.temporarySessionBadge.style.display = "inline";
+    els.countsPill.textContent = `${state.inMemoryNotes.length} note${state.inMemoryNotes.length === 1 ? "" : "s"}`;
+    els.tagRow.innerHTML = "";
+    renderInMemoryTree();
+    renderTags();
+  }
+
+  function buildNoteFileName(title: string): string {
+    const sanitizedTitle = title
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const baseName = sanitizedTitle || "Untitled";
+    return baseName.endsWith(".md") ? baseName : `${baseName}.md`;
+  }
+
+  function buildNoteContent({ title, body, tag }: DeclarativeNoteInput): string {
+    const normalizedTitle = title.trim() || "Untitled";
+    const normalizedBody = body.trim();
+    const normalizedTag = normalizeTag(tag);
+    const sections: string[] = [];
+
+    if (normalizedTag) {
+      sections.push("---", `tags: [${normalizedTag}]`, "---", "");
+    }
+
+    sections.push(`# ${normalizedTitle}`);
+
+    if (normalizedBody) {
+      sections.push("", normalizedBody);
+    }
+
+    return sections.join("\n");
+  }
+
+  async function openWorkspace(): Promise<void> {
+    if (!fsApi.isFileSystemApiAvailable()) {
+      activateTemporarySession();
+      els.tree.innerHTML = '<div class="small" style="padding: 8px;">Temporary session. Create a note to begin.</div>';
 
       showToast("Temporary in-memory workspace enabled. Use Export to save your notes.", {
         persist: true,
@@ -89,8 +141,6 @@ export function createWorkspaceActions({
       setStatus("Temporary session", "warn");
       return;
     }
-
-    els.temporarySessionBadge.style.display = "none";
 
     try {
       if (!window.showDirectoryPicker) {
@@ -107,9 +157,11 @@ export function createWorkspaceActions({
 
       state.workspaceHandle = directory;
       state.workspaceName = directory.name || "Selected folder";
+      state.isTemporarySession = false;
       state.collapsedDirs.clear();
       state.tagFilter = "";
 
+      els.temporarySessionBadge.style.display = "none";
       els.workspaceName.textContent = state.workspaceName;
       els.workspaceName.title = state.workspaceName;
       els.tagRow.innerHTML = "";
@@ -491,6 +543,119 @@ export function createWorkspaceActions({
     setStatus("New note", "ok");
   }
 
+  async function createNoteFromTool(input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> {
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const tag = input.tag.trim();
+
+    if (!title || !body) {
+      const message = "Title and body are required.";
+      showToast(message, { persist: true });
+      setStatus("Create failed", "err");
+      return { ok: false, message };
+    }
+
+    if (!state.workspaceHandle && !state.isTemporarySession) {
+      activateTemporarySession();
+      showToast("Temporary in-memory workspace enabled for note creation.", {
+        persist: true,
+      });
+      setStatus("Temporary session", "warn");
+    }
+
+    const fileName = buildNoteFileName(title);
+    const content = buildNoteContent({ title, body, tag });
+    const keptCurrentNote = state.isDirty;
+    const successMessage = keptCurrentNote
+      ? `Created ${fileName}. Current unsaved note was left open.`
+      : `Created ${fileName} ✓`;
+
+    if (state.isTemporarySession) {
+      const existingNote = state.inMemoryNotes.find((note) => note.relPath === fileName);
+      if (existingNote) {
+        const message = "A note with that name already exists.";
+        showToast(message, { persist: true });
+        setStatus("Create failed", "err");
+        return { ok: false, message };
+      }
+
+      const note: InMemoryNoteRecord = {
+        name: fileName,
+        relPath: fileName,
+        content,
+        lastModified: Date.now(),
+        tags: parseTags(content),
+      };
+
+      state.inMemoryNotes.push(note);
+
+      if (!keptCurrentNote) {
+        state.currentRelPath = fileName;
+        state.currentContent = content;
+        state.isDirty = false;
+        els.editor.value = content;
+        renderPreview(els, content);
+        updateDirtyUi(els, state, setStatus);
+      }
+
+      renderInMemoryTree();
+      renderTags();
+      updateCountsPill();
+      showToast(successMessage);
+      setStatus("New note", "ok");
+
+      return {
+        ok: true,
+        message: successMessage,
+        notePath: fileName,
+        sessionType: "temporary",
+        keptCurrentNote,
+      };
+    }
+
+    try {
+      if (!state.workspaceHandle) {
+        throw new Error("Workspace handle is not available");
+      }
+
+      for await (const [existingName] of state.workspaceHandle.entries()) {
+        if (existingName === fileName) {
+          const message = "A file with that name already exists.";
+          showToast(message, { persist: true });
+          setStatus("Create failed", "err");
+          return { ok: false, message };
+        }
+      }
+
+      const fileHandle = await state.workspaceHandle.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+
+      await rescanWorkspace({ silent: true });
+
+      if (!keptCurrentNote) {
+        await openNoteByRelPath(fileName, fileHandle);
+      } else {
+        setStatus("New note", "ok");
+      }
+
+      showToast(successMessage);
+      return {
+        ok: true,
+        message: successMessage,
+        notePath: fileName,
+        sessionType: "workspace",
+        keptCurrentNote,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(`Failed to create note: ${message}`, { persist: true });
+      setStatus("Create failed", "err");
+      return { ok: false, message };
+    }
+  }
+
   async function openInMemoryNote(relPath: string): Promise<void> {
     if (state.isDirty && state.currentRelPath) {
       const shouldDiscard = confirm("You have unsaved changes. Discard them?");
@@ -656,6 +821,7 @@ export function createWorkspaceActions({
     saveCurrentNote,
     createNewNote,
     saveAsNewNote,
+    createNoteFromTool,
     createNewFolder,
     createInMemoryNote,
     openInMemoryNote,

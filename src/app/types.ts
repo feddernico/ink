@@ -42,6 +42,20 @@ export interface InMemoryNoteRecord {
   tags: Set<string>;
 }
 
+export interface DeclarativeNoteInput {
+  title: string;
+  body: string;
+  tag: string;
+}
+
+export interface DeclarativeNoteResult {
+  ok: boolean;
+  message: string;
+  notePath?: string;
+  sessionType?: "workspace" | "temporary";
+  keptCurrentNote?: boolean;
+}
+
 export interface FileNode {
   type: "file";
   name: string;
@@ -89,6 +103,13 @@ export interface DomRefs {
   sortBtn: HTMLButtonElement;
   searchInput: HTMLInputElement;
   tree: HTMLElement;
+  webmcpNoteModal: HTMLElement;
+  webmcpNoteModalBackdrop: HTMLElement;
+  webmcpNoteModalCloseBtn: HTMLButtonElement;
+  webmcpNoteForm: HTMLFormElement;
+  webmcpTitleInput: HTMLInputElement;
+  webmcpBodyInput: HTMLTextAreaElement;
+  webmcpTagInput: HTMLInputElement;
   tagRow: HTMLElement;
   workspaceName: HTMLElement;
   countsPill: HTMLElement;
