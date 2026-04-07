@@ -12,7 +12,7 @@
 - Test bundles are built via `build/build-test.js`.
 - Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 - GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
-- Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
+- Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
 - Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
 - Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 - Declarative WebMCP note creation lives in the `#webmcpNoteForm` form in `ink.template.html`; keep its submit path wired to `createNoteFromTool()` in `src/app/workspace-io.ts` so agent-invoked note creation stays in the single-page app and does not navigate away.
