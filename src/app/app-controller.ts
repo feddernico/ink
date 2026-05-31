@@ -12,6 +12,7 @@ import { createTreeRenderer } from "./tree-render";
 import { attachUiEvents } from "./ui-events";
 import { createWorkspaceActions } from "./workspace-io";
 import { createCogitoController } from "./cogito";
+import { createDocumentLinterController } from "./document-linter/document-linter";
 import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
 
 type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
@@ -126,13 +127,21 @@ export function createAppController(els: DomRefs) {
     renderPreview(els, value);
   }
 
-  const cogitoController = createCogitoController({
-    els,
-    getEditorText: () => els.editor.value,
-    onEditorContentReplaced: (text) => handleEditorInput(text),
-    showToast,
-    setStatus: (message, kind) => setStatus(els, message, kind),
-  });
+   const cogitoController = createCogitoController({
+     els,
+     getEditorText: () => els.editor.value,
+     onEditorContentReplaced: (text) => handleEditorInput(text),
+     showToast,
+     setStatus: (message, kind) => setStatus(els, message, kind),
+   });
+   
+   const documentLinterController = createDocumentLinterController({
+     els,
+     getEditorText: () => els.editor.value,
+     onEditorContentReplaced: (text) => handleEditorInput(text),
+     showToast,
+     setStatus: (message, kind) => setStatus(els, message, kind),
+   });
 
   function initialize(): void {
     marked.use({ breaks: true });
@@ -146,26 +155,31 @@ export function createAppController(els: DomRefs) {
       actions: {
         handleMenuAction: menuActions.handleMenuAction,
         toggleSidebar: () => setSidebarCollapsed(els, state, !state.isSidebarCollapsed),
-        handleRefresh: workspaceActions.handleRefresh,
-        toggleSort: menuActions.toggleSort,
-        handleSearchInput,
-        handleEditorInput,
-        saveCurrentNote: workspaceActions.saveCurrentNote,
-        createNewNote: workspaceActions.createNewNote,
-        createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
-          workspaceActions.createNoteFromTool(input),
-        openWorkspace: workspaceActions.openWorkspace,
-        exportAsJson: workspaceActions.exportAsJson,
-        exportAsMarkdown: workspaceActions.exportAsMarkdown,
-        toggleCogitoPanel: () => {
-          state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
-          cogitoController.togglePanel();
-        },
-        selectCogitoModel: (model) => cogitoController.selectModel(model),
-        generateCogitoQuestions: () => cogitoController.generateQuestions(),
-        insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
-        hideToast,
-        showToast,
+         handleRefresh: workspaceActions.handleRefresh,
+         toggleSort: menuActions.toggleSort,
+         handleSearchInput,
+         handleEditorInput,
+         saveCurrentNote: workspaceActions.saveCurrentNote,
+         createNewNote: workspaceActions.createNewNote,
+         createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
+           workspaceActions.createNoteFromTool(input),
+         openWorkspace: workspaceActions.openWorkspace,
+         exportAsJson: workspaceActions.exportAsJson,
+         exportAsMarkdown: workspaceActions.exportAsMarkdown,
+         toggleCogitoPanel: () => {
+           state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
+           cogitoController.togglePanel();
+         },
+         selectCogitoModel: (model) => cogitoController.selectModel(model),
+         generateCogitoQuestions: () => cogitoController.generateQuestions(),
+         insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
+         toggleDocumentLinterPanel: () => {
+           documentLinterController.togglePanel();
+         },
+         analyzeDocument: () => documentLinterController.analyzeDocument(),
+         exportDocumentLinterSuggestions: () => documentLinterController.exportSuggestions(),
+         hideToast,
+         showToast,
       },
     });
 

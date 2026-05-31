@@ -129,6 +129,12 @@ export interface DomRefs {
   cogitoGenerateBtn: HTMLButtonElement;
   cogitoStatus: HTMLElement;
   cogitoQuestionList: HTMLElement;
+  documentLinterToggleBtn: HTMLButtonElement;
+  documentLinterPanel: HTMLElement;
+  documentLinterAnalyzeBtn: HTMLButtonElement;
+  documentLinterExportBtn: HTMLButtonElement;
+  documentLinterStatus: HTMLElement;
+  documentLinterResults: HTMLElement;
 }
 
 declare global {
