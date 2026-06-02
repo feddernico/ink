@@ -23,14 +23,6 @@ const bundles = [
     outfile: "dist/test/cogito.js",
   },
   {
-    entryPoints: ["src/auth/github.ts"],
-    outfile: "dist/test/github.js",
-  },
-  {
-    entryPoints: ["src/auth/user.ts"],
-    outfile: "dist/test/user.js",
-  },
-  {
     entryPoints: ["src/app/editor-preview.ts"],
     outfile: "dist/test/editor-preview.js",
   },
