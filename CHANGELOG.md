@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/feddernico/ink/compare/ink-v1.2.1...ink-v1.3.0) (2026-06-02)
+
+
+### Features
+
+* Add Document Linter feature ([351ae83](https://github.com/feddernico/ink/commit/351ae8366834dfcb2d194d5c5f0b7238733f522f))
+
+
+### Bug Fixes
+
+* keep qunit test build on tracked sources ([550a38d](https://github.com/feddernico/ink/commit/550a38d953d93d5b643bea6ee10ebb91472eebc7))
+* restore auth test bundles for qunit ([7f7cd09](https://github.com/feddernico/ink/commit/7f7cd09b076c81b7dc04310b2c2ac24b363b3b31))
+
 ## [1.2.1](https://github.com/feddernico/ink/compare/ink-v1.2.0...ink-v1.2.1) (2026-04-07)
 
 
