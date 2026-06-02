@@ -43,6 +43,9 @@ type SetStatusFn = (message: string, kind?: "ok" | "warn" | "err") => void;
 
 type CogitoController = {
   togglePanel: () => void;
+  setPanelOpen: (isOpen: boolean) => void;
+  isPanelOpen: () => boolean;
+  closePanel: () => void;
   selectModel: (model: CogitoModel) => void;
   generateQuestions: () => Promise<void>;
   insertQuestionAtIndex: (index: number) => void;
@@ -278,6 +281,16 @@ export function createCogitoController({
       if (isPanelOpen) {
         setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
       }
+    },
+    setPanelOpen: (nextIsOpen: boolean) => {
+      setPanelVisibility(nextIsOpen);
+      if (nextIsOpen) {
+        setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
+      }
+    },
+    isPanelOpen: () => isPanelOpen,
+    closePanel: () => {
+      setPanelVisibility(false);
     },
     selectModel,
     generateQuestions,

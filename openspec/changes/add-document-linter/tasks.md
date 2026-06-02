@@ -1,0 +1,11 @@
+## 1. Implementation
+- [ ] 1.1 Create Document Linter UI component with score panel and inline suggestions
+- [ ] 1.2 Implement markdown-aware parser to isolate prose from code chunks
+- [ ] 1.3 Build rule-based engine for readability, skimmability, engagement, and style checks
+- [ ] 1.4 Create scoring layer that generates actionable suggestions
+- [ ] 1.5 Implement section-by-section reporting with inline suggestions in the editor
+- [ ] 1.6 Add toggle to ignore/downweight code cells
+- [ ] 1.7 Implement export functionality for suggestions as markdown
+- [ ] 1.8 Integrate with existing ink.html build process
+- [ ] 1.9 Test with various markdown documents to ensure accuracy
+- [ ] 1.10 Validate output matches expected suggestion categories

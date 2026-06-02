@@ -3,7 +3,7 @@ import { normalizeTag, parseTags } from "../tags";
 import { getDomRefs } from "./dom";
 import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
 import { createAutoRefresh } from "./auto-refresh";
-import { renderPreview, updateDirtyUi } from "./editor-preview";
+import { applyEditorViewMode, loadEditorViewMode, renderPreview, setEditorViewMode, updateDirtyUi } from "./editor-preview";
 import { createMenuActions, updateMenuShortcuts } from "./menu-actions";
 import { applySidebarState, setSidebarCollapsed } from "./sidebar";
 import { loadTheme } from "./theme";
@@ -12,6 +12,7 @@ import { createTreeRenderer } from "./tree-render";
 import { attachUiEvents } from "./ui-events";
 import { createWorkspaceActions } from "./workspace-io";
 import { createCogitoController } from "./cogito";
+import { createDocumentLinterController } from "./document-linter/document-linter";
 import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
 
 type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
@@ -41,6 +42,7 @@ export function createAppController(els: DomRefs) {
     isSidebarCollapsed: false,
     isTemporarySession: false,
     isCogitoModeEnabled: false,
+    editorViewMode: loadEditorViewMode(),
   };
 
   const toastTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
@@ -124,15 +126,46 @@ export function createAppController(els: DomRefs) {
     state.isDirty = value !== state.currentContent;
     updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
     renderPreview(els, value);
+    documentLinterController.handleEditorChanged(value);
   }
 
-  const cogitoController = createCogitoController({
-    els,
-    getEditorText: () => els.editor.value,
-    onEditorContentReplaced: (text) => handleEditorInput(text),
-    showToast,
-    setStatus: (message, kind) => setStatus(els, message, kind),
-  });
+  function openCogitoPanel(): void {
+    documentLinterController.closePanel();
+    state.isCogitoModeEnabled = true;
+    cogitoController.setPanelOpen(true);
+  }
+
+  function closeCogitoPanel(): void {
+    state.isCogitoModeEnabled = false;
+    cogitoController.closePanel();
+  }
+
+  function openDocumentLinterPanel(): void {
+    if (cogitoController.isPanelOpen()) {
+      closeCogitoPanel();
+    }
+    documentLinterController.setPanelOpen(true);
+  }
+
+  function closeDocumentLinterPanel(): void {
+    documentLinterController.closePanel();
+  }
+
+   const cogitoController = createCogitoController({
+     els,
+     getEditorText: () => els.editor.value,
+     onEditorContentReplaced: (text) => handleEditorInput(text),
+     showToast,
+     setStatus: (message, kind) => setStatus(els, message, kind),
+   });
+   
+   const documentLinterController = createDocumentLinterController({
+     els,
+     getEditorText: () => els.editor.value,
+     onEditorContentReplaced: (text) => handleEditorInput(text),
+     showToast,
+     setStatus: (message, kind) => setStatus(els, message, kind),
+   });
 
   function initialize(): void {
     marked.use({ breaks: true });
@@ -146,31 +179,45 @@ export function createAppController(els: DomRefs) {
       actions: {
         handleMenuAction: menuActions.handleMenuAction,
         toggleSidebar: () => setSidebarCollapsed(els, state, !state.isSidebarCollapsed),
-        handleRefresh: workspaceActions.handleRefresh,
-        toggleSort: menuActions.toggleSort,
-        handleSearchInput,
-        handleEditorInput,
-        saveCurrentNote: workspaceActions.saveCurrentNote,
-        createNewNote: workspaceActions.createNewNote,
-        createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
-          workspaceActions.createNoteFromTool(input),
-        openWorkspace: workspaceActions.openWorkspace,
-        exportAsJson: workspaceActions.exportAsJson,
+         handleRefresh: workspaceActions.handleRefresh,
+         toggleSort: menuActions.toggleSort,
+         handleSearchInput,
+         handleEditorInput,
+         saveCurrentNote: workspaceActions.saveCurrentNote,
+         createNewNote: workspaceActions.createNewNote,
+         createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
+           workspaceActions.createNoteFromTool(input),
+         openWorkspace: workspaceActions.openWorkspace,
+         exportAsJson: workspaceActions.exportAsJson,
         exportAsMarkdown: workspaceActions.exportAsMarkdown,
         toggleCogitoPanel: () => {
-          state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
-          cogitoController.togglePanel();
-        },
-        selectCogitoModel: (model) => cogitoController.selectModel(model),
-        generateCogitoQuestions: () => cogitoController.generateQuestions(),
-        insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
-        hideToast,
-        showToast,
+           if (cogitoController.isPanelOpen()) {
+             closeCogitoPanel();
+             return;
+           }
+           openCogitoPanel();
+         },
+         selectCogitoModel: (model) => cogitoController.selectModel(model),
+         generateCogitoQuestions: () => cogitoController.generateQuestions(),
+         insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
+         setEditorViewMode: (mode) => setEditorViewMode(els, state, mode),
+         toggleDocumentLinterPanel: () => {
+           if (documentLinterController.isPanelOpen()) {
+             closeDocumentLinterPanel();
+             return;
+           }
+           openDocumentLinterPanel();
+         },
+         analyzeDocument: () => documentLinterController.analyzeDocument(),
+         exportDocumentLinterSuggestions: () => documentLinterController.exportSuggestions(),
+         hideToast,
+         showToast,
       },
     });
 
     loadTheme();
     applySidebarState(els, state);
+    applyEditorViewMode(els, state.editorViewMode);
     updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
     treeRenderer.renderTree().catch((error: unknown) => {
       showToast(`Failed to render tree: ${String(error)}`, { persist: true });
