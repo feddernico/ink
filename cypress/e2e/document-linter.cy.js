@@ -119,9 +119,11 @@ describe("document linter export", () => {
     cy.window().then(async (win) => {
       expect(win.__linterExportBlobs).to.have.length(1);
       const report = await win.__linterExportBlobs[0].text();
-      expect(report).to.contain("# Document Linter Report");
+      expect(report).to.contain("# Document Linter Review");
+      expect(report).to.contain("## Overall");
+      expect(report).to.contain("Overall score:");
       expect(report).to.contain("Readability");
-      expect(report).to.contain("Sentence too long");
+      expect(report).to.contain("Opening is informative, not directive");
     });
   });
 });

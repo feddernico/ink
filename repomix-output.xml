@@ -27444,6 +27444,182 @@ ${t.trim()}
 </svg>
 </file>
 
+<file path="cypress/tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["es5", "dom"],
+    "types": ["cypress", "node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}
+</file>
+
+<file path="openspec/changes/add-componentized-build-and-test-automation/specs/build-pipeline/spec.md">
+## ADDED Requirements
+### Requirement: Componentized Source Inputs
+The project SHALL maintain separate source files for interaction logic, styling, and template markup.
+
+#### Scenario: Source layout follows project template
+- **WHEN** a developer inspects the repository source layout
+- **THEN** TypeScript interaction logic is located in `src/app.ts`
+- **AND** SASS styling is located in `src/styles.scss`
+- **AND** HTML template markup is maintained in a template source file used by the build pipeline
+
+### Requirement: Deterministic Build Outputs
+The build pipeline SHALL compile TypeScript and SASS sources into deterministic distributable artifacts.
+
+#### Scenario: One-shot build compiles assets
+- **WHEN** a developer runs the documented one-shot build command
+- **THEN** the pipeline generates a JavaScript bundle at `dist/app.min.js`
+- **AND** the pipeline generates compiled CSS at `dist/styles.min.css`
+
+### Requirement: Single-File Distribution Assembly
+The build pipeline SHALL inject compiled JS and CSS artifacts into the HTML template to produce a single-file app output.
+
+#### Scenario: Build injects compiled assets into final HTML
+- **WHEN** the injection step runs after asset compilation
+- **THEN** the final HTML output contains inline CSS derived from `dist/styles.min.css`
+- **AND** the final HTML output contains inline JavaScript derived from `dist/app.min.js`
+- **AND** the resulting file is executable in a browser without network dependencies
+
+### Requirement: Incremental Developer Build Workflow
+The project SHALL provide a watch-mode build workflow that rebuilds artifacts when source files change.
+
+#### Scenario: Watch mode rebuilds on source edits
+- **WHEN** a developer runs the documented watch command and edits TypeScript, SASS, or template source files
+- **THEN** relevant compiled artifacts are regenerated without requiring manual command re-entry
+</file>
+
+<file path="openspec/changes/add-componentized-build-and-test-automation/specs/testing/spec.md">
+## ADDED Requirements
+### Requirement: QUnit Test Harness
+The project SHALL provide a QUnit-based test harness and a documented command to run QUnit tests locally.
+
+#### Scenario: QUnit tests are executable from project scripts
+- **WHEN** a developer runs the documented QUnit test command
+- **THEN** the QUnit suite executes without requiring manual browser setup
+- **AND** the command exits non-zero when any QUnit assertion fails
+
+### Requirement: Cypress End-to-End Test Harness
+The project SHALL provide Cypress configuration and a documented command to run Cypress tests locally.
+
+#### Scenario: Cypress tests are executable from project scripts
+- **WHEN** a developer runs the documented Cypress test command
+- **THEN** Cypress launches against the application under test
+- **AND** the command exits non-zero when any Cypress assertion fails
+
+### Requirement: Critical Authoring Flow Coverage
+Automated tests SHALL validate the user workflow of selecting a workspace, creating a new file, entering markdown, and saving.
+
+#### Scenario: End-to-end flow is validated
+- **WHEN** the Cypress workflow test runs
+- **THEN** it selects a workspace through supported UI/test seam interactions
+- **AND** it creates a new file
+- **AND** it enters markdown content into the editor
+- **AND** it triggers save
+- **AND** it verifies that the saved content matches the entered markdown
+
+### Requirement: Fast Regression Coverage for Editor Logic
+Automated tests SHALL include QUnit coverage for core editor interactions required by the authoring flow.
+
+#### Scenario: Editor behavior is validated by QUnit
+- **WHEN** the QUnit suite executes editor interaction tests
+- **THEN** tests verify at least initialization and markdown content mutation behavior used by the save flow
+</file>
+
+<file path="openspec/changes/add-componentized-build-and-test-automation/design.md">
+## Context
+Ink targets a single-file HTML distribution while development should remain modular and maintainable. The desired workflow requires clear source separation (TypeScript, SASS, HTML template), predictable build outputs, and automated tests that guard core document editing behavior.
+
+## Goals / Non-Goals
+- Goals:
+  - Keep source-of-truth files separated by concern: logic, presentation, and template markup.
+  - Preserve single-file distributable output for runtime usage.
+  - Provide reliable local build and test commands.
+  - Cover the critical authoring flow with both fast in-browser tests (QUnit) and browser-driven tests (Cypress).
+- Non-Goals:
+  - Migrating to a framework (React/Vue/etc.).
+  - Introducing a backend service.
+  - Redesigning editor UX beyond what is required for testability and flow support.
+
+## Decisions
+- Decision: Use TypeScript compilation via existing `esbuild` and SASS compilation via `sass`, with a final injection step into a template file.
+  - Rationale: aligns with current lightweight toolchain and single-file output constraint.
+- Decision: Expose build commands through `npm scripts` and keep `Makefile` as optional convenience wrapper.
+  - Rationale: `npm scripts` are portable and integrate well with QUnit/Cypress commands.
+- Decision: Add QUnit tests for app-level behaviors that do not require full browser orchestration.
+  - Rationale: fast feedback for logic and DOM interactions.
+- Decision: Add Cypress tests for full user workflow and persistence interactions.
+  - Rationale: validates user-visible behavior across realistic browser execution.
+
+## Risks / Trade-offs
+- Tooling overhead increases with dual test frameworks.
+  - Mitigation: keep QUnit focused on fast logic checks; reserve Cypress for key end-to-end flows.
+- Workspace/file APIs can be difficult to test directly in browsers.
+  - Mitigation: define test seams and controlled fixtures/stubs for deterministic execution.
+
+## Migration Plan
+1. Introduce source file structure and build scripts aligned with README conventions.
+2. Ensure one-shot and watch build commands generate expected dist artifacts and single-file output.
+3. Add QUnit harness and baseline test suite.
+4. Add Cypress project config and e2e scenario for workspace→new file→edit→save.
+5. Update documentation with developer commands and required prerequisites.
+
+## Open Questions
+- Should Cypress execute against a local static server command defined in `package.json`, or an externally started server? Local static server
+- What test seam should be canonical for workspace selection in Cypress (UI picker vs injected test fixture API)? UI picker
+</file>
+
+<file path="openspec/changes/add-componentized-build-and-test-automation/proposal.md">
+# Change: Componentized Build Pipeline and Automated Test Coverage
+
+## Why
+The current project state does not provide a stable, repeatable workflow for maintaining separate HTML, TypeScript, and SASS sources, and it lacks automated regression tests for critical editor behavior. This makes changes risky and manual verification time-consuming.
+
+## What Changes
+- Define a componentized source layout that keeps interaction logic in TypeScript, styles in SASS, and UI structure in an HTML template.
+- Define a deterministic build pipeline that compiles TypeScript and SASS into distributable assets and injects them into the single-file app output.
+- Define watch-mode and one-shot build commands so developers can rebuild the app whenever files change.
+- Add QUnit unit/integration coverage for core application behavior.
+- Add Cypress end-to-end coverage for the user flow: selecting a workspace, creating a new file, adding markdown content, and saving.
+- Define minimum acceptance checks for local validation before release.
+
+## Impact
+- Affected specs: `build-pipeline`, `testing`
+- Affected code:
+  - `package.json`
+  - `Makefile`
+  - `src/app.ts`
+  - `src/styles.scss`
+  - `ink.template.html` (or current HTML template source)
+  - `build/inject.js`
+  - `dist/` build outputs
+  - `tests/qunit/` (new)
+  - `cypress/` (new)
+</file>
+
+<file path="openspec/changes/add-componentized-build-and-test-automation/tasks.md">
+## 1. Implementation
+- [x] 1.1 Align source structure with README template: `src/app.ts`, `src/styles.scss`, and HTML template input.
+- [x] 1.2 Implement build scripts to compile TypeScript and SASS into `dist/app.min.js` and `dist/styles.min.css`.
+- [x] 1.3 Implement template injection so compiled CSS/JS are embedded into the final single-file app output.
+- [x] 1.4 Add build commands for one-shot build and watch mode to support rebuilding after file changes.
+- [x] 1.5 Update developer documentation for build and run workflows.
+
+## 2. Testing
+- [x] 2.1 Add QUnit test harness and configure command(s) to run tests locally.
+- [x] 2.2 Add QUnit tests for core interaction logic and markdown editing behavior.
+- [x] 2.3 Add Cypress configuration and command(s) to run end-to-end tests locally.
+- [x] 2.4 Add Cypress test that covers selecting a workspace, creating a new file, entering markdown content, and saving.
+- [x] 2.5 Add test data/setup hooks needed to execute the flow deterministically.
+
+## 3. Validation
+- [x] 3.1 Verify build output artifacts are generated as specified.
+- [x] 3.2 Verify QUnit and Cypress suites pass from documented commands.
+- [x] 3.3 Confirm final app output remains a single self-contained HTML file.
+</file>
+
 <file path="openspec/changes/add-github-login/specs/auth/spec.md">
 ## ADDED Requirements
 
@@ -28949,6 +29125,231 @@ export function createUserManager() {
 export type GitHubUserManager = ReturnType<typeof createUserManager>;
 </file>
 
+<file path="src/tags.ts">
+export function normalizeTag(value: string): string {
+  return (value || "")
+    .trim()
+    .replace(/^#+/, "")
+    .replace(/[^\w\-/]+/g, "")
+    .toLowerCase();
+}
+
+export function extractFrontMatter(text: string): string {
+  if (!text.startsWith("---")) {
+    return "";
+  }
+
+  const end = text.indexOf("\n---", 3);
+  if (end === -1) {
+    return "";
+  }
+
+  return text.slice(3, end).trim();
+}
+
+export function parseFrontmatterTags(frontMatter: string): Set<string> {
+  const tags = new Set<string>();
+  const lines = frontMatter.split("\n");
+
+  for (const line of lines) {
+    const inlineListMatch = line.match(/^\s*tags\s*:\s*\[(.*)\]\s*$/i);
+    if (!inlineListMatch) {
+      continue;
+    }
+
+    const parts = inlineListMatch[1]
+      .split(",")
+      .map((part) => normalizeTag(part.replace(/["']/g, "")));
+
+    for (const part of parts) {
+      if (part) {
+        tags.add(part);
+      }
+    }
+  }
+
+  let inTagsBlock = false;
+  for (const line of lines) {
+    if (/^\s*tags\s*:\s*$/i.test(line)) {
+      inTagsBlock = true;
+      continue;
+    }
+
+    if (!inTagsBlock) {
+      continue;
+    }
+
+    const item = line.match(/^\s*-\s*(.+)\s*$/);
+    if (item) {
+      const tag = normalizeTag(item[1].replace(/["']/g, ""));
+      if (tag) {
+        tags.add(tag);
+      }
+      continue;
+    }
+
+    if (line.trim() !== "" && !/^\s+/.test(line)) {
+      inTagsBlock = false;
+    }
+  }
+
+  return tags;
+}
+
+export function parseTags(text: string): Set<string> {
+  const tags = new Set<string>();
+
+  const frontMatter = extractFrontMatter(text);
+  if (frontMatter) {
+    const frontMatterTags = parseFrontmatterTags(frontMatter);
+    for (const tag of frontMatterTags) {
+      tags.add(tag);
+    }
+  }
+
+  const inlineMatches = text.match(/\B#([a-zA-Z0-9][\w\-/]{1,50})\b/g);
+  if (inlineMatches) {
+    for (const match of inlineMatches) {
+      const tag = normalizeTag(match);
+      if (tag) {
+        tags.add(tag);
+      }
+    }
+  }
+
+  return tags;
+}
+</file>
+
+<file path="tests/qunit/storage.test.js">
+import QUnit from "qunit";
+import {
+  createFile,
+  ensureWorkspace,
+  listFiles,
+  listWorkspaces,
+  readFile,
+  saveFile,
+} from "../../dist/test/storage.js";
+
+class MemoryStorage {
+  constructor() {
+    this.values = new Map();
+  }
+
+  get length() {
+    return this.values.size;
+  }
+
+  key(index) {
+    return Array.from(this.values.keys())[index] ?? null;
+  }
+
+  getItem(key) {
+    return this.values.has(key) ? this.values.get(key) : null;
+  }
+
+  setItem(key, value) {
+    this.values.set(key, value);
+  }
+
+  removeItem(key) {
+    this.values.delete(key);
+  }
+}
+
+QUnit.module("storage");
+
+QUnit.test("ensureWorkspace trims name and rejects empty names", (assert) => {
+  const storage = new MemoryStorage();
+
+  assert.throws(
+    () => ensureWorkspace(storage, "   "),
+    /Workspace name cannot be empty\./,
+  );
+
+  const name = ensureWorkspace(storage, "  project-a  ");
+  assert.strictEqual(name, "project-a");
+  assert.deepEqual(listWorkspaces(storage), ["project-a"]);
+});
+
+QUnit.test("createFile rejects empty names and creates file once", (assert) => {
+  const storage = new MemoryStorage();
+
+  ensureWorkspace(storage, "notes");
+
+  assert.throws(
+    () => createFile(storage, "notes", "  \n  "),
+    /File name cannot be empty\./,
+  );
+
+  createFile(storage, "notes", "daily.md");
+  createFile(storage, "notes", "daily.md");
+
+  assert.deepEqual(listFiles(storage, "notes"), ["daily.md"]);
+  assert.strictEqual(readFile(storage, "notes", "daily.md"), "");
+});
+
+QUnit.test("listWorkspaces and listFiles are sorted", (assert) => {
+  const storage = new MemoryStorage();
+
+  ensureWorkspace(storage, "zeta");
+  ensureWorkspace(storage, "alpha");
+  ensureWorkspace(storage, "beta");
+
+  createFile(storage, "alpha", "z.md");
+  createFile(storage, "alpha", "a.md");
+  createFile(storage, "alpha", "m.md");
+
+  assert.deepEqual(listWorkspaces(storage), ["alpha", "beta", "zeta"]);
+  assert.deepEqual(listFiles(storage, "alpha"), ["a.md", "m.md", "z.md"]);
+});
+
+QUnit.test("readFile returns empty string when file does not exist", (assert) => {
+  const storage = new MemoryStorage();
+  ensureWorkspace(storage, "empty");
+
+  assert.strictEqual(readFile(storage, "empty", "missing.md"), "");
+  assert.strictEqual(readFile(storage, "missing-workspace", "missing.md"), "");
+});
+
+QUnit.test("saveFile creates missing workspace and persists content", (assert) => {
+  const storage = new MemoryStorage();
+
+  saveFile(storage, "new-workspace", "created.md", "# Hello");
+
+  assert.deepEqual(listWorkspaces(storage), ["new-workspace"]);
+  assert.deepEqual(listFiles(storage, "new-workspace"), ["created.md"]);
+  assert.strictEqual(readFile(storage, "new-workspace", "created.md"), "# Hello");
+});
+
+QUnit.test("integration flow: workspace -> create file -> save -> read", (assert) => {
+  const storage = new MemoryStorage();
+
+  ensureWorkspace(storage, "workspace-a");
+  createFile(storage, "workspace-a", "notes.md");
+  saveFile(storage, "workspace-a", "notes.md", "# Ink\n\nSaved content");
+
+  assert.strictEqual(
+    readFile(storage, "workspace-a", "notes.md"),
+    "# Ink\n\nSaved content",
+  );
+});
+
+QUnit.test("integration flow: data is isolated between workspaces", (assert) => {
+  const storage = new MemoryStorage();
+
+  createFile(storage, "workspace-a", "shared.md");
+  createFile(storage, "workspace-b", "shared.md");
+
+  saveFile(storage, "workspace-a", "shared.md", "A");
+  saveFile(storage, "workspace-b", "shared.md", "B");
+
+  assert.strictEqual(readFile(storage, "workspace-a", "shared.md"), "A");
+  assert.strictEqual(readFile(storage, "workspace-b", "shared.md"), "B");
+});
+</file>
+
 <file path="tests/qunit/user.test.js">
 import QUnit from "qunit";
 import { createUserManager } from "../../dist/test/user.js";
@@ -29075,6 +29476,17 @@ QUnit.module("auth/user", (hooks) => {
     assert.strictEqual(capturedHeaders?.get("Accept"), "application/vnd.github+json");
   });
 });
+</file>
+
+<file path="ink.code-workspace">
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {}
+}
 </file>
 
 <file path="LICENSE">
@@ -29548,9 +29960,11 @@ describe("document linter export", () => {
     cy.window().then(async (win) => {
       expect(win.__linterExportBlobs).to.have.length(1);
       const report = await win.__linterExportBlobs[0].text();
-      expect(report).to.contain("# Document Linter Report");
+      expect(report).to.contain("# Document Linter Review");
+      expect(report).to.contain("## Overall");
+      expect(report).to.contain("Overall score:");
       expect(report).to.contain("Readability");
-      expect(report).to.contain("Sentence too long");
+      expect(report).to.contain("Opening is informative, not directive");
     });
   });
 });
@@ -29680,15 +30094,8 @@ describe("editor view mode toggle", () => {
 });
 </file>
 
-<file path="cypress/tsconfig.json">
-{
-  "compilerOptions": {
-    "target": "es5",
-    "lib": ["es5", "dom"],
-    "types": ["cypress", "node"]
-  },
-  "include": ["**/*.ts", "**/*.tsx"]
-}
+<file path="cypress/support/commands.ts">
+export {};
 </file>
 
 <file path="openspec/changes/add-cogito-mode/specs/cogito-mode/spec.md">
@@ -30133,171 +30540,6 @@ Ink currently uses a single fixed dark color scheme. Users have different prefer
 
 - [x] 5.1 Update `replit.md` with a Color Themes section describing each theme and the persistence mechanism.
 - [x] 5.2 Create this openspec change request.
-</file>
-
-<file path="openspec/changes/add-componentized-build-and-test-automation/specs/build-pipeline/spec.md">
-## ADDED Requirements
-### Requirement: Componentized Source Inputs
-The project SHALL maintain separate source files for interaction logic, styling, and template markup.
-
-#### Scenario: Source layout follows project template
-- **WHEN** a developer inspects the repository source layout
-- **THEN** TypeScript interaction logic is located in `src/app.ts`
-- **AND** SASS styling is located in `src/styles.scss`
-- **AND** HTML template markup is maintained in a template source file used by the build pipeline
-
-### Requirement: Deterministic Build Outputs
-The build pipeline SHALL compile TypeScript and SASS sources into deterministic distributable artifacts.
-
-#### Scenario: One-shot build compiles assets
-- **WHEN** a developer runs the documented one-shot build command
-- **THEN** the pipeline generates a JavaScript bundle at `dist/app.min.js`
-- **AND** the pipeline generates compiled CSS at `dist/styles.min.css`
-
-### Requirement: Single-File Distribution Assembly
-The build pipeline SHALL inject compiled JS and CSS artifacts into the HTML template to produce a single-file app output.
-
-#### Scenario: Build injects compiled assets into final HTML
-- **WHEN** the injection step runs after asset compilation
-- **THEN** the final HTML output contains inline CSS derived from `dist/styles.min.css`
-- **AND** the final HTML output contains inline JavaScript derived from `dist/app.min.js`
-- **AND** the resulting file is executable in a browser without network dependencies
-
-### Requirement: Incremental Developer Build Workflow
-The project SHALL provide a watch-mode build workflow that rebuilds artifacts when source files change.
-
-#### Scenario: Watch mode rebuilds on source edits
-- **WHEN** a developer runs the documented watch command and edits TypeScript, SASS, or template source files
-- **THEN** relevant compiled artifacts are regenerated without requiring manual command re-entry
-</file>
-
-<file path="openspec/changes/add-componentized-build-and-test-automation/specs/testing/spec.md">
-## ADDED Requirements
-### Requirement: QUnit Test Harness
-The project SHALL provide a QUnit-based test harness and a documented command to run QUnit tests locally.
-
-#### Scenario: QUnit tests are executable from project scripts
-- **WHEN** a developer runs the documented QUnit test command
-- **THEN** the QUnit suite executes without requiring manual browser setup
-- **AND** the command exits non-zero when any QUnit assertion fails
-
-### Requirement: Cypress End-to-End Test Harness
-The project SHALL provide Cypress configuration and a documented command to run Cypress tests locally.
-
-#### Scenario: Cypress tests are executable from project scripts
-- **WHEN** a developer runs the documented Cypress test command
-- **THEN** Cypress launches against the application under test
-- **AND** the command exits non-zero when any Cypress assertion fails
-
-### Requirement: Critical Authoring Flow Coverage
-Automated tests SHALL validate the user workflow of selecting a workspace, creating a new file, entering markdown, and saving.
-
-#### Scenario: End-to-end flow is validated
-- **WHEN** the Cypress workflow test runs
-- **THEN** it selects a workspace through supported UI/test seam interactions
-- **AND** it creates a new file
-- **AND** it enters markdown content into the editor
-- **AND** it triggers save
-- **AND** it verifies that the saved content matches the entered markdown
-
-### Requirement: Fast Regression Coverage for Editor Logic
-Automated tests SHALL include QUnit coverage for core editor interactions required by the authoring flow.
-
-#### Scenario: Editor behavior is validated by QUnit
-- **WHEN** the QUnit suite executes editor interaction tests
-- **THEN** tests verify at least initialization and markdown content mutation behavior used by the save flow
-</file>
-
-<file path="openspec/changes/add-componentized-build-and-test-automation/design.md">
-## Context
-Ink targets a single-file HTML distribution while development should remain modular and maintainable. The desired workflow requires clear source separation (TypeScript, SASS, HTML template), predictable build outputs, and automated tests that guard core document editing behavior.
-
-## Goals / Non-Goals
-- Goals:
-  - Keep source-of-truth files separated by concern: logic, presentation, and template markup.
-  - Preserve single-file distributable output for runtime usage.
-  - Provide reliable local build and test commands.
-  - Cover the critical authoring flow with both fast in-browser tests (QUnit) and browser-driven tests (Cypress).
-- Non-Goals:
-  - Migrating to a framework (React/Vue/etc.).
-  - Introducing a backend service.
-  - Redesigning editor UX beyond what is required for testability and flow support.
-
-## Decisions
-- Decision: Use TypeScript compilation via existing `esbuild` and SASS compilation via `sass`, with a final injection step into a template file.
-  - Rationale: aligns with current lightweight toolchain and single-file output constraint.
-- Decision: Expose build commands through `npm scripts` and keep `Makefile` as optional convenience wrapper.
-  - Rationale: `npm scripts` are portable and integrate well with QUnit/Cypress commands.
-- Decision: Add QUnit tests for app-level behaviors that do not require full browser orchestration.
-  - Rationale: fast feedback for logic and DOM interactions.
-- Decision: Add Cypress tests for full user workflow and persistence interactions.
-  - Rationale: validates user-visible behavior across realistic browser execution.
-
-## Risks / Trade-offs
-- Tooling overhead increases with dual test frameworks.
-  - Mitigation: keep QUnit focused on fast logic checks; reserve Cypress for key end-to-end flows.
-- Workspace/file APIs can be difficult to test directly in browsers.
-  - Mitigation: define test seams and controlled fixtures/stubs for deterministic execution.
-
-## Migration Plan
-1. Introduce source file structure and build scripts aligned with README conventions.
-2. Ensure one-shot and watch build commands generate expected dist artifacts and single-file output.
-3. Add QUnit harness and baseline test suite.
-4. Add Cypress project config and e2e scenario for workspace→new file→edit→save.
-5. Update documentation with developer commands and required prerequisites.
-
-## Open Questions
-- Should Cypress execute against a local static server command defined in `package.json`, or an externally started server? Local static server
-- What test seam should be canonical for workspace selection in Cypress (UI picker vs injected test fixture API)? UI picker
-</file>
-
-<file path="openspec/changes/add-componentized-build-and-test-automation/proposal.md">
-# Change: Componentized Build Pipeline and Automated Test Coverage
-
-## Why
-The current project state does not provide a stable, repeatable workflow for maintaining separate HTML, TypeScript, and SASS sources, and it lacks automated regression tests for critical editor behavior. This makes changes risky and manual verification time-consuming.
-
-## What Changes
-- Define a componentized source layout that keeps interaction logic in TypeScript, styles in SASS, and UI structure in an HTML template.
-- Define a deterministic build pipeline that compiles TypeScript and SASS into distributable assets and injects them into the single-file app output.
-- Define watch-mode and one-shot build commands so developers can rebuild the app whenever files change.
-- Add QUnit unit/integration coverage for core application behavior.
-- Add Cypress end-to-end coverage for the user flow: selecting a workspace, creating a new file, adding markdown content, and saving.
-- Define minimum acceptance checks for local validation before release.
-
-## Impact
-- Affected specs: `build-pipeline`, `testing`
-- Affected code:
-  - `package.json`
-  - `Makefile`
-  - `src/app.ts`
-  - `src/styles.scss`
-  - `ink.template.html` (or current HTML template source)
-  - `build/inject.js`
-  - `dist/` build outputs
-  - `tests/qunit/` (new)
-  - `cypress/` (new)
-</file>
-
-<file path="openspec/changes/add-componentized-build-and-test-automation/tasks.md">
-## 1. Implementation
-- [x] 1.1 Align source structure with README template: `src/app.ts`, `src/styles.scss`, and HTML template input.
-- [x] 1.2 Implement build scripts to compile TypeScript and SASS into `dist/app.min.js` and `dist/styles.min.css`.
-- [x] 1.3 Implement template injection so compiled CSS/JS are embedded into the final single-file app output.
-- [x] 1.4 Add build commands for one-shot build and watch mode to support rebuilding after file changes.
-- [x] 1.5 Update developer documentation for build and run workflows.
-
-## 2. Testing
-- [x] 2.1 Add QUnit test harness and configure command(s) to run tests locally.
-- [x] 2.2 Add QUnit tests for core interaction logic and markdown editing behavior.
-- [x] 2.3 Add Cypress configuration and command(s) to run end-to-end tests locally.
-- [x] 2.4 Add Cypress test that covers selecting a workspace, creating a new file, entering markdown content, and saving.
-- [x] 2.5 Add test data/setup hooks needed to execute the flow deterministically.
-
-## 3. Validation
-- [x] 3.1 Verify build output artifacts are generated as specified.
-- [x] 3.2 Verify QUnit and Cypress suites pass from documented commands.
-- [x] 3.3 Confirm final app output remains a single self-contained HTML file.
 </file>
 
 <file path="openspec/changes/add-document-linter/specs/document-linter/spec.md">
@@ -34428,102 +34670,6 @@ export function saveFile(
 }
 </file>
 
-<file path="src/tags.ts">
-export function normalizeTag(value: string): string {
-  return (value || "")
-    .trim()
-    .replace(/^#+/, "")
-    .replace(/[^\w\-/]+/g, "")
-    .toLowerCase();
-}
-
-export function extractFrontMatter(text: string): string {
-  if (!text.startsWith("---")) {
-    return "";
-  }
-
-  const end = text.indexOf("\n---", 3);
-  if (end === -1) {
-    return "";
-  }
-
-  return text.slice(3, end).trim();
-}
-
-export function parseFrontmatterTags(frontMatter: string): Set<string> {
-  const tags = new Set<string>();
-  const lines = frontMatter.split("\n");
-
-  for (const line of lines) {
-    const inlineListMatch = line.match(/^\s*tags\s*:\s*\[(.*)\]\s*$/i);
-    if (!inlineListMatch) {
-      continue;
-    }
-
-    const parts = inlineListMatch[1]
-      .split(",")
-      .map((part) => normalizeTag(part.replace(/["']/g, "")));
-
-    for (const part of parts) {
-      if (part) {
-        tags.add(part);
-      }
-    }
-  }
-
-  let inTagsBlock = false;
-  for (const line of lines) {
-    if (/^\s*tags\s*:\s*$/i.test(line)) {
-      inTagsBlock = true;
-      continue;
-    }
-
-    if (!inTagsBlock) {
-      continue;
-    }
-
-    const item = line.match(/^\s*-\s*(.+)\s*$/);
-    if (item) {
-      const tag = normalizeTag(item[1].replace(/["']/g, ""));
-      if (tag) {
-        tags.add(tag);
-      }
-      continue;
-    }
-
-    if (line.trim() !== "" && !/^\s+/.test(line)) {
-      inTagsBlock = false;
-    }
-  }
-
-  return tags;
-}
-
-export function parseTags(text: string): Set<string> {
-  const tags = new Set<string>();
-
-  const frontMatter = extractFrontMatter(text);
-  if (frontMatter) {
-    const frontMatterTags = parseFrontmatterTags(frontMatter);
-    for (const tag of frontMatterTags) {
-      tags.add(tag);
-    }
-  }
-
-  const inlineMatches = text.match(/\B#([a-zA-Z0-9][\w\-/]{1,50})\b/g);
-  if (inlineMatches) {
-    for (const match of inlineMatches) {
-      const tag = normalizeTag(match);
-      if (tag) {
-        tags.add(tag);
-      }
-    }
-  }
-
-  return tags;
-}
-</file>
-
 <file path="tests/qunit/auth.test.js">
 import QUnit from "qunit";
 import {
@@ -35701,133 +35847,111 @@ QUnit.test("markdown filename extraction from full path", (assert) => {
 });
 </file>
 
-<file path="tests/qunit/storage.test.js">
+<file path="tests/qunit/tags.test.js">
 import QUnit from "qunit";
 import {
-  createFile,
-  ensureWorkspace,
-  listFiles,
-  listWorkspaces,
-  readFile,
-  saveFile,
-} from "../../dist/test/storage.js";
+  extractFrontMatter,
+  normalizeTag,
+  parseFrontmatterTags,
+  parseTags,
+} from "../../dist/test/tags.js";
 
-class MemoryStorage {
-  constructor() {
-    this.values = new Map();
-  }
+QUnit.module("tags parsing");
 
-  get length() {
-    return this.values.size;
-  }
-
-  key(index) {
-    return Array.from(this.values.keys())[index] ?? null;
-  }
-
-  getItem(key) {
-    return this.values.has(key) ? this.values.get(key) : null;
-  }
-
-  setItem(key, value) {
-    this.values.set(key, value);
-  }
-
-  removeItem(key) {
-    this.values.delete(key);
-  }
-}
-
-QUnit.module("storage");
-
-QUnit.test("ensureWorkspace trims name and rejects empty names", (assert) => {
-  const storage = new MemoryStorage();
-
-  assert.throws(
-    () => ensureWorkspace(storage, "   "),
-    /Workspace name cannot be empty\./,
-  );
-
-  const name = ensureWorkspace(storage, "  project-a  ");
-  assert.strictEqual(name, "project-a");
-  assert.deepEqual(listWorkspaces(storage), ["project-a"]);
+QUnit.test("extracts YAML frontmatter", (assert) => {
+  const text = "---\ntags: [work, docs]\n---\n\n# Note";
+  assert.strictEqual(extractFrontMatter(text), "tags: [work, docs]");
 });
 
-QUnit.test("createFile rejects empty names and creates file once", (assert) => {
-  const storage = new MemoryStorage();
-
-  ensureWorkspace(storage, "notes");
-
-  assert.throws(
-    () => createFile(storage, "notes", "  \n  "),
-    /File name cannot be empty\./,
-  );
-
-  createFile(storage, "notes", "daily.md");
-  createFile(storage, "notes", "daily.md");
-
-  assert.deepEqual(listFiles(storage, "notes"), ["daily.md"]);
-  assert.strictEqual(readFile(storage, "notes", "daily.md"), "");
+QUnit.test("returns empty frontmatter when closing delimiter is missing", (assert) => {
+  const text = "---\ntags: [work, docs]\n\n# Note";
+  assert.strictEqual(extractFrontMatter(text), "");
 });
 
-QUnit.test("listWorkspaces and listFiles are sorted", (assert) => {
-  const storage = new MemoryStorage();
-
-  ensureWorkspace(storage, "zeta");
-  ensureWorkspace(storage, "alpha");
-  ensureWorkspace(storage, "beta");
-
-  createFile(storage, "alpha", "z.md");
-  createFile(storage, "alpha", "a.md");
-  createFile(storage, "alpha", "m.md");
-
-  assert.deepEqual(listWorkspaces(storage), ["alpha", "beta", "zeta"]);
-  assert.deepEqual(listFiles(storage, "alpha"), ["a.md", "m.md", "z.md"]);
+QUnit.test("normalizes hashtag input and strips invalid characters", (assert) => {
+  assert.strictEqual(normalizeTag("  #Work/Area!!  "), "work/area");
+  assert.strictEqual(normalizeTag("###"), "");
+  assert.strictEqual(normalizeTag(""), "");
 });
 
-QUnit.test("readFile returns empty string when file does not exist", (assert) => {
-  const storage = new MemoryStorage();
-  ensureWorkspace(storage, "empty");
+QUnit.test("parses frontmatter tags from inline and block syntaxes", (assert) => {
+  const fm = [
+    "tags: [work, docs]",
+    "topic: markdown",
+    "tags:",
+    "  - notes",
+    "  - personal",
+  ].join("\n");
 
-  assert.strictEqual(readFile(storage, "empty", "missing.md"), "");
-  assert.strictEqual(readFile(storage, "missing-workspace", "missing.md"), "");
+  const tags = parseFrontmatterTags(fm);
+  assert.deepEqual([...tags].sort(), ["docs", "notes", "personal", "work"]);
 });
 
-QUnit.test("saveFile creates missing workspace and persists content", (assert) => {
-  const storage = new MemoryStorage();
+QUnit.test("ignores empty and invalid frontmatter tag entries", (assert) => {
+  const fm = [
+    "tags: [\"\", !!!, work]",
+    "tags:",
+    "  - \"\"",
+    "  - $$$",
+    "  - docs",
+  ].join("\n");
 
-  saveFile(storage, "new-workspace", "created.md", "# Hello");
-
-  assert.deepEqual(listWorkspaces(storage), ["new-workspace"]);
-  assert.deepEqual(listFiles(storage, "new-workspace"), ["created.md"]);
-  assert.strictEqual(readFile(storage, "new-workspace", "created.md"), "# Hello");
+  const tags = parseFrontmatterTags(fm);
+  assert.deepEqual([...tags].sort(), ["docs", "work"]);
 });
 
-QUnit.test("integration flow: workspace -> create file -> save -> read", (assert) => {
-  const storage = new MemoryStorage();
+QUnit.test("parses combined frontmatter and inline hashtag tags", (assert) => {
+  const text = [
+    "---",
+    "tags: [work]",
+    "---",
+    "",
+    "# Weekly notes",
+    "Track #project-alpha updates and #work planning",
+  ].join("\n");
 
-  ensureWorkspace(storage, "workspace-a");
-  createFile(storage, "workspace-a", "notes.md");
-  saveFile(storage, "workspace-a", "notes.md", "# Ink\n\nSaved content");
-
-  assert.strictEqual(
-    readFile(storage, "workspace-a", "notes.md"),
-    "# Ink\n\nSaved content",
-  );
+  const tags = parseTags(text);
+  assert.deepEqual([...tags].sort(), ["project-alpha", "work"]);
 });
 
-QUnit.test("integration flow: data is isolated between workspaces", (assert) => {
-  const storage = new MemoryStorage();
+QUnit.test("deduplicates tags across frontmatter and inline content", (assert) => {
+  const text = [
+    "---",
+    "tags: [work, docs]",
+    "---",
+    "",
+    "Update #work and #docs this week",
+  ].join("\n");
 
-  createFile(storage, "workspace-a", "shared.md");
-  createFile(storage, "workspace-b", "shared.md");
-
-  saveFile(storage, "workspace-a", "shared.md", "A");
-  saveFile(storage, "workspace-b", "shared.md", "B");
-
-  assert.strictEqual(readFile(storage, "workspace-a", "shared.md"), "A");
-  assert.strictEqual(readFile(storage, "workspace-b", "shared.md"), "B");
+  const tags = parseTags(text);
+  assert.deepEqual([...tags].sort(), ["docs", "work"]);
 });
+
+QUnit.test("parses hashtags with punctuation and slash correctly", (assert) => {
+  const text = "Check (#release/v1), #alpha, and trailing #beta.";
+  const tags = parseTags(text);
+
+  assert.deepEqual([...tags].sort(), ["alpha", "beta", "release/v1"]);
+});
+</file>
+
+<file path=".gitignore">
+# Dependencies
+node_modules/
+
+# OS/editor noise
+.DS_Store
+*.log
+
+# Local tool state
+.opencode/
+
+# Cypress artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+coverage/
+.nyc_output/
 </file>
 
 <file path=".nycrc">
@@ -35913,17 +36037,6 @@ export default [
 <file path="FUNDING.yml">
 github: feddernico
 ko_fi: feddernico
-</file>
-
-<file path="ink.code-workspace">
-{
-    "folders": [
-        {
-            "path": "."
-        }
-    ],
-    "settings": {}
-}
 </file>
 
 <file path="opencode.json">
@@ -47325,8 +47438,11 @@ describe("workspace actions regression", () => {
 });
 </file>
 
-<file path="cypress/support/commands.ts">
-export {};
+<file path="cypress/support/e2e.ts">
+import "./commands";
+import "@cypress/code-coverage/support";
+
+Cypress.on("uncaught:exception", () => false);
 </file>
 
 <file path="openspec/changes/add-mobile-fallback/tasks.md">
@@ -49681,92 +49797,10 @@ export function createTreeRenderer({
 }
 </file>
 
-<file path="tests/qunit/tags.test.js">
-import QUnit from "qunit";
-import {
-  extractFrontMatter,
-  normalizeTag,
-  parseFrontmatterTags,
-  parseTags,
-} from "../../dist/test/tags.js";
+<file path="src/app.ts">
+import { bootstrapInkApp } from "./app/app-controller";
 
-QUnit.module("tags parsing");
-
-QUnit.test("extracts YAML frontmatter", (assert) => {
-  const text = "---\ntags: [work, docs]\n---\n\n# Note";
-  assert.strictEqual(extractFrontMatter(text), "tags: [work, docs]");
-});
-
-QUnit.test("returns empty frontmatter when closing delimiter is missing", (assert) => {
-  const text = "---\ntags: [work, docs]\n\n# Note";
-  assert.strictEqual(extractFrontMatter(text), "");
-});
-
-QUnit.test("normalizes hashtag input and strips invalid characters", (assert) => {
-  assert.strictEqual(normalizeTag("  #Work/Area!!  "), "work/area");
-  assert.strictEqual(normalizeTag("###"), "");
-  assert.strictEqual(normalizeTag(""), "");
-});
-
-QUnit.test("parses frontmatter tags from inline and block syntaxes", (assert) => {
-  const fm = [
-    "tags: [work, docs]",
-    "topic: markdown",
-    "tags:",
-    "  - notes",
-    "  - personal",
-  ].join("\n");
-
-  const tags = parseFrontmatterTags(fm);
-  assert.deepEqual([...tags].sort(), ["docs", "notes", "personal", "work"]);
-});
-
-QUnit.test("ignores empty and invalid frontmatter tag entries", (assert) => {
-  const fm = [
-    "tags: [\"\", !!!, work]",
-    "tags:",
-    "  - \"\"",
-    "  - $$$",
-    "  - docs",
-  ].join("\n");
-
-  const tags = parseFrontmatterTags(fm);
-  assert.deepEqual([...tags].sort(), ["docs", "work"]);
-});
-
-QUnit.test("parses combined frontmatter and inline hashtag tags", (assert) => {
-  const text = [
-    "---",
-    "tags: [work]",
-    "---",
-    "",
-    "# Weekly notes",
-    "Track #project-alpha updates and #work planning",
-  ].join("\n");
-
-  const tags = parseTags(text);
-  assert.deepEqual([...tags].sort(), ["project-alpha", "work"]);
-});
-
-QUnit.test("deduplicates tags across frontmatter and inline content", (assert) => {
-  const text = [
-    "---",
-    "tags: [work, docs]",
-    "---",
-    "",
-    "Update #work and #docs this week",
-  ].join("\n");
-
-  const tags = parseTags(text);
-  assert.deepEqual([...tags].sort(), ["docs", "work"]);
-});
-
-QUnit.test("parses hashtags with punctuation and slash correctly", (assert) => {
-  const text = "Check (#release/v1), #alpha, and trailing #beta.";
-  const tags = parseTags(text);
-
-  assert.deepEqual([...tags].sort(), ["alpha", "beta", "release/v1"]);
-});
+bootstrapInkApp();
 </file>
 
 <file path="tests/qunit/utils.test.js">
@@ -49821,25 +49855,6 @@ QUnit.test("returns empty string unchanged", (assert) => {
 QUnit.test("leaves plain text unchanged", (assert) => {
   assert.strictEqual(escapeHtml("hello world"), "hello world");
 });
-</file>
-
-<file path=".gitignore">
-# Dependencies
-node_modules/
-
-# OS/editor noise
-.DS_Store
-*.log
-
-# Local tool state
-.opencode/
-
-# Cypress artifacts
-cypress/screenshots/
-cypress/videos/
-cypress/downloads/
-coverage/
-.nyc_output/
 </file>
 
 <file path="AGENTS.md">
@@ -49937,6 +49952,25 @@ git add repomix-output.xml
 EOF
 chmod +x .git/hooks/pre-commit
 ```
+</file>
+
+<file path="cypress.config.mjs">
+import { createRequire } from "node:module";
+import { defineConfig } from "cypress";
+
+const require = createRequire(import.meta.url);
+
+export default defineConfig({
+  video: false,
+  e2e: {
+    baseUrl: "http://127.0.0.1:4173",
+    specPattern: "cypress/e2e/**/*.cy.js",
+    setupNodeEvents(on, config) {
+      require("@cypress/code-coverage/task")(on, config);
+      return config;
+    },
+  },
+});
 </file>
 
 <file path="release-please-config.json">
@@ -50094,19 +50128,6 @@ jobs:
           path: cypress/screenshots
 </file>
 
-<file path="cypress/support/e2e.ts">
-import "./commands";
-import "@cypress/code-coverage/support";
-
-Cypress.on("uncaught:exception", () => false);
-</file>
-
-<file path="src/app.ts">
-import { bootstrapInkApp } from "./app/app-controller";
-
-bootstrapInkApp();
-</file>
-
 <file path=".replit">
 modules = ["web", "nodejs-20"]
 [agent]
@@ -50183,25 +50204,6 @@ externalPort = 80
 * added a way to bump node package verion using release-please ([dc85d9e](https://github.com/feddernico/ink/commit/dc85d9ebb8ac44595c3a48be5a4113f59bf9fd99))
 * only create release if ink-app.html changed ([2f31aac](https://github.com/feddernico/ink/commit/2f31aaccf443daa2486dbff805f90256ecc2a146))
 * only create release if ink-app.html changed ([a9f4f65](https://github.com/feddernico/ink/commit/a9f4f656715bfb61ae394e4e8320e78ef57c9742))
-</file>
-
-<file path="cypress.config.mjs">
-import { createRequire } from "node:module";
-import { defineConfig } from "cypress";
-
-const require = createRequire(import.meta.url);
-
-export default defineConfig({
-  video: false,
-  e2e: {
-    baseUrl: "http://127.0.0.1:4173",
-    specPattern: "cypress/e2e/**/*.cy.js",
-    setupNodeEvents(on, config) {
-      require("@cypress/code-coverage/task")(on, config);
-      return config;
-    },
-  },
-});
 </file>
 
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
@@ -50303,6 +50305,80 @@ export default defineConfig({
 - [x] 7.5 Verify visually that the editor header status area shows only the dirty-dot indicator and status badge.
 - [x] 7.6 Verify the dirty-dot indicator and "Unsaved changes" status badge correctly reflect unsaved state.
 - [x] 7.7 Verify all remaining menu and keyboard-shortcut paths for the removed buttons continue to work end-to-end.
+</file>
+
+<file path="openspec/project.md">
+# Project Context
+
+## Purpose
+
+Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
+
+## Tech Stack
+
+- **Frontend**: Vanilla JavaScript (ES6+)
+- **Markdown Processing**: Marked.js v15.0.12 (embedded)
+- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
+- **HTML Template**: Custom template system with inlined CSS/JS
+- **Target**: Single-page web application (ink.html)
+
+## Project Conventions
+
+### Code Style
+
+- ES6+ JavaScript modules
+- Minimal dependencies - prefers vanilla JavaScript
+- Single-file build output (ink.html) with inlined assets
+- Functional programming patterns preferred
+
+### Architecture Patterns
+
+- **Single File Architecture**: Final build is a self-contained HTML file
+- **Template Injection**: CSS and JS are injected into HTML template during build
+- **No Build Framework**: Custom build process without webpack/rollup/etc.
+- **Client-side Only**: Pure frontend application with no server requirements
+
+### Testing Strategy
+
+- No formal testing framework currently implemented
+- Manual testing via browser
+- Build verification through file generation
+
+### Git Workflow
+
+- Simple trunk-based development
+- Commits should be descriptive of changes
+- Main branch contains production-ready code
+
+## Domain Context
+
+- **Markdown Editing**: Core focus on markdown document creation and editing
+- **Document Export**: Ability to export markdown to various formats
+- **Offline Usage**: Application should work without internet connectivity
+- **Single User**: Designed for individual document creation
+
+## Important Constraints
+
+- **Single File Output**: Must build to a single HTML file (ink.html)
+- **No External Dependencies**: Runtime should work without CDN/internet
+- **Cross-browser**: Must work in modern browsers
+- **Lightweight**: Keep file size minimal for fast loading
+- **No Server**: Pure client-side application
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
+
+## External Dependencies
+
+- **Marked.js**: Markdown parser library (embedded in build)
+- **No External APIs**: Application works completely offline
+- **No Backend**: No server-side components required
 </file>
 
 <file path="src/app/cogito.ts">
@@ -51551,80 +51627,6 @@ By contributing to this project, you agree that your contributions will be licen
 Thank you for contributing to ink!
 </file>
 
-<file path="openspec/project.md">
-# Project Context
-
-## Purpose
-
-Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
-
-## Tech Stack
-
-- **Frontend**: Vanilla JavaScript (ES6+)
-- **Markdown Processing**: Marked.js v15.0.12 (embedded)
-- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
-- **HTML Template**: Custom template system with inlined CSS/JS
-- **Target**: Single-page web application (ink.html)
-
-## Project Conventions
-
-### Code Style
-
-- ES6+ JavaScript modules
-- Minimal dependencies - prefers vanilla JavaScript
-- Single-file build output (ink.html) with inlined assets
-- Functional programming patterns preferred
-
-### Architecture Patterns
-
-- **Single File Architecture**: Final build is a self-contained HTML file
-- **Template Injection**: CSS and JS are injected into HTML template during build
-- **No Build Framework**: Custom build process without webpack/rollup/etc.
-- **Client-side Only**: Pure frontend application with no server requirements
-
-### Testing Strategy
-
-- No formal testing framework currently implemented
-- Manual testing via browser
-- Build verification through file generation
-
-### Git Workflow
-
-- Simple trunk-based development
-- Commits should be descriptive of changes
-- Main branch contains production-ready code
-
-## Domain Context
-
-- **Markdown Editing**: Core focus on markdown document creation and editing
-- **Document Export**: Ability to export markdown to various formats
-- **Offline Usage**: Application should work without internet connectivity
-- **Single User**: Designed for individual document creation
-
-## Important Constraints
-
-- **Single File Output**: Must build to a single HTML file (ink.html)
-- **No External Dependencies**: Runtime should work without CDN/internet
-- **Cross-browser**: Must work in modern browsers
-- **Lightweight**: Keep file size minimal for fast loading
-- **No Server**: Pure client-side application
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-
-## External Dependencies
-
-- **Marked.js**: Markdown parser library (embedded in build)
-- **No External APIs**: Application works completely offline
-- **No Backend**: No server-side components required
-</file>
-
 <file path="Makefile">
 .PHONY: help lint build watch test test-qunit test-cypress update-repomix
 
@@ -51663,171 +51665,6 @@ test-cypress:
 repomix:
 	@echo "Updating repomix to the latest version..."
 	npx repomix@latest
-</file>
-
-<file path=".github/workflows/release.yml">
-name: release-please
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-
-jobs:
-  release-please:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Run release-please
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          skip-github-release: true
-
-      - name: Detect merged release PR
-        id: merged_release
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            const {owner, repo} = context.repo;
-            const commitSha = context.sha;
-            const response = await github.request(
-              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
-              {
-                owner,
-                repo,
-                commit_sha: commitSha,
-                mediaType: { previews: ['groot'] },
-              },
-            );
-
-            const releasePr = response.data.find((pull) =>
-              /^chore\(main\): release ink \d+\.\d+\.\d+$/.test(pull.title),
-            );
-
-            if (!releasePr) {
-              core.setOutput('is_release_merge', 'false');
-              return;
-            }
-
-            const versionMatch = releasePr.title.match(/(\d+\.\d+\.\d+)$/);
-            if (!versionMatch) {
-              core.setFailed(`Could not determine release version from PR title: ${releasePr.title}`);
-              return;
-            }
-
-            core.setOutput('is_release_merge', 'true');
-            core.setOutput('pr_number', String(releasePr.number));
-            core.setOutput('version', versionMatch[1]);
-            core.setOutput('canonical_tag', `v${versionMatch[1]}`);
-            core.setOutput('compatibility_tag', `ink-v${versionMatch[1]}`);
-            core.setOutput('release_title', `Release v${versionMatch[1]}`);
-            const normalizedBody = (releasePr.body || `Release ${versionMatch[1]}`).replaceAll('ink-v', 'v');
-            core.setOutput('release_body', normalizedBody);
-
-      - name: Checkout code
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm ci
-
-      - name: Build
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm run build
-
-      - name: Run tests
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm test
-
-      - name: Create release tags
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        env:
-          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
-          COMPATIBILITY_TAG: ${{ steps.merged_release.outputs.compatibility_tag }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          git fetch --tags origin
-
-          if ! git rev-parse "$CANONICAL_TAG" >/dev/null 2>&1; then
-            git tag "$CANONICAL_TAG" "$TARGET_SHA"
-          fi
-
-          if ! git rev-parse "$COMPATIBILITY_TAG" >/dev/null 2>&1; then
-            git tag "$COMPATIBILITY_TAG" "$TARGET_SHA"
-          fi
-
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$CANONICAL_TAG" >/dev/null 2>&1; then
-            git push origin "refs/tags/$CANONICAL_TAG"
-          fi
-
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$COMPATIBILITY_TAG" >/dev/null 2>&1; then
-            git push origin "refs/tags/$COMPATIBILITY_TAG"
-          fi
-
-      - name: Publish GitHub release
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
-          RELEASE_TITLE: ${{ steps.merged_release.outputs.release_title }}
-          RELEASE_BODY: ${{ steps.merged_release.outputs.release_body }}
-        run: |
-          printf '%s' "$RELEASE_BODY" > release-notes.md
-
-          if gh release view "$CANONICAL_TAG" >/dev/null 2>&1; then
-            gh release edit "$CANONICAL_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md
-            gh release upload "$CANONICAL_TAG" ink-app.html --clobber
-          else
-            gh release create "$CANONICAL_TAG" \
-              --target "${GITHUB_SHA}" \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md \
-              ink-app.html
-          fi
-
-      - name: Clear autorelease labels from merged release PR
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            const {owner, repo} = context.repo;
-            const issue_number = Number(process.env.PR_NUMBER);
-            const labelsToRemove = ['autorelease: pending', 'autorelease: triggered'];
-
-            for (const name of labelsToRemove) {
-              try {
-                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
-              } catch (error) {
-                if (error.status !== 404) {
-                  throw error;
-                }
-              }
-            }
-        env:
-          PR_NUMBER: ${{ steps.merged_release.outputs.pr_number }}
 </file>
 
 <file path="cypress/e2e/editor-flow.cy.js">
@@ -51997,6 +51834,171 @@ describe("ink authoring flow", () => {
     });
   });
 });
+</file>
+
+<file path=".github/workflows/release.yml">
+name: release-please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
+      - name: Detect merged release PR
+        id: merged_release
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const commitSha = context.sha;
+            const response = await github.request(
+              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
+              {
+                owner,
+                repo,
+                commit_sha: commitSha,
+                mediaType: { previews: ['groot'] },
+              },
+            );
+
+            const releasePr = response.data.find((pull) =>
+              /^chore\(main\): release ink \d+\.\d+\.\d+$/.test(pull.title),
+            );
+
+            if (!releasePr) {
+              core.setOutput('is_release_merge', 'false');
+              return;
+            }
+
+            const versionMatch = releasePr.title.match(/(\d+\.\d+\.\d+)$/);
+            if (!versionMatch) {
+              core.setFailed(`Could not determine release version from PR title: ${releasePr.title}`);
+              return;
+            }
+
+            core.setOutput('is_release_merge', 'true');
+            core.setOutput('pr_number', String(releasePr.number));
+            core.setOutput('version', versionMatch[1]);
+            core.setOutput('canonical_tag', `v${versionMatch[1]}`);
+            core.setOutput('compatibility_tag', `ink-v${versionMatch[1]}`);
+            core.setOutput('release_title', `Release v${versionMatch[1]}`);
+            const normalizedBody = (releasePr.body || `Release ${versionMatch[1]}`).replaceAll('ink-v', 'v');
+            core.setOutput('release_body', normalizedBody);
+
+      - name: Checkout code
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        run: npm ci
+
+      - name: Build
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        run: npm run build
+
+      - name: Run tests
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        run: npm test
+
+      - name: Create release tags
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        env:
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          COMPATIBILITY_TAG: ${{ steps.merged_release.outputs.compatibility_tag }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          git fetch --tags origin
+
+          if ! git rev-parse "$CANONICAL_TAG" >/dev/null 2>&1; then
+            git tag "$CANONICAL_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git rev-parse "$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git tag "$COMPATIBILITY_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$CANONICAL_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$CANONICAL_TAG"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$COMPATIBILITY_TAG"
+          fi
+
+      - name: Publish GitHub release
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          RELEASE_TITLE: ${{ steps.merged_release.outputs.release_title }}
+          RELEASE_BODY: ${{ steps.merged_release.outputs.release_body }}
+        run: |
+          printf '%s' "$RELEASE_BODY" > release-notes.md
+
+          if gh release view "$CANONICAL_TAG" >/dev/null 2>&1; then
+            gh release edit "$CANONICAL_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md
+            gh release upload "$CANONICAL_TAG" ink-app.html --clobber
+          else
+            gh release create "$CANONICAL_TAG" \
+              --target "${GITHUB_SHA}" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              ink-app.html
+          fi
+
+      - name: Clear autorelease labels from merged release PR
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number(process.env.PR_NUMBER);
+            const labelsToRemove = ['autorelease: pending', 'autorelease: triggered'];
+
+            for (const name of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+        env:
+          PR_NUMBER: ${{ steps.merged_release.outputs.pr_number }}
 </file>
 
 <file path="cypress/e2e/mobile-fallback.cy.js">
@@ -54509,41 +54511,6 @@ declare global {
 }
 </file>
 
-<file path=".github/copilot-instructions.md">
-# Copilot Instructions
-
-- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
-- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
-- Local git hooks are tracked under `.githooks/`; keep lint-plus-repomix pre-commit automation there and point setup docs at `git config core.hooksPath .githooks` instead of ad hoc hook creation snippets.
-- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
-- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
-- Top menu visuals are authored directly in `ink.template.html`; when adding icons to dropdown rows, keep the text in a nested `.menu-label-text` span so dynamic updates like the Sort label do not remove the icon.
-- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
-- Test bundles are built via `build/build-test.js`.
-- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
-- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
-- Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
-- Merged release PRs are finalized by `.github/workflows/release.yml`: the workflow detects `chore(main): release ink x.y.z` merges, creates the canonical `v*` tag plus a compatibility `ink-v*` tag, publishes the GitHub release from `v*`, and clears stale `autorelease:*` labels so the next release PR is not blocked.
-- Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
-- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
-- Declarative WebMCP note creation lives in the `#webmcpNoteForm` form in `ink.template.html`; keep its submit path wired to `createNoteFromTool()` in `src/app/workspace-io.ts` so agent-invoked note creation stays in the single-page app and does not navigate away.
-- Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
-- Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
-- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
-- Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.
-- The WebMCP `create_note` tool is agent-facing only. Keep its form out of the always-visible sidebar UI and surface it as a modal only when the tool is being used.
-- The canonical implementation for the WebMCP note popup lives in `ink.template.html`, `src/styles.scss`, and `src/app/ui-events.ts`; rebuild `ink-app.html` after source edits.
-- For local debugging, the WebMCP popup can be opened manually with `Cmd/Ctrl+Alt+N` or automatically via `?debugWebMcpNote=1`; keep those hooks available without making the tool permanently visible.
-- Document Linter runtime integration lives in `src/app/document-linter/document-linter.ts`. When extending or maintaining the Document Linter, make sure all associated DOM elements (e.g. `documentLinterPanel`, `documentLinterAnalyzeBtn`, etc.) are mapped in `src/app/dom.ts` and defined in `src/app/types.ts` to avoid bootstrapping reference errors.
-- The Document Linter now emits a markdown-aware review summary with prioritized fixes and section notes. Preserve the `analyzeDocumentText()` and `buildDocumentLinterReport()` contract when adjusting report output so the UI panel and export stay aligned.
-- Document Linter copy now lives in `src/app/document-linter/messages.ts`; keep suggestion/overview strings centralized there, preserve the `overallScore` field, and keep section-analysis `needsAttention` flags aligned between the panel and markdown export.
-- Document Linter panel behavior now includes a `Rerun on change` toggle plus clickable section line links back into the editor. Preserve `handleEditorChanged()` in `src/app/document-linter/document-linter.ts` and keep the panel's line-jump buttons wired to the textarea selection logic when changing the panel UI.
-- Cogito and the Document Linter are mutually exclusive panels. Opening one should close the other so the editor split layout stays stable and never tries to render both sidebars together.
-- Editor view mode lives in `src/app/editor-preview.ts` and is wired through the main editor header in `ink.template.html`. Keep the Source/Split/Preview toggle in sync with `editorSplit`, `editorPane`, and `previewPane`, and preserve the `ink-editor-view-mode` localStorage key when changing that flow.
-</file>
-
 <file path="ink.template.html">
 <!doctype html>
 <html lang="en">
@@ -54942,6 +54909,41 @@ declare global {
   </script>
 </body>
 </html>
+</file>
+
+<file path=".github/copilot-instructions.md">
+# Copilot Instructions
+
+- Maintainability work should follow the refactor plan in `openspec/changes/refactor-simplification-plan/plan.md`.
+- The refactor implementation proposal lives in `openspec/changes/refactor-app-controller-modules/` and should be followed before touching app controller or build scripts.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Keep `src/app.ts` as a tiny entrypoint and preserve single-file build output (`ink-app.html`).
+- Local git hooks are tracked under `.githooks/`; keep lint-plus-repomix pre-commit automation there and point setup docs at `git config core.hooksPath .githooks` instead of ad hoc hook creation snippets.
+- Regression coverage for refactor-sensitive flows lives in `cypress/e2e/workspace-actions.cy.js` and `tests/qunit/fs-api.test.js`.
+- The app controller is in `src/app/app-controller.ts`, with UI wiring in `src/app/ui-events.ts` and workspace flows in `src/app/workspace-io.ts`.
+- Top menu visuals are authored directly in `ink.template.html`; when adding icons to dropdown rows, keep the text in a nested `.menu-label-text` span so dynamic updates like the Sort label do not remove the icon.
+- Keyboard shortcut precedence lives in `src/app/ui-events.ts`; editor-scoped handlers must not swallow longer chords like Cmd/Ctrl+Shift+S that are reserved for export.
+- Test bundles are built via `build/build-test.js`.
+- Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
+- GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
+- Merged release PRs are finalized by `.github/workflows/release.yml`: the workflow detects `chore(main): release ink x.y.z` merges, creates the canonical `v*` tag plus a compatibility `ink-v*` tag, publishes the GitHub release from `v*`, and clears stale `autorelease:*` labels so the next release PR is not blocked.
+- Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
+- Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
+- Declarative WebMCP note creation lives in the `#webmcpNoteForm` form in `ink.template.html`; keep its submit path wired to `createNoteFromTool()` in `src/app/workspace-io.ts` so agent-invoked note creation stays in the single-page app and does not navigate away.
+- Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.
+- Cogito Mode entrypoint must be a top-right menu bar button using a thinking-man glyphicon with accessible Cogito labeling.
+- Cogito runtime integration lives in `src/app/cogito.ts`; keep the prompt contract and JSON parsing helpers (`extractLastSentence`, `parseCogitoQuestionPayload`, `formatCogitoQuestionBlock`) stable and covered by QUnit tests.
+- Cypress end-to-end coverage for Cogito uses a test-only `globalThis.__INK_TEST_WEBLLM__` override; preserve that seam so the full panel/generate/insert flow remains deterministic under test.
+- The WebMCP `create_note` tool is agent-facing only. Keep its form out of the always-visible sidebar UI and surface it as a modal only when the tool is being used.
+- The canonical implementation for the WebMCP note popup lives in `ink.template.html`, `src/styles.scss`, and `src/app/ui-events.ts`; rebuild `ink-app.html` after source edits.
+- For local debugging, the WebMCP popup can be opened manually with `Cmd/Ctrl+Alt+N` or automatically via `?debugWebMcpNote=1`; keep those hooks available without making the tool permanently visible.
+- Document Linter runtime integration lives in `src/app/document-linter/document-linter.ts`. When extending or maintaining the Document Linter, make sure all associated DOM elements (e.g. `documentLinterPanel`, `documentLinterAnalyzeBtn`, etc.) are mapped in `src/app/dom.ts` and defined in `src/app/types.ts` to avoid bootstrapping reference errors.
+- The Document Linter now emits a markdown-aware review summary with prioritized fixes and section notes. Preserve the `analyzeDocumentText()` and `buildDocumentLinterReport()` contract when adjusting report output so the UI panel and export stay aligned.
+- Document Linter copy now lives in `src/app/document-linter/messages.ts`; keep suggestion/overview strings centralized there, preserve the `overallScore` field, and keep section-analysis `needsAttention` flags aligned between the panel and markdown export.
+- Document Linter panel behavior now includes a `Rerun on change` toggle plus clickable section line links back into the editor. Preserve `handleEditorChanged()` in `src/app/document-linter/document-linter.ts` and keep the panel's line-jump buttons wired to the textarea selection logic when changing the panel UI.
+- Cogito and the Document Linter are mutually exclusive panels. Opening one should close the other so the editor split layout stays stable and never tries to render both sidebars together.
+- Editor view mode lives in `src/app/editor-preview.ts` and is wired through the main editor header in `ink.template.html`. Keep the Source/Split/Preview toggle in sync with `editorSplit`, `editorPane`, and `previewPane`, and preserve the `ink-editor-view-mode` localStorage key when changing that flow.
 </file>
 
 <file path="ink-app.html">
