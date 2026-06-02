@@ -22,6 +22,14 @@ const bundles = [
     entryPoints: ["src/app/cogito.ts"],
     outfile: "dist/test/cogito.js",
   },
+  {
+    entryPoints: ["src/app/editor-preview.ts"],
+    outfile: "dist/test/editor-preview.js",
+  },
+  {
+    entryPoints: ["src/app/document-linter/document-linter.ts"],
+    outfile: "dist/test/document-linter.js",
+  },
 ];
 
 function ensureTestDist() {

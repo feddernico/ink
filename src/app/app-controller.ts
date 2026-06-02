@@ -3,7 +3,7 @@ import { normalizeTag, parseTags } from "../tags";
 import { getDomRefs } from "./dom";
 import { ensurePermission, isFileSystemApiAvailable } from "./fs-api";
 import { createAutoRefresh } from "./auto-refresh";
-import { renderPreview, updateDirtyUi } from "./editor-preview";
+import { applyEditorViewMode, loadEditorViewMode, renderPreview, setEditorViewMode, updateDirtyUi } from "./editor-preview";
 import { createMenuActions, updateMenuShortcuts } from "./menu-actions";
 import { applySidebarState, setSidebarCollapsed } from "./sidebar";
 import { loadTheme } from "./theme";
@@ -42,6 +42,7 @@ export function createAppController(els: DomRefs) {
     isSidebarCollapsed: false,
     isTemporarySession: false,
     isCogitoModeEnabled: false,
+    editorViewMode: loadEditorViewMode(),
   };
 
   const toastTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
@@ -125,6 +126,29 @@ export function createAppController(els: DomRefs) {
     state.isDirty = value !== state.currentContent;
     updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
     renderPreview(els, value);
+    documentLinterController.handleEditorChanged(value);
+  }
+
+  function openCogitoPanel(): void {
+    documentLinterController.closePanel();
+    state.isCogitoModeEnabled = true;
+    cogitoController.setPanelOpen(true);
+  }
+
+  function closeCogitoPanel(): void {
+    state.isCogitoModeEnabled = false;
+    cogitoController.closePanel();
+  }
+
+  function openDocumentLinterPanel(): void {
+    if (cogitoController.isPanelOpen()) {
+      closeCogitoPanel();
+    }
+    documentLinterController.setPanelOpen(true);
+  }
+
+  function closeDocumentLinterPanel(): void {
+    documentLinterController.closePanel();
   }
 
    const cogitoController = createCogitoController({
@@ -165,16 +189,24 @@ export function createAppController(els: DomRefs) {
            workspaceActions.createNoteFromTool(input),
          openWorkspace: workspaceActions.openWorkspace,
          exportAsJson: workspaceActions.exportAsJson,
-         exportAsMarkdown: workspaceActions.exportAsMarkdown,
-         toggleCogitoPanel: () => {
-           state.isCogitoModeEnabled = !state.isCogitoModeEnabled;
-           cogitoController.togglePanel();
+        exportAsMarkdown: workspaceActions.exportAsMarkdown,
+        toggleCogitoPanel: () => {
+           if (cogitoController.isPanelOpen()) {
+             closeCogitoPanel();
+             return;
+           }
+           openCogitoPanel();
          },
          selectCogitoModel: (model) => cogitoController.selectModel(model),
          generateCogitoQuestions: () => cogitoController.generateQuestions(),
          insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
+         setEditorViewMode: (mode) => setEditorViewMode(els, state, mode),
          toggleDocumentLinterPanel: () => {
-           documentLinterController.togglePanel();
+           if (documentLinterController.isPanelOpen()) {
+             closeDocumentLinterPanel();
+             return;
+           }
+           openDocumentLinterPanel();
          },
          analyzeDocument: () => documentLinterController.analyzeDocument(),
          exportDocumentLinterSuggestions: () => documentLinterController.exportSuggestions(),
@@ -185,6 +217,7 @@ export function createAppController(els: DomRefs) {
 
     loadTheme();
     applySidebarState(els, state);
+    applyEditorViewMode(els, state.editorViewMode);
     updateDirtyUi(els, state, (message, kind) => setStatus(els, message, kind));
     treeRenderer.renderTree().catch((error: unknown) => {
       showToast(`Failed to render tree: ${String(error)}`, { persist: true });

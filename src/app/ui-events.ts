@@ -1,4 +1,5 @@
 import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
+import type { EditorViewMode } from "./editor-preview";
 
 type ToastFn = (message: string, options?: { persist?: boolean }) => void;
 
@@ -19,6 +20,10 @@ export type UiActions = {
   selectCogitoModel: (model: "lite" | "deep") => void;
   generateCogitoQuestions: () => Promise<void>;
   insertCogitoQuestion: (index: number) => void;
+  setEditorViewMode: (mode: EditorViewMode) => void;
+  toggleDocumentLinterPanel: () => void;
+  analyzeDocument: () => Promise<void>;
+  exportDocumentLinterSuggestions: () => Promise<void>;
   hideToast: () => void;
   showToast: ToastFn;
 };
@@ -244,6 +249,41 @@ export function attachUiEvents({
       return;
     }
     actions.insertCogitoQuestion(index);
+  });
+
+  els.editorViewModeGroup.addEventListener("click", (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const button = target.closest("[data-editor-view-mode]");
+    if (!button) {
+      return;
+    }
+
+    const mode = button.getAttribute("data-editor-view-mode") as EditorViewMode | null;
+    if (!mode) {
+      return;
+    }
+
+    actions.setEditorViewMode(mode);
+  });
+
+  els.documentLinterToggleBtn.addEventListener("click", () => {
+    actions.toggleDocumentLinterPanel();
+  });
+
+  els.documentLinterAnalyzeBtn.addEventListener("click", () => {
+    actions.analyzeDocument().catch((error: unknown) => {
+      actions.showToast(`Document analysis failed: ${String(error)}`, { persist: true });
+    });
+  });
+
+  els.documentLinterExportBtn.addEventListener("click", () => {
+    actions.exportDocumentLinterSuggestions().catch((error: unknown) => {
+      actions.showToast(`Document export failed: ${String(error)}`, { persist: true });
+    });
   });
 
   window.addEventListener("beforeunload", (event: BeforeUnloadEvent) => {

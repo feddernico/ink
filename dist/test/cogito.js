@@ -183,6 +183,16 @@ function createCogitoController({
         setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
       }
     },
+    setPanelOpen: (nextIsOpen) => {
+      setPanelVisibility(nextIsOpen);
+      if (nextIsOpen) {
+        setCogitoStatus("Cogito Mode enabled. Generate questions from your last sentence.");
+      }
+    },
+    isPanelOpen: () => isPanelOpen,
+    closePanel: () => {
+      setPanelVisibility(false);
+    },
     selectModel,
     generateQuestions,
     insertQuestionAtIndex

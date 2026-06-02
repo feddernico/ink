@@ -263,16 +263,28 @@
         <span class="dirtyDot" id="dirtyDot" aria-label="Unsaved changes indicator"></span>
         <span class="filename" id="currentFilename">No note open</span>
 
+        <div id="editorViewModeGroup" class="viewModePicker" role="group" aria-label="Editor view mode">
+          <button id="editorViewSourceBtn" class="viewModeBtn" type="button" data-editor-view-mode="source" aria-pressed="false" title="Source markdown view">
+            Source
+          </button>
+          <button id="editorViewSplitBtn" class="viewModeBtn active" type="button" data-editor-view-mode="split" aria-pressed="true" title="Split editor and preview">
+            Split
+          </button>
+          <button id="editorViewPreviewBtn" class="viewModeBtn" type="button" data-editor-view-mode="preview" aria-pressed="false" title="Preview only view">
+            Preview
+          </button>
+        </div>
+
         <div class="status" aria-live="polite">
           <span class="badge" id="statusBadge">Ready</span>
         </div>
       </header>
 
-      <section class="split" aria-label="Editor preview split view">
-        <div class="editorPane" aria-label="Markdown editor">
+      <section id="editorSplit" class="split view-split" aria-label="Editor preview split view">
+        <div id="editorPane" class="editorPane" aria-label="Markdown editor">
           <textarea id="editor" spellcheck="false" placeholder="Open a markdown file from the sidebar..."></textarea>
         </div>
-        <div class="previewPane" aria-label="Markdown preview">
+        <div id="previewPane" class="previewPane" aria-label="Markdown preview">
           <div class="preview" id="preview"></div>
         </div>
         <aside id="cogitoPanel" class="cogitoPanel" aria-label="Cogito Mode panel" hidden>
@@ -299,6 +311,10 @@
              <button id="documentLinterAnalyzeBtn" class="ghost" type="button" title="Analyze document">Analyze</button>
              <button id="documentLinterExportBtn" class="ghost" type="button" title="Export suggestions">Export</button>
            </header>
+           <label class="documentLinterAutoRun" for="documentLinterAutoRunToggle">
+             <input id="documentLinterAutoRunToggle" type="checkbox" />
+             <span>Rerun on change</span>
+           </label>
            <p id="documentLinterStatus" class="small">Enable Document Linter and analyze your document.</p>
            <div id="documentLinterResults" class="documentLinterResults"></div>
          </aside>

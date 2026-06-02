@@ -92,6 +92,7 @@ export interface AppState {
   isSidebarCollapsed: boolean;
   isTemporarySession: boolean;
   isCogitoModeEnabled: boolean;
+  editorViewMode: "split" | "source" | "preview";
 }
 
 export interface DomRefs {
@@ -114,6 +115,13 @@ export interface DomRefs {
   workspaceName: HTMLElement;
   countsPill: HTMLElement;
   editor: HTMLTextAreaElement;
+  editorSplit: HTMLElement;
+  editorPane: HTMLElement;
+  previewPane: HTMLElement;
+  editorViewModeGroup: HTMLElement;
+  editorViewSourceBtn: HTMLButtonElement;
+  editorViewSplitBtn: HTMLButtonElement;
+  editorViewPreviewBtn: HTMLButtonElement;
   preview: HTMLElement;
   currentFilename: HTMLElement;
   dirtyDot: HTMLElement;
@@ -133,6 +141,7 @@ export interface DomRefs {
   documentLinterPanel: HTMLElement;
   documentLinterAnalyzeBtn: HTMLButtonElement;
   documentLinterExportBtn: HTMLButtonElement;
+  documentLinterAutoRunToggle: HTMLInputElement;
   documentLinterStatus: HTMLElement;
   documentLinterResults: HTMLElement;
 }

@@ -387,6 +387,40 @@
       min-height: 54px;
     }
 
+    .viewModePicker{
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      flex: 0 0 auto;
+    }
+
+    .viewModeBtn{
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .viewModeBtn:hover{
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .viewModeBtn.active{
+      background: rgba(94, 234, 212, 0.16);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.35);
+    }
+
     .filename{
       font-weight: 800;
       letter-spacing: 0.2px;
@@ -438,7 +472,20 @@
       grid-template-columns: 1fr 1fr;
     }
 
-    .split.with-cogito{
+    .split.view-source,
+    .split.view-preview{
+      grid-template-columns: 1fr;
+    }
+
+    .split.view-source.with-cogito,
+    .split.view-source.with-document-linter,
+    .split.view-preview.with-cogito,
+    .split.view-preview.with-document-linter{
+      grid-template-columns: 1fr 320px;
+    }
+
+    .split.view-split.with-cogito,
+    .split.view-split.with-document-linter{
       grid-template-columns: 1fr 1fr 320px;
     }
 
@@ -452,6 +499,21 @@
     .editorPane{
       border-right: 1px solid var(--border);
       background: var(--panel2);
+    }
+
+    .split.view-source .editorPane{
+      border-right: 0;
+    }
+
+    .split.view-preview .previewPane{
+      border-left: 0;
+    }
+
+    .editorPane[hidden],
+    .previewPane[hidden],
+    .cogitoPanel[hidden],
+    .documentLinterPanel[hidden]{
+      display: none !important;
     }
 
     textarea{
@@ -519,17 +581,62 @@
        border: 0;
        min-height: 0;
      }
+
+     .documentLinterAutoRun{
+       display: inline-flex;
+       align-items: center;
+       gap: 8px;
+       font-size: 12px;
+       color: var(--muted);
+       user-select: none;
+     }
+
+     .documentLinterAutoRun input{
+       margin: 0;
+     }
      
      .documentLinterResults{
        flex: 1 1 auto;
        overflow-y: auto;
+       display: flex;
+       flex-direction: column;
+       gap: 12px;
+       padding-bottom: 12px;
      }
+
+    .documentLinterSummary{
+      display: grid;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .documentLinterSummaryBlock{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .documentLinterSummaryBlock h3{
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .documentLinterSummaryBlock ul,
+    .documentLinterSummaryBlock ol{
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+    }
      
      .documentLinterCategory{
        border: 1px solid var(--border);
        border-radius: 12px;
        padding: 10px;
        background: rgba(255, 255, 255, 0.03);
+       margin: 0;
      }
      
      .documentLinterCategoryHeader{
@@ -560,10 +667,80 @@
        gap: 4px;
      }
      
-     .documentLinterSuggestion{
-       font-size: 12px;
-       line-height: 1.4;
-     }
+    .documentLinterSuggestion{
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .documentLinterLineButton{
+      border: 0;
+      background: transparent;
+      color: var(--accent);
+      padding: 0;
+      font: inherit;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .documentLinterLineButton:hover,
+    .documentLinterLineButton:focus-visible{
+      color: var(--text);
+      outline: none;
+    }
+
+    .documentLinterSectionAnalysis{
+      display: grid;
+      gap: 10px;
+      margin-top: 2px;
+      padding-top: 8px;
+    }
+
+    .documentLinterSectionAnalysis h3{
+      margin: 0;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .documentLinterSectionList{
+      display: grid;
+      gap: 10px;
+    }
+
+    .documentLinterSectionCard{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      gap: 8px;
+    }
+
+    .documentLinterSectionHeader{
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .documentLinterSectionHeader h4{
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .documentLinterSectionHeader span{
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .documentLinterSectionNotes{
+      display: grid;
+      gap: 4px;
+    }
 
     .cogitoHeader{
       display: flex;
@@ -712,6 +889,10 @@
       padding: 4px 10px;
       border-radius: 10px;
       font-size: 12px;
+    }
+
+    .menu-action-btn + .menu-action-btn{
+      margin-left: 8px;
     }
 
     .menu-action-label{
@@ -959,8 +1140,15 @@
       .app.sidebar-collapsed{
         grid-template-columns: 1fr;
       }
-      .split{ grid-template-columns: 1fr; }
-      .split.with-cogito{ grid-template-columns: 1fr; }
+      .split,
+      .split.view-source,
+      .split.view-preview,
+      .split.view-split.with-cogito,
+      .split.view-split.with-document-linter,
+      .split.view-source.with-cogito,
+      .split.view-source.with-document-linter,
+      .split.view-preview.with-cogito,
+      .split.view-preview.with-document-linter{ grid-template-columns: 1fr; }
       .editorPane{
         border-right: none;
         border-bottom: 1px solid var(--border);
@@ -968,6 +1156,11 @@
       }
       .previewPane{ min-height: 40vh; }
       .cogitoPanel{
+        border-left: none;
+        border-top: 1px solid var(--border);
+        min-height: 30vh;
+      }
+      .documentLinterPanel{
         border-left: none;
         border-top: 1px solid var(--border);
         min-height: 30vh;
