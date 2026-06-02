@@ -85,13 +85,9 @@ jobs:
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         run: npm ci
 
-      - name: Build
+      - name: Assemble release artifact
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm run build
-
-      - name: Run tests
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm test
+        run: node build/compile-and-assemble.js
 
       - name: Create release tags
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}

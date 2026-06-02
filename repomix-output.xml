@@ -27413,6 +27413,62 @@ ${t.trim()}
 }
 </file>
 
+<file path="assets/branding/favicon.svg">
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
+
+  <!-- Ink drop -->
+  <path
+    d="M300 150
+       C330 200 360 260 330 320
+       C300 380 240 380 210 320
+       C180 260 240 200 270 170
+       C285 155 300 150 300 150 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Stylized text -->
+  <text x="300" y="460"
+        text-anchor="middle"
+        font-family="Inter, sans-serif"
+        font-size="100"
+        font-weight="700"
+        fill="#ffffff"
+        letter-spacing="-5">
+    ink
+  </text>
+</svg>
+</file>
+
+<file path="assets/branding/logo.svg">
+<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
+
+  <!-- Ink drop -->
+  <path
+    d="M300 150
+       C330 200 360 260 330 320
+       C300 380 240 380 210 320
+       C180 260 240 200 270 170
+       C285 155 300 150 300 150 Z"
+    fill="#ffffff"
+  />
+
+  <!-- Stylized text -->
+  <text x="300" y="460"
+        text-anchor="middle"
+        font-family="Inter, sans-serif"
+        font-size="100"
+        font-weight="700"
+        fill="#ffffff"
+        letter-spacing="-5">
+    ink
+  </text>
+</svg>
+</file>
+
 <file path="assets/branding/white-bg-logo.svg">
 <svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
   <!-- White background -->
@@ -27442,6 +27498,10 @@ ${t.trim()}
     ink
   </text>
 </svg>
+</file>
+
+<file path="cypress/support/commands.ts">
+export {};
 </file>
 
 <file path="cypress/tsconfig.json">
@@ -27837,6 +27897,240 @@ Users want to authenticate with their GitHub account to save their preferences a
 ## 3. Production Setup
 - [ ] 3.1 Configure redirect_uri for GitHub Pages production
 - [ ] 3.2 Create callback page for production deployment
+</file>
+
+<file path="openspec/changes/add-logo-readme-and-favicon/specs/branding-assets/spec.md">
+## ADDED Requirements
+### Requirement: Canonical Project Logo Asset
+The repository SHALL store a canonical project logo source file that is used for documentation and favicon generation.
+
+#### Scenario: Canonical logo source is available
+- **WHEN** a maintainer inspects branding files in the repository
+- **THEN** a single canonical logo source exists in a stable project path
+- **AND** the source is suitable for deriving README and favicon assets
+
+### Requirement: README Logo Rendering
+The project documentation SHALL render the project logo in `README.md` using repository-relative asset references.
+
+#### Scenario: README displays logo
+- **WHEN** `README.md` is rendered by a GitHub-compatible markdown renderer
+- **THEN** the logo is visible near the document header
+- **AND** the logo reference resolves without external network dependencies
+
+### Requirement: Favicon Assets Derived from Logo
+The project SHALL provide favicon assets derived from the canonical logo source.
+
+#### Scenario: Favicon assets are generated and available
+- **WHEN** the favicon generation workflow is run
+- **THEN** favicon files are produced in the documented output location
+- **AND** generated filenames match those referenced by the application template
+
+### Requirement: Application Template Favicon References
+The application HTML template SHALL reference project favicon assets so browser tabs display the project icon.
+
+#### Scenario: Browser tab uses project favicon
+- **WHEN** a user opens the built application in a modern browser
+- **THEN** the browser resolves favicon references from the application output
+- **AND** the tab icon reflects the project logo branding
+</file>
+
+<file path="openspec/changes/add-logo-readme-and-favicon/proposal.md">
+# Change: Add Project Logo to README and Favicon Assets
+
+## Why
+The repository currently lacks consistent branding assets in project documentation and browser metadata. Adding the provided logo to `README.md` and defining favicon outputs improves recognizability and presentation.
+
+## What Changes
+- Add a canonical logo asset in the repository based on `~/Downloads/ink_logo.svg`.
+- Update `README.md` to render the project logo near the top of the document.
+- Define and implement favicon outputs derived from the same logo source.
+- Wire favicon references into the app HTML template so browser tabs use project branding.
+- Document the asset location and favicon generation/update workflow.
+
+## Impact
+- Affected specs: `branding-assets`
+- Affected code:
+  - `README.md`
+  - `ink.template.html`
+  - `build/` scripts (if favicon generation is automated in build)
+  - `dist/` favicon artifacts
+  - `assets/` branding source files (new)
+</file>
+
+<file path="openspec/changes/add-logo-readme-and-favicon/tasks.md">
+## 1. Asset Setup
+- [x] 1.1 Add the provided logo SVG to a canonical repository path for shared branding usage.
+- [x] 1.2 Define favicon output formats and filenames derived from the canonical logo source.
+
+## 2. Documentation and Template Integration
+- [x] 2.1 Update `README.md` to display the project logo with stable relative linking.
+- [x] 2.2 Update the HTML template to include favicon references that resolve in the built output.
+
+## 3. Build and Distribution
+- [x] 3.1 Implement or document the process to generate favicon artifacts from the SVG source.
+- [x] 3.2 Ensure generated favicon assets are available in expected output locations.
+
+## 4. Validation
+- [x] 4.1 Verify `README.md` renders the logo correctly on GitHub-compatible markdown viewers.
+- [x] 4.2 Verify the built app/tab displays the new favicon in a modern browser.
+- [x] 4.3 Verify documentation describes how to refresh logo-derived assets when the SVG changes.
+</file>
+
+<file path="openspec/changes/refactor-align-llm-coding-principles/specs/codebase-maintainability/spec.md">
+## ADDED Requirements
+### Requirement: Prioritized Maintainability Refactor Plan
+The project SHALL define a maintainability refactor plan with explicit High, Medium, and Low priority tiers based on engineering risk and value.
+
+#### Scenario: Plan is prioritized and actionable
+- **WHEN** a maintainer reviews the approved change proposal
+- **THEN** the proposal includes clearly separated High, Medium, and Low priority work
+- **AND** each tier contains concrete codebase targets
+
+### Requirement: Evidence-Based Refactor Scope
+Refactor recommendations MUST be grounded in current repository evidence and MUST avoid unnecessary changes.
+
+#### Scenario: Recommendations are justified
+- **WHEN** a recommendation proposes delete, rename, or restructure actions
+- **THEN** it references observable repository state (for example dead code, missing script targets, or duplicated logic)
+- **AND** the proposal explicitly identifies areas that should remain unchanged when already aligned
+
+### Requirement: Behavior-Preserving Refactor Guardrails
+Maintainability refactors SHALL preserve existing user-visible behavior unless a separate feature change is approved.
+
+#### Scenario: Refactor keeps current behavior stable
+- **WHEN** maintainability refactor tasks are implemented
+- **THEN** build and test workflows continue to pass
+- **AND** core authoring flow behavior (open workspace, create note, edit, save) remains unchanged
+
+### Requirement: Tooling and Documentation Consistency
+Documented commands and scripts MUST map to files and behavior that exist in the repository.
+
+#### Scenario: Script/docs mismatch is resolved
+- **WHEN** package scripts or README commands are documented
+- **THEN** each command resolves to existing code paths
+- **AND** stale or broken command references are removed or restored
+</file>
+
+<file path="openspec/changes/refactor-align-llm-coding-principles/design.md">
+## Context
+Ink is intentionally lightweight and single-file at runtime. The refactor must preserve behavior while making source code easier for LLMs to read, regenerate, and safely modify.
+
+## Goals / Non-Goals
+- Goals:
+  - Reduce cognitive load in `src/app.ts` by splitting by feature boundaries.
+  - Remove stale/dead paths that create false complexity.
+  - Improve naming so build and runtime responsibilities are explicit.
+  - Keep behavior and user workflow unchanged.
+- Non-Goals:
+  - Framework migration.
+  - UX redesign.
+  - New product features.
+
+## Decisions
+- Decision: Refactor in phases (High -> Medium -> Low) with behavior-preserving checkpoints.
+  - Rationale: minimizes regression risk and keeps scope manageable.
+- Decision: Keep a thin composition entrypoint and move concerns into small modules.
+  - Rationale: supports predictable regeneration and targeted testing.
+- Decision: Do not force changes where current code is already clear (for example `src/tags.ts`).
+  - Rationale: avoids churn and preserves momentum.
+
+## Risks / Trade-offs
+- Risk: File splits can break implicit state assumptions.
+  - Mitigation: define explicit typed state contracts and test around open/save/refresh flows.
+- Risk: Renaming scripts can disrupt local habits.
+  - Mitigation: keep temporary aliases and document migration in README.
+
+## Migration Plan
+1. Remove dead code and duplicate timers in `src/app.ts`.
+2. Introduce module boundaries for workspace scan, editor operations, and rendering.
+3. Rename build scripts/files with compatibility aliases.
+4. Re-run build + QUnit + Cypress and update docs.
+
+## Open Questions
+- Should `sync:from-ink-app` be restored (by adding script) or removed from docs/scripts?
+- Should `src/storage.ts` remain a test fixture in `src/` or move to a dedicated test-support path?
+</file>
+
+<file path="openspec/changes/refactor-align-llm-coding-principles/proposal.md">
+# Change: LLM-Aligned Maintainability Refactor Plan
+
+## Why
+The current codebase works, but it has several maintainability risks that reduce predictability and regenerability for LLM-driven development. The biggest issue is concentration of behavior in one large file, plus stale scripts and dead code paths that make intent harder to reason about.
+
+## What Changes
+- Create a phased refactor plan aligned to project coding principles: clarity, pragmatism, rigor.
+- Prioritize only high-value changes and explicitly avoid churn where behavior is already clear and stable.
+- Define concrete rename/restructure/delete targets backed by repository evidence.
+- Add acceptance criteria so refactor work can be verified without changing product behavior.
+
+### High Priority
+- Split `src/app.ts` into small feature modules with a thin entrypoint (`main` + feature-oriented files).
+- Remove duplicated auto-refresh behavior (currently both `startAutoRefresh()` timer and a separate global `setInterval` run every 10s).
+- Fix stale/broken tooling contract: `sync:from-ink-app` references `build/sync-from-ink-app.js`, but the file is missing.
+- Remove dead fields/utilities in `src/app.ts`:
+  - `searchScanDebounceTimer`
+  - `lastContentSearchToken`
+  - `sleep()`
+  - `humanDate()`
+  - `debounce()`
+
+### Medium Priority
+- Rename ambiguous build scripts for intent clarity:
+  - `build/inject.js` -> `build/assemble-single-file.js`
+  - `build/build.js` -> `build/compile-and-assemble.js`
+- Extract File System Access API handling into a dedicated module (permissions, handles, scan traversal) to reduce coupling with UI rendering.
+- Replace broad `any` usage in app state with narrow interfaces for notes, tree nodes, and workspace handles.
+- Remove redundant DOM lookups in `src/app.ts` where elements are already captured once.
+
+### Low Priority
+- Decide whether test-only storage logic should be renamed for intent:
+  - `src/storage.ts` -> `src/test-support/storage-fixture.ts` (if kept test-only)
+- Decide whether generated test bundles should stay committed:
+  - `dist/test/*` can be generated during `npm run build:test` and excluded from source control.
+- Tighten Cypress scaffolding comments/config only if it improves signal-to-noise (avoid cosmetic edits).
+
+### Keep As-Is (No Change Needed)
+- `src/tags.ts` is already small, explicit, and testable.
+- Build pipeline remains lightweight and appropriate for single-file distribution constraints.
+- Existing QUnit and Cypress coverage should be retained and expanded only around touched refactor areas.
+
+## Impact
+- Affected specs: `codebase-maintainability`
+- Affected code:
+  - `src/app.ts`
+  - `src/storage.ts` (rename/rehome decision)
+  - `build/build.js`
+  - `build/inject.js`
+  - `package.json`
+  - `README.md`
+  - `Makefile` (if command wrappers change)
+  - `tests/qunit/*`
+  - `cypress/*`
+</file>
+
+<file path="openspec/changes/refactor-align-llm-coding-principles/tasks.md">
+## 1. High Priority (Safety + Clarity)
+- [x] 1.1 Remove duplicate auto-refresh scheduling and keep one refresh control path.
+- [x] 1.2 Remove dead fields/utilities from `src/app.ts` (`searchScanDebounceTimer`, `lastContentSearchToken`, `sleep`, `humanDate`, `debounce`).
+- [x] 1.3 Resolve broken `sync:from-ink-app` contract by either restoring `build/sync-from-ink-app.js` or removing stale script/docs.
+- [x] 1.4 Split `src/app.ts` into a small entrypoint plus feature modules with explicit interfaces.
+
+## 2. Medium Priority (Structure + Naming)
+- [x] 2.1 Rename build scripts/files for clearer responsibility and keep compatibility aliases during migration.
+- [x] 2.2 Extract File System Access API logic into a dedicated module.
+- [x] 2.3 Replace broad `any` usage in app state/types with narrower interfaces.
+- [x] 2.4 Remove redundant element re-queries in app initialization.
+
+## 3. Low Priority (Cleanup)
+- [x] 3.1 Decide whether to rename/rehome `src/storage.ts` as test-support-only code.
+- [x] 3.2 Decide whether `dist/test/*` should be generated-only and excluded from source control. (Decision: keep committed for now to preserve current repository pattern with generated distribution artifacts under `dist/`.)
+- [x] 3.3 Clean minor Cypress scaffolding noise only when it improves maintainability.
+
+## 4. Validation
+- [x] 4.1 `npm run build` succeeds and produces a working `ink-app.html`.
+- [x] 4.2 `npm run test:qunit` passes.
+- [x] 4.3 `npm run test:cypress` passes.
+- [x] 4.4 README and script references match actual files/commands.
 </file>
 
 <file path="openspec/AGENTS.md">
@@ -29125,6 +29419,121 @@ export function createUserManager() {
 export type GitHubUserManager = ReturnType<typeof createUserManager>;
 </file>
 
+<file path="src/test-support/storage-fixture.ts">
+export interface KeyValueStorage {
+  readonly length: number;
+  key(index: number): string | null;
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+const STORAGE_PREFIX = "ink.workspace.";
+
+function workspaceKey(name: string): string {
+  return `${STORAGE_PREFIX}${name}`;
+}
+
+function normalizeWorkspaceName(name: string): string {
+  return name.trim();
+}
+
+function parseWorkspace(value: string | null): Record<string, string> {
+  if (!value) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    const files: Record<string, string> = {};
+    for (const [key, content] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof key === "string" && typeof content === "string") {
+        files[key] = content;
+      }
+    }
+
+    return files;
+  } catch {
+    return {};
+  }
+}
+
+function writeWorkspace(storage: KeyValueStorage, workspace: string, files: Record<string, string>): void {
+  storage.setItem(workspaceKey(workspace), JSON.stringify(files));
+}
+
+export function listWorkspaces(storage: KeyValueStorage): string[] {
+  const workspaces: string[] = [];
+
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key || !key.startsWith(STORAGE_PREFIX)) {
+      continue;
+    }
+
+    workspaces.push(key.slice(STORAGE_PREFIX.length));
+  }
+
+  return workspaces.sort((a, b) => a.localeCompare(b));
+}
+
+export function ensureWorkspace(storage: KeyValueStorage, workspaceName: string): string {
+  const normalizedName = normalizeWorkspaceName(workspaceName);
+  if (!normalizedName) {
+    throw new Error("Workspace name cannot be empty.");
+  }
+
+  const key = workspaceKey(normalizedName);
+  if (storage.getItem(key) === null) {
+    writeWorkspace(storage, normalizedName, {});
+  }
+
+  return normalizedName;
+}
+
+export function listFiles(storage: KeyValueStorage, workspaceName: string): string[] {
+  const files = parseWorkspace(storage.getItem(workspaceKey(workspaceName)));
+  return Object.keys(files).sort((a, b) => a.localeCompare(b));
+}
+
+export function createFile(storage: KeyValueStorage, workspaceName: string, fileName: string): string {
+  const normalizedFileName = fileName.trim();
+  if (!normalizedFileName) {
+    throw new Error("File name cannot be empty.");
+  }
+
+  const workspace = ensureWorkspace(storage, workspaceName);
+  const files = parseWorkspace(storage.getItem(workspaceKey(workspace)));
+  if (!(normalizedFileName in files)) {
+    files[normalizedFileName] = "";
+    writeWorkspace(storage, workspace, files);
+  }
+
+  return normalizedFileName;
+}
+
+export function readFile(storage: KeyValueStorage, workspaceName: string, fileName: string): string {
+  const files = parseWorkspace(storage.getItem(workspaceKey(workspaceName)));
+  return files[fileName] ?? "";
+}
+
+export function saveFile(
+  storage: KeyValueStorage,
+  workspaceName: string,
+  fileName: string,
+  content: string,
+): void {
+  const workspace = ensureWorkspace(storage, workspaceName);
+  const files = parseWorkspace(storage.getItem(workspaceKey(workspace)));
+  files[fileName] = content;
+  writeWorkspace(storage, workspace, files);
+}
+</file>
+
 <file path="src/tags.ts">
 export function normalizeTag(value: string): string {
   return (value || "")
@@ -29610,62 +30019,6 @@ npx repomix@latest
 git add repomix-output.xml
 </file>
 
-<file path="assets/branding/favicon.svg">
-<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
-
-  <!-- Ink drop -->
-  <path
-    d="M300 150
-       C330 200 360 260 330 320
-       C300 380 240 380 210 320
-       C180 260 240 200 270 170
-       C285 155 300 150 300 150 Z"
-    fill="#ffffff"
-  />
-
-  <!-- Stylized text -->
-  <text x="300" y="460"
-        text-anchor="middle"
-        font-family="Inter, sans-serif"
-        font-size="100"
-        font-weight="700"
-        fill="#ffffff"
-        letter-spacing="-5">
-    ink
-  </text>
-</svg>
-</file>
-
-<file path="assets/branding/logo.svg">
-<svg width="600" height="600" viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background circle -->
-  <circle cx="300" cy="300" r="280" fill="#1f1f1f" />
-
-  <!-- Ink drop -->
-  <path
-    d="M300 150
-       C330 200 360 260 330 320
-       C300 380 240 380 210 320
-       C180 260 240 200 270 170
-       C285 155 300 150 300 150 Z"
-    fill="#ffffff"
-  />
-
-  <!-- Stylized text -->
-  <text x="300" y="460"
-        text-anchor="middle"
-        font-family="Inter, sans-serif"
-        font-size="100"
-        font-weight="700"
-        fill="#ffffff"
-        letter-spacing="-5">
-    ink
-  </text>
-</svg>
-</file>
-
 <file path="cypress/e2e/cogito-mode.cy.js">
 function createFakeFileHandle(name, initialContent = "") {
   let content = initialContent;
@@ -29838,138 +30191,6 @@ describe("cogito mode", () => {
 });
 </file>
 
-<file path="cypress/e2e/document-linter.cy.js">
-function createFakeFileHandle(name, initialContent = "") {
-  let content = initialContent;
-  let lastModified = Date.now();
-
-  return {
-    kind: "file",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async getFile() {
-      return new File([content], name, { type: "text/markdown", lastModified });
-    },
-    async createWritable() {
-      return {
-        async write(nextContent) {
-          content = String(nextContent);
-          lastModified = Date.now();
-        },
-        async close() {},
-      };
-    },
-    __read() {
-      return content;
-    },
-  };
-}
-
-function createFakeDirectoryHandle(name) {
-  const entries = new Map();
-
-  return {
-    kind: "directory",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async *entries() {
-      for (const entry of entries.entries()) {
-        yield entry;
-      }
-    },
-    async getFileHandle(fileName, options = {}) {
-      const existing = entries.get(fileName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`File not found: ${fileName}`);
-      }
-      const handle = createFakeFileHandle(fileName);
-      entries.set(fileName, handle);
-      return handle;
-    },
-    async getDirectoryHandle(dirName, options = {}) {
-      const existing = entries.get(dirName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`Directory not found: ${dirName}`);
-      }
-      const handle = createFakeDirectoryHandle(dirName);
-      entries.set(dirName, handle);
-      return handle;
-    },
-  };
-}
-
-describe("document linter export", () => {
-  const workspaceName = "linter-workspace";
-  const noteName = "linter-note";
-  const noteContent = "# Linter export test\n\nThis sentence is intentionally very long so the readability rule has something to report.";
-
-  beforeEach(() => {
-    cy.visit("/ink-app.html", {
-      onBeforeLoad(win) {
-        const root = createFakeDirectoryHandle(workspaceName);
-
-        win.prompt = (message) => {
-          if (message.includes("New note name")) {
-            return noteName;
-          }
-          return null;
-        };
-
-        win.confirm = () => true;
-        win.FileSystemHandle = function FileSystemHandle() {};
-        win.showDirectoryPicker = async () => root;
-        win.__fakeWorkspace = root;
-        win.__linterExportBlobs = [];
-        win.URL.createObjectURL = (blob) => {
-          win.__linterExportBlobs.push(blob);
-          return "blob:linter-report";
-        };
-        win.URL.revokeObjectURL = () => {};
-      },
-    });
-  });
-
-  it("exports the current linter report as markdown", () => {
-    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
-    cy.get("[data-action=\"new-note\"]").click({ force: true });
-    cy.get("#editor").clear().type(noteContent);
-
-    cy.get("#documentLinterToggleBtn").click();
-    cy.get("#documentLinterAnalyzeBtn").click();
-    cy.get("#statusBadge").should("contain", "Analysis complete");
-
-    cy.get("#documentLinterExportBtn").click();
-    cy.get("#statusBadge").should("contain", "Exported report");
-
-    cy.window().then(async (win) => {
-      expect(win.__linterExportBlobs).to.have.length(1);
-      const report = await win.__linterExportBlobs[0].text();
-      expect(report).to.contain("# Document Linter Review");
-      expect(report).to.contain("## Overall");
-      expect(report).to.contain("Overall score:");
-      expect(report).to.contain("Readability");
-      expect(report).to.contain("Opening is informative, not directive");
-    });
-  });
-});
-</file>
-
 <file path="cypress/e2e/editor-view-mode.cy.js">
 function createFakeFileHandle(name, initialContent = "") {
   let content = initialContent;
@@ -30094,8 +30315,11 @@ describe("editor view mode toggle", () => {
 });
 </file>
 
-<file path="cypress/support/commands.ts">
-export {};
+<file path="cypress/support/e2e.ts">
+import "./commands";
+import "@cypress/code-coverage/support";
+
+Cypress.on("uncaught:exception", () => false);
 </file>
 
 <file path="openspec/changes/add-cogito-mode/specs/cogito-mode/spec.md">
@@ -30698,83 +30922,6 @@ The project lacks consistent code quality enforcement. Adding ESLint will help c
 - [x] 1.3 Add npm lint script to package.json
 - [x] 1.4 Run ESLint and fix any errors
 - [x] 1.5 Integrate lint check into build process
-</file>
-
-<file path="openspec/changes/add-logo-readme-and-favicon/specs/branding-assets/spec.md">
-## ADDED Requirements
-### Requirement: Canonical Project Logo Asset
-The repository SHALL store a canonical project logo source file that is used for documentation and favicon generation.
-
-#### Scenario: Canonical logo source is available
-- **WHEN** a maintainer inspects branding files in the repository
-- **THEN** a single canonical logo source exists in a stable project path
-- **AND** the source is suitable for deriving README and favicon assets
-
-### Requirement: README Logo Rendering
-The project documentation SHALL render the project logo in `README.md` using repository-relative asset references.
-
-#### Scenario: README displays logo
-- **WHEN** `README.md` is rendered by a GitHub-compatible markdown renderer
-- **THEN** the logo is visible near the document header
-- **AND** the logo reference resolves without external network dependencies
-
-### Requirement: Favicon Assets Derived from Logo
-The project SHALL provide favicon assets derived from the canonical logo source.
-
-#### Scenario: Favicon assets are generated and available
-- **WHEN** the favicon generation workflow is run
-- **THEN** favicon files are produced in the documented output location
-- **AND** generated filenames match those referenced by the application template
-
-### Requirement: Application Template Favicon References
-The application HTML template SHALL reference project favicon assets so browser tabs display the project icon.
-
-#### Scenario: Browser tab uses project favicon
-- **WHEN** a user opens the built application in a modern browser
-- **THEN** the browser resolves favicon references from the application output
-- **AND** the tab icon reflects the project logo branding
-</file>
-
-<file path="openspec/changes/add-logo-readme-and-favicon/proposal.md">
-# Change: Add Project Logo to README and Favicon Assets
-
-## Why
-The repository currently lacks consistent branding assets in project documentation and browser metadata. Adding the provided logo to `README.md` and defining favicon outputs improves recognizability and presentation.
-
-## What Changes
-- Add a canonical logo asset in the repository based on `~/Downloads/ink_logo.svg`.
-- Update `README.md` to render the project logo near the top of the document.
-- Define and implement favicon outputs derived from the same logo source.
-- Wire favicon references into the app HTML template so browser tabs use project branding.
-- Document the asset location and favicon generation/update workflow.
-
-## Impact
-- Affected specs: `branding-assets`
-- Affected code:
-  - `README.md`
-  - `ink.template.html`
-  - `build/` scripts (if favicon generation is automated in build)
-  - `dist/` favicon artifacts
-  - `assets/` branding source files (new)
-</file>
-
-<file path="openspec/changes/add-logo-readme-and-favicon/tasks.md">
-## 1. Asset Setup
-- [x] 1.1 Add the provided logo SVG to a canonical repository path for shared branding usage.
-- [x] 1.2 Define favicon output formats and filenames derived from the canonical logo source.
-
-## 2. Documentation and Template Integration
-- [x] 2.1 Update `README.md` to display the project logo with stable relative linking.
-- [x] 2.2 Update the HTML template to include favicon references that resolve in the built output.
-
-## 3. Build and Distribution
-- [x] 3.1 Implement or document the process to generate favicon artifacts from the SVG source.
-- [x] 3.2 Ensure generated favicon assets are available in expected output locations.
-
-## 4. Validation
-- [x] 4.1 Verify `README.md` renders the logo correctly on GitHub-compatible markdown viewers.
-- [x] 4.2 Verify the built app/tab displays the new favicon in a modern browser.
-- [x] 4.3 Verify documentation describes how to refresh logo-derived assets when the SVG changes.
 </file>
 
 <file path="openspec/changes/add-mobile-fallback/specs/mobile-support/spec.md">
@@ -31820,163 +31967,6 @@ The `marked` library is currently inlined as a minified script block inside `ink
   - `ink.template.html` (remove inlined script)
   - `src/app/bootstrap.ts` (replace `window.marked` with typed import)
   - `dist/app.min.js` (rebuilt, `marked` bundled by esbuild)
-</file>
-
-<file path="openspec/changes/refactor-align-llm-coding-principles/specs/codebase-maintainability/spec.md">
-## ADDED Requirements
-### Requirement: Prioritized Maintainability Refactor Plan
-The project SHALL define a maintainability refactor plan with explicit High, Medium, and Low priority tiers based on engineering risk and value.
-
-#### Scenario: Plan is prioritized and actionable
-- **WHEN** a maintainer reviews the approved change proposal
-- **THEN** the proposal includes clearly separated High, Medium, and Low priority work
-- **AND** each tier contains concrete codebase targets
-
-### Requirement: Evidence-Based Refactor Scope
-Refactor recommendations MUST be grounded in current repository evidence and MUST avoid unnecessary changes.
-
-#### Scenario: Recommendations are justified
-- **WHEN** a recommendation proposes delete, rename, or restructure actions
-- **THEN** it references observable repository state (for example dead code, missing script targets, or duplicated logic)
-- **AND** the proposal explicitly identifies areas that should remain unchanged when already aligned
-
-### Requirement: Behavior-Preserving Refactor Guardrails
-Maintainability refactors SHALL preserve existing user-visible behavior unless a separate feature change is approved.
-
-#### Scenario: Refactor keeps current behavior stable
-- **WHEN** maintainability refactor tasks are implemented
-- **THEN** build and test workflows continue to pass
-- **AND** core authoring flow behavior (open workspace, create note, edit, save) remains unchanged
-
-### Requirement: Tooling and Documentation Consistency
-Documented commands and scripts MUST map to files and behavior that exist in the repository.
-
-#### Scenario: Script/docs mismatch is resolved
-- **WHEN** package scripts or README commands are documented
-- **THEN** each command resolves to existing code paths
-- **AND** stale or broken command references are removed or restored
-</file>
-
-<file path="openspec/changes/refactor-align-llm-coding-principles/design.md">
-## Context
-Ink is intentionally lightweight and single-file at runtime. The refactor must preserve behavior while making source code easier for LLMs to read, regenerate, and safely modify.
-
-## Goals / Non-Goals
-- Goals:
-  - Reduce cognitive load in `src/app.ts` by splitting by feature boundaries.
-  - Remove stale/dead paths that create false complexity.
-  - Improve naming so build and runtime responsibilities are explicit.
-  - Keep behavior and user workflow unchanged.
-- Non-Goals:
-  - Framework migration.
-  - UX redesign.
-  - New product features.
-
-## Decisions
-- Decision: Refactor in phases (High -> Medium -> Low) with behavior-preserving checkpoints.
-  - Rationale: minimizes regression risk and keeps scope manageable.
-- Decision: Keep a thin composition entrypoint and move concerns into small modules.
-  - Rationale: supports predictable regeneration and targeted testing.
-- Decision: Do not force changes where current code is already clear (for example `src/tags.ts`).
-  - Rationale: avoids churn and preserves momentum.
-
-## Risks / Trade-offs
-- Risk: File splits can break implicit state assumptions.
-  - Mitigation: define explicit typed state contracts and test around open/save/refresh flows.
-- Risk: Renaming scripts can disrupt local habits.
-  - Mitigation: keep temporary aliases and document migration in README.
-
-## Migration Plan
-1. Remove dead code and duplicate timers in `src/app.ts`.
-2. Introduce module boundaries for workspace scan, editor operations, and rendering.
-3. Rename build scripts/files with compatibility aliases.
-4. Re-run build + QUnit + Cypress and update docs.
-
-## Open Questions
-- Should `sync:from-ink-app` be restored (by adding script) or removed from docs/scripts?
-- Should `src/storage.ts` remain a test fixture in `src/` or move to a dedicated test-support path?
-</file>
-
-<file path="openspec/changes/refactor-align-llm-coding-principles/proposal.md">
-# Change: LLM-Aligned Maintainability Refactor Plan
-
-## Why
-The current codebase works, but it has several maintainability risks that reduce predictability and regenerability for LLM-driven development. The biggest issue is concentration of behavior in one large file, plus stale scripts and dead code paths that make intent harder to reason about.
-
-## What Changes
-- Create a phased refactor plan aligned to project coding principles: clarity, pragmatism, rigor.
-- Prioritize only high-value changes and explicitly avoid churn where behavior is already clear and stable.
-- Define concrete rename/restructure/delete targets backed by repository evidence.
-- Add acceptance criteria so refactor work can be verified without changing product behavior.
-
-### High Priority
-- Split `src/app.ts` into small feature modules with a thin entrypoint (`main` + feature-oriented files).
-- Remove duplicated auto-refresh behavior (currently both `startAutoRefresh()` timer and a separate global `setInterval` run every 10s).
-- Fix stale/broken tooling contract: `sync:from-ink-app` references `build/sync-from-ink-app.js`, but the file is missing.
-- Remove dead fields/utilities in `src/app.ts`:
-  - `searchScanDebounceTimer`
-  - `lastContentSearchToken`
-  - `sleep()`
-  - `humanDate()`
-  - `debounce()`
-
-### Medium Priority
-- Rename ambiguous build scripts for intent clarity:
-  - `build/inject.js` -> `build/assemble-single-file.js`
-  - `build/build.js` -> `build/compile-and-assemble.js`
-- Extract File System Access API handling into a dedicated module (permissions, handles, scan traversal) to reduce coupling with UI rendering.
-- Replace broad `any` usage in app state with narrow interfaces for notes, tree nodes, and workspace handles.
-- Remove redundant DOM lookups in `src/app.ts` where elements are already captured once.
-
-### Low Priority
-- Decide whether test-only storage logic should be renamed for intent:
-  - `src/storage.ts` -> `src/test-support/storage-fixture.ts` (if kept test-only)
-- Decide whether generated test bundles should stay committed:
-  - `dist/test/*` can be generated during `npm run build:test` and excluded from source control.
-- Tighten Cypress scaffolding comments/config only if it improves signal-to-noise (avoid cosmetic edits).
-
-### Keep As-Is (No Change Needed)
-- `src/tags.ts` is already small, explicit, and testable.
-- Build pipeline remains lightweight and appropriate for single-file distribution constraints.
-- Existing QUnit and Cypress coverage should be retained and expanded only around touched refactor areas.
-
-## Impact
-- Affected specs: `codebase-maintainability`
-- Affected code:
-  - `src/app.ts`
-  - `src/storage.ts` (rename/rehome decision)
-  - `build/build.js`
-  - `build/inject.js`
-  - `package.json`
-  - `README.md`
-  - `Makefile` (if command wrappers change)
-  - `tests/qunit/*`
-  - `cypress/*`
-</file>
-
-<file path="openspec/changes/refactor-align-llm-coding-principles/tasks.md">
-## 1. High Priority (Safety + Clarity)
-- [x] 1.1 Remove duplicate auto-refresh scheduling and keep one refresh control path.
-- [x] 1.2 Remove dead fields/utilities from `src/app.ts` (`searchScanDebounceTimer`, `lastContentSearchToken`, `sleep`, `humanDate`, `debounce`).
-- [x] 1.3 Resolve broken `sync:from-ink-app` contract by either restoring `build/sync-from-ink-app.js` or removing stale script/docs.
-- [x] 1.4 Split `src/app.ts` into a small entrypoint plus feature modules with explicit interfaces.
-
-## 2. Medium Priority (Structure + Naming)
-- [x] 2.1 Rename build scripts/files for clearer responsibility and keep compatibility aliases during migration.
-- [x] 2.2 Extract File System Access API logic into a dedicated module.
-- [x] 2.3 Replace broad `any` usage in app state/types with narrower interfaces.
-- [x] 2.4 Remove redundant element re-queries in app initialization.
-
-## 3. Low Priority (Cleanup)
-- [x] 3.1 Decide whether to rename/rehome `src/storage.ts` as test-support-only code.
-- [x] 3.2 Decide whether `dist/test/*` should be generated-only and excluded from source control. (Decision: keep committed for now to preserve current repository pattern with generated distribution artifacts under `dist/`.)
-- [x] 3.3 Clean minor Cypress scaffolding noise only when it improves maintainability.
-
-## 4. Validation
-- [x] 4.1 `npm run build` succeeds and produces a working `ink-app.html`.
-- [x] 4.2 `npm run test:qunit` passes.
-- [x] 4.3 `npm run test:cypress` passes.
-- [x] 4.4 README and script references match actual files/commands.
 </file>
 
 <file path="openspec/changes/refactor-app-controller-modules/specs/codebase-maintainability/spec.md">
@@ -34416,6 +34406,40 @@ export function createAutoRefresh({
 }
 </file>
 
+<file path="src/app/fs-api.ts">
+import type { PermissionCapableHandle } from "./types";
+
+export function isFileSystemApiAvailable(): boolean {
+  return Boolean(window.showDirectoryPicker && window.FileSystemHandle);
+}
+
+export function isInMemoryMode(): boolean {
+  return !isFileSystemApiAvailable();
+}
+
+export async function ensurePermission(
+  handle: PermissionCapableHandle | null,
+  mode: "read" | "readwrite" = "read",
+): Promise<boolean> {
+  if (!handle) {
+    return false;
+  }
+
+  if (!handle.queryPermission || !handle.requestPermission) {
+    return true;
+  }
+
+  const descriptor = { mode };
+  const current = await handle.queryPermission(descriptor);
+  if (current === "granted") {
+    return true;
+  }
+
+  const requested = await handle.requestPermission(descriptor);
+  return requested === "granted";
+}
+</file>
+
 <file path="src/app/icons.ts">
 export const icon = {
   folder: () =>
@@ -34555,119 +34579,10 @@ export function escapeHtml(value: string): string {
 }
 </file>
 
-<file path="src/test-support/storage-fixture.ts">
-export interface KeyValueStorage {
-  readonly length: number;
-  key(index: number): string | null;
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+<file path="src/app.ts">
+import { bootstrapInkApp } from "./app/app-controller";
 
-const STORAGE_PREFIX = "ink.workspace.";
-
-function workspaceKey(name: string): string {
-  return `${STORAGE_PREFIX}${name}`;
-}
-
-function normalizeWorkspaceName(name: string): string {
-  return name.trim();
-}
-
-function parseWorkspace(value: string | null): Record<string, string> {
-  if (!value) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-
-    const files: Record<string, string> = {};
-    for (const [key, content] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof key === "string" && typeof content === "string") {
-        files[key] = content;
-      }
-    }
-
-    return files;
-  } catch {
-    return {};
-  }
-}
-
-function writeWorkspace(storage: KeyValueStorage, workspace: string, files: Record<string, string>): void {
-  storage.setItem(workspaceKey(workspace), JSON.stringify(files));
-}
-
-export function listWorkspaces(storage: KeyValueStorage): string[] {
-  const workspaces: string[] = [];
-
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (!key || !key.startsWith(STORAGE_PREFIX)) {
-      continue;
-    }
-
-    workspaces.push(key.slice(STORAGE_PREFIX.length));
-  }
-
-  return workspaces.sort((a, b) => a.localeCompare(b));
-}
-
-export function ensureWorkspace(storage: KeyValueStorage, workspaceName: string): string {
-  const normalizedName = normalizeWorkspaceName(workspaceName);
-  if (!normalizedName) {
-    throw new Error("Workspace name cannot be empty.");
-  }
-
-  const key = workspaceKey(normalizedName);
-  if (storage.getItem(key) === null) {
-    writeWorkspace(storage, normalizedName, {});
-  }
-
-  return normalizedName;
-}
-
-export function listFiles(storage: KeyValueStorage, workspaceName: string): string[] {
-  const files = parseWorkspace(storage.getItem(workspaceKey(workspaceName)));
-  return Object.keys(files).sort((a, b) => a.localeCompare(b));
-}
-
-export function createFile(storage: KeyValueStorage, workspaceName: string, fileName: string): string {
-  const normalizedFileName = fileName.trim();
-  if (!normalizedFileName) {
-    throw new Error("File name cannot be empty.");
-  }
-
-  const workspace = ensureWorkspace(storage, workspaceName);
-  const files = parseWorkspace(storage.getItem(workspaceKey(workspace)));
-  if (!(normalizedFileName in files)) {
-    files[normalizedFileName] = "";
-    writeWorkspace(storage, workspace, files);
-  }
-
-  return normalizedFileName;
-}
-
-export function readFile(storage: KeyValueStorage, workspaceName: string, fileName: string): string {
-  const files = parseWorkspace(storage.getItem(workspaceKey(workspaceName)));
-  return files[fileName] ?? "";
-}
-
-export function saveFile(
-  storage: KeyValueStorage,
-  workspaceName: string,
-  fileName: string,
-  content: string,
-): void {
-  const workspace = ensureWorkspace(storage, workspaceName);
-  const files = parseWorkspace(storage.getItem(workspaceKey(workspace)));
-  files[fileName] = content;
-  writeWorkspace(storage, workspace, files);
-}
+bootstrapInkApp();
 </file>
 
 <file path="tests/qunit/auth.test.js">
@@ -46669,8 +46584,6 @@ Some might say that the passive voice was used in this sentence, which could be 
 name: "CodeQL Advanced"
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   schedule:
@@ -46794,6 +46707,138 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
+</file>
+
+<file path="cypress/e2e/document-linter.cy.js">
+function createFakeFileHandle(name, initialContent = "") {
+  let content = initialContent;
+  let lastModified = Date.now();
+
+  return {
+    kind: "file",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async getFile() {
+      return new File([content], name, { type: "text/markdown", lastModified });
+    },
+    async createWritable() {
+      return {
+        async write(nextContent) {
+          content = String(nextContent);
+          lastModified = Date.now();
+        },
+        async close() {},
+      };
+    },
+    __read() {
+      return content;
+    },
+  };
+}
+
+function createFakeDirectoryHandle(name) {
+  const entries = new Map();
+
+  return {
+    kind: "directory",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async *entries() {
+      for (const entry of entries.entries()) {
+        yield entry;
+      }
+    },
+    async getFileHandle(fileName, options = {}) {
+      const existing = entries.get(fileName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`File not found: ${fileName}`);
+      }
+      const handle = createFakeFileHandle(fileName);
+      entries.set(fileName, handle);
+      return handle;
+    },
+    async getDirectoryHandle(dirName, options = {}) {
+      const existing = entries.get(dirName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`Directory not found: ${dirName}`);
+      }
+      const handle = createFakeDirectoryHandle(dirName);
+      entries.set(dirName, handle);
+      return handle;
+    },
+  };
+}
+
+describe("document linter export", () => {
+  const workspaceName = "linter-workspace";
+  const noteName = "linter-note";
+  const noteContent = "# Linter export test\n\nThis sentence is intentionally very long so the readability rule has something to report.";
+
+  beforeEach(() => {
+    cy.visit("/ink-app.html", {
+      onBeforeLoad(win) {
+        const root = createFakeDirectoryHandle(workspaceName);
+
+        win.prompt = (message) => {
+          if (message.includes("New note name")) {
+            return noteName;
+          }
+          return null;
+        };
+
+        win.confirm = () => true;
+        win.FileSystemHandle = function FileSystemHandle() {};
+        win.showDirectoryPicker = async () => root;
+        win.__fakeWorkspace = root;
+        win.__linterExportBlobs = [];
+        win.URL.createObjectURL = (blob) => {
+          win.__linterExportBlobs.push(blob);
+          return "blob:linter-report";
+        };
+        win.URL.revokeObjectURL = () => {};
+      },
+    });
+  });
+
+  it("exports the current linter report as markdown", () => {
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
+    cy.get("#editor").clear().type(noteContent);
+
+    cy.get("#documentLinterToggleBtn").click();
+    cy.get("#documentLinterAnalyzeBtn").click();
+    cy.get("#statusBadge").should("contain", "Analysis complete");
+
+    cy.get("#documentLinterExportBtn").click();
+    cy.get("#statusBadge").should("contain", "Exported report");
+
+    cy.window().then(async (win) => {
+      expect(win.__linterExportBlobs).to.have.length(1);
+      const report = await win.__linterExportBlobs[0].text();
+      expect(report).to.contain("# Document Linter Review");
+      expect(report).to.contain("## Overall");
+      expect(report).to.contain("Overall score:");
+      expect(report).to.contain("Readability");
+      expect(report).to.contain("Opening is informative, not directive");
+    });
+  });
+});
 </file>
 
 <file path="cypress/e2e/menu-bar.cy.js">
@@ -47436,13 +47481,6 @@ describe("workspace actions regression", () => {
     cy.get("#statusBadge").should("contain", "Refreshed");
   });
 });
-</file>
-
-<file path="cypress/support/e2e.ts">
-import "./commands";
-import "@cypress/code-coverage/support";
-
-Cypress.on("uncaught:exception", () => false);
 </file>
 
 <file path="openspec/changes/add-mobile-fallback/tasks.md">
@@ -49331,40 +49369,6 @@ export function updateDirtyUi(
 }
 </file>
 
-<file path="src/app/fs-api.ts">
-import type { PermissionCapableHandle } from "./types";
-
-export function isFileSystemApiAvailable(): boolean {
-  return Boolean(window.showDirectoryPicker && window.FileSystemHandle);
-}
-
-export function isInMemoryMode(): boolean {
-  return !isFileSystemApiAvailable();
-}
-
-export async function ensurePermission(
-  handle: PermissionCapableHandle | null,
-  mode: "read" | "readwrite" = "read",
-): Promise<boolean> {
-  if (!handle) {
-    return false;
-  }
-
-  if (!handle.queryPermission || !handle.requestPermission) {
-    return true;
-  }
-
-  const descriptor = { mode };
-  const current = await handle.queryPermission(descriptor);
-  if (current === "granted") {
-    return true;
-  }
-
-  const requested = await handle.requestPermission(descriptor);
-  return requested === "granted";
-}
-</file>
-
 <file path="src/app/menu-actions.ts">
 import type { AppState, DomRefs } from "./types";
 import { applyTheme, VALID_THEMES } from "./theme";
@@ -49797,12 +49801,6 @@ export function createTreeRenderer({
 }
 </file>
 
-<file path="src/app.ts">
-import { bootstrapInkApp } from "./app/app-controller";
-
-bootstrapInkApp();
-</file>
-
 <file path="tests/qunit/utils.test.js">
 import QUnit from "qunit";
 import { escapeHtml } from "../../dist/test/utils.js";
@@ -50128,6 +50126,80 @@ jobs:
           path: cypress/screenshots
 </file>
 
+<file path="openspec/project.md">
+# Project Context
+
+## Purpose
+
+Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
+
+## Tech Stack
+
+- **Frontend**: Vanilla JavaScript (ES6+)
+- **Markdown Processing**: Marked.js v15.0.12 (embedded)
+- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
+- **HTML Template**: Custom template system with inlined CSS/JS
+- **Target**: Single-page web application (ink.html)
+
+## Project Conventions
+
+### Code Style
+
+- ES6+ JavaScript modules
+- Minimal dependencies - prefers vanilla JavaScript
+- Single-file build output (ink.html) with inlined assets
+- Functional programming patterns preferred
+
+### Architecture Patterns
+
+- **Single File Architecture**: Final build is a self-contained HTML file
+- **Template Injection**: CSS and JS are injected into HTML template during build
+- **No Build Framework**: Custom build process without webpack/rollup/etc.
+- **Client-side Only**: Pure frontend application with no server requirements
+
+### Testing Strategy
+
+- No formal testing framework currently implemented
+- Manual testing via browser
+- Build verification through file generation
+
+### Git Workflow
+
+- Simple trunk-based development
+- Commits should be descriptive of changes
+- Main branch contains production-ready code
+
+## Domain Context
+
+- **Markdown Editing**: Core focus on markdown document creation and editing
+- **Document Export**: Ability to export markdown to various formats
+- **Offline Usage**: Application should work without internet connectivity
+- **Single User**: Designed for individual document creation
+
+## Important Constraints
+
+- **Single File Output**: Must build to a single HTML file (ink.html)
+- **No External Dependencies**: Runtime should work without CDN/internet
+- **Cross-browser**: Must work in modern browsers
+- **Lightweight**: Keep file size minimal for fast loading
+- **No Server**: Pure client-side application
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
+
+## External Dependencies
+
+- **Marked.js**: Markdown parser library (embedded in build)
+- **No External APIs**: Application works completely offline
+- **No Backend**: No server-side components required
+</file>
+
 <file path=".replit">
 modules = ["web", "nodejs-20"]
 [agent]
@@ -50169,41 +50241,6 @@ publicDir = "."
 [[ports]]
 localPort = 5000
 externalPort = 80
-</file>
-
-<file path="CHANGELOG.md">
-# Changelog
-
-## [1.2.1](https://github.com/feddernico/ink/compare/ink-v1.2.0...ink-v1.2.1) (2026-04-07)
-
-
-### Bug Fixes
-
-* finalize merged release PRs with plain tags ([98a6bea](https://github.com/feddernico/ink/commit/98a6bea8da0c32d8d419000e9a0d023838230c99))
-* finalize merged release PRs with plain tags ([b02c526](https://github.com/feddernico/ink/commit/b02c526c7d5da3789d5e6f80273537437c7ea183))
-
-## [1.2.0](https://github.com/feddernico/ink/compare/ink-v1.1.5...ink-v1.2.0) (2026-04-07)
-
-
-### Features
-
-* hide the WebMCP note tool behind an agent popup ([bed3cca](https://github.com/feddernico/ink/commit/bed3cca71b72be81af1159c307e6b5c1ea0abd82))
-
-
-### Bug Fixes
-
-* align release-please tags with v-tag history ([a58f478](https://github.com/feddernico/ink/commit/a58f4786594f70a87d650becbe7b249914101397))
-* align release-please tags with v-tag history ([36d04fa](https://github.com/feddernico/ink/commit/36d04fae0bcf942733db027c5ed95ab4ef0fa39f))
-
-## [1.1.5](https://github.com/feddernico/ink/compare/ink-v1.1.4...ink-v1.1.5) (2026-04-02)
-
-
-### Bug Fixes
-
-* added a way to bump node package verion using release-please ([6c62f7c](https://github.com/feddernico/ink/commit/6c62f7c6d7f67b41b46e61359bfa6f0380182817))
-* added a way to bump node package verion using release-please ([dc85d9e](https://github.com/feddernico/ink/commit/dc85d9ebb8ac44595c3a48be5a4113f59bf9fd99))
-* only create release if ink-app.html changed ([2f31aac](https://github.com/feddernico/ink/commit/2f31aaccf443daa2486dbff805f90256ecc2a146))
-* only create release if ink-app.html changed ([a9f4f65](https://github.com/feddernico/ink/commit/a9f4f656715bfb61ae394e4e8320e78ef57c9742))
 </file>
 
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
@@ -50305,80 +50342,6 @@ externalPort = 80
 - [x] 7.5 Verify visually that the editor header status area shows only the dirty-dot indicator and status badge.
 - [x] 7.6 Verify the dirty-dot indicator and "Unsaved changes" status badge correctly reflect unsaved state.
 - [x] 7.7 Verify all remaining menu and keyboard-shortcut paths for the removed buttons continue to work end-to-end.
-</file>
-
-<file path="openspec/project.md">
-# Project Context
-
-## Purpose
-
-Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
-
-## Tech Stack
-
-- **Frontend**: Vanilla JavaScript (ES6+)
-- **Markdown Processing**: Marked.js v15.0.12 (embedded)
-- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
-- **HTML Template**: Custom template system with inlined CSS/JS
-- **Target**: Single-page web application (ink.html)
-
-## Project Conventions
-
-### Code Style
-
-- ES6+ JavaScript modules
-- Minimal dependencies - prefers vanilla JavaScript
-- Single-file build output (ink.html) with inlined assets
-- Functional programming patterns preferred
-
-### Architecture Patterns
-
-- **Single File Architecture**: Final build is a self-contained HTML file
-- **Template Injection**: CSS and JS are injected into HTML template during build
-- **No Build Framework**: Custom build process without webpack/rollup/etc.
-- **Client-side Only**: Pure frontend application with no server requirements
-
-### Testing Strategy
-
-- No formal testing framework currently implemented
-- Manual testing via browser
-- Build verification through file generation
-
-### Git Workflow
-
-- Simple trunk-based development
-- Commits should be descriptive of changes
-- Main branch contains production-ready code
-
-## Domain Context
-
-- **Markdown Editing**: Core focus on markdown document creation and editing
-- **Document Export**: Ability to export markdown to various formats
-- **Offline Usage**: Application should work without internet connectivity
-- **Single User**: Designed for individual document creation
-
-## Important Constraints
-
-- **Single File Output**: Must build to a single HTML file (ink.html)
-- **No External Dependencies**: Runtime should work without CDN/internet
-- **Cross-browser**: Must work in modern browsers
-- **Lightweight**: Keep file size minimal for fast loading
-- **No Server**: Pure client-side application
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-
-## External Dependencies
-
-- **Marked.js**: Markdown parser library (embedded in build)
-- **No External APIs**: Application works completely offline
-- **No Backend**: No server-side components required
 </file>
 
 <file path="src/app/cogito.ts">
@@ -51520,10 +51483,52 @@ export function createWorkspaceActions({
 }
 </file>
 
-<file path=".release-please-manifest.json">
-{
-  ".": "1.2.1"
-}
+<file path="CHANGELOG.md">
+# Changelog
+
+## [1.3.0](https://github.com/feddernico/ink/compare/ink-v1.2.1...ink-v1.3.0) (2026-06-02)
+
+
+### Features
+
+* Add Document Linter feature ([351ae83](https://github.com/feddernico/ink/commit/351ae8366834dfcb2d194d5c5f0b7238733f522f))
+
+
+### Bug Fixes
+
+* keep qunit test build on tracked sources ([550a38d](https://github.com/feddernico/ink/commit/550a38d953d93d5b643bea6ee10ebb91472eebc7))
+* restore auth test bundles for qunit ([7f7cd09](https://github.com/feddernico/ink/commit/7f7cd09b076c81b7dc04310b2c2ac24b363b3b31))
+
+## [1.2.1](https://github.com/feddernico/ink/compare/ink-v1.2.0...ink-v1.2.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* finalize merged release PRs with plain tags ([98a6bea](https://github.com/feddernico/ink/commit/98a6bea8da0c32d8d419000e9a0d023838230c99))
+* finalize merged release PRs with plain tags ([b02c526](https://github.com/feddernico/ink/commit/b02c526c7d5da3789d5e6f80273537437c7ea183))
+
+## [1.2.0](https://github.com/feddernico/ink/compare/ink-v1.1.5...ink-v1.2.0) (2026-04-07)
+
+
+### Features
+
+* hide the WebMCP note tool behind an agent popup ([bed3cca](https://github.com/feddernico/ink/commit/bed3cca71b72be81af1159c307e6b5c1ea0abd82))
+
+
+### Bug Fixes
+
+* align release-please tags with v-tag history ([a58f478](https://github.com/feddernico/ink/commit/a58f4786594f70a87d650becbe7b249914101397))
+* align release-please tags with v-tag history ([36d04fa](https://github.com/feddernico/ink/commit/36d04fae0bcf942733db027c5ed95ab4ef0fa39f))
+
+## [1.1.5](https://github.com/feddernico/ink/compare/ink-v1.1.4...ink-v1.1.5) (2026-04-02)
+
+
+### Bug Fixes
+
+* added a way to bump node package verion using release-please ([6c62f7c](https://github.com/feddernico/ink/commit/6c62f7c6d7f67b41b46e61359bfa6f0380182817))
+* added a way to bump node package verion using release-please ([dc85d9e](https://github.com/feddernico/ink/commit/dc85d9ebb8ac44595c3a48be5a4113f59bf9fd99))
+* only create release if ink-app.html changed ([2f31aac](https://github.com/feddernico/ink/commit/2f31aaccf443daa2486dbff805f90256ecc2a146))
+* only create release if ink-app.html changed ([a9f4f65](https://github.com/feddernico/ink/commit/a9f4f656715bfb61ae394e4e8320e78ef57c9742))
 </file>
 
 <file path="CONTRIBUTING.md">
@@ -51598,6 +51603,7 @@ Feature ideas are welcome. Open an issue describing the problem you want to solv
 - When a release PR is merged, the release workflow finalizes it by creating the plain `v*` tag, adding a compatibility `ink-v*` tag for release-please state reconciliation, publishing the GitHub release from `v*`, and clearing stale autorelease labels.
 - Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
 - If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
+- CI validation should happen in PR workflows before merge; the release workflow is intentionally limited to regenerating `ink-app.html` for the tagged release artifact instead of rerunning the full build/test suite after the protected-branch merge.
 
 ## Style Guide
 
@@ -51836,6 +51842,128 @@ describe("ink authoring flow", () => {
 });
 </file>
 
+<file path=".release-please-manifest.json">
+{
+  ".": "1.3.0"
+}
+</file>
+
+<file path="README.md">
+# ink
+<p align="center">
+  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
+</p>
+
+Ink is a functional and minimalistic webapp to write documents in markdown and export them.
+
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![Sass](https://img.shields.io/badge/Sass-SCSS-CC6699?logo=sass&logoColor=white)
+![Cypress](https://img.shields.io/badge/Tested%20with-Cypress-17202C?logo=cypress&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## Repo Structure
+
+The structure of the repo is as follows:
+
+```
+src/
+  app.ts         (Thin app entrypoint)
+  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
+  tags.ts        (Tag/frontmatter parsing utilities)
+  test-support/
+    storage-fixture.ts  (Test-only storage helpers)
+  styles.scss    (The app styles, in SCSS)
+dist/
+  app.min.js
+  styles.min.css
+ink.template.html  (The HTML template source)
+ink-app.html       (The final single-page app, with inline <style> and <script>)
+build/
+  assemble-single-file.js
+  compile-and-assemble.js
+  build-test.js
+  generate-favicons.js
+  watch.js
+  inject.js  (Compatibility alias)
+  build.js   (Compatibility alias)
+assets/
+  branding/
+    logo.svg
+    favicon.svg
+tests/
+  qunit/
+cypress/
+  e2e/
+repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
+```
+
+## Building Process
+
+The workflow uses `esbuild` and `sass`.
+
+- Build once: `npm run build`
+- Build on file changes: `npm run watch`
+- Makefile wrappers:
+  - `make build`
+  - `make watch`
+
+The webapp is released as a single HTML file (`ink-app.html`).
+
+Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
+
+## Branding Assets
+
+- Canonical logo source: `assets/branding/logo.svg`
+- Generated favicon: `assets/branding/favicon.svg`
+- Regenerate favicon after logo updates: `npm run build:favicon`
+
+`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
+
+## Workflow Cheat Sheet
+
+Use this sequence when working on the app:
+
+1. Install dependencies (first time only): `npm install`
+2. Edit source files:
+   - `src/app.ts`
+   - `src/tags.ts`
+   - `src/styles.scss`
+   - `ink.template.html`
+3. Rebuild output: `npm run build`
+4. Open/use `ink-app.html`
+
+If you want automatic rebuilds while editing:
+
+1. Run: `npm run watch`
+2. Keep editing source files
+3. `ink-app.html` will be regenerated after changes
+
+## Testing
+
+Automated testing includes both QUnit and Cypress.
+
+- QUnit: `npm run test:qunit`
+- Cypress end-to-end: `npm run test:cypress`
+- Full suite: `npm test`
+
+The Cypress flow test verifies:
+
+1. Open/select a workspace
+2. Create a new markdown file
+3. Enter markdown content
+4. Save and verify persisted content
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
+</file>
+
 <file path=".github/workflows/release.yml">
 name: release-please
 
@@ -51924,13 +52052,9 @@ jobs:
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
         run: npm ci
 
-      - name: Build
+      - name: Assemble release artifact
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm run build
-
-      - name: Run tests
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm test
+        run: node build/compile-and-assemble.js
 
       - name: Create release tags
         if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
@@ -52914,122 +53038,6 @@ function attachGlobalKeyboardShortcuts(actions: UiActions): void {
 }
 </file>
 
-<file path="README.md">
-# ink
-<p align="center">
-  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
-</p>
-
-Ink is a functional and minimalistic webapp to write documents in markdown and export them.
-
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
-![Sass](https://img.shields.io/badge/Sass-SCSS-CC6699?logo=sass&logoColor=white)
-![Cypress](https://img.shields.io/badge/Tested%20with-Cypress-17202C?logo=cypress&logoColor=white)
-![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## Repo Structure
-
-The structure of the repo is as follows:
-
-```
-src/
-  app.ts         (Thin app entrypoint)
-  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
-  tags.ts        (Tag/frontmatter parsing utilities)
-  test-support/
-    storage-fixture.ts  (Test-only storage helpers)
-  styles.scss    (The app styles, in SCSS)
-dist/
-  app.min.js
-  styles.min.css
-ink.template.html  (The HTML template source)
-ink-app.html       (The final single-page app, with inline <style> and <script>)
-build/
-  assemble-single-file.js
-  compile-and-assemble.js
-  build-test.js
-  generate-favicons.js
-  watch.js
-  inject.js  (Compatibility alias)
-  build.js   (Compatibility alias)
-assets/
-  branding/
-    logo.svg
-    favicon.svg
-tests/
-  qunit/
-cypress/
-  e2e/
-repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
-```
-
-## Building Process
-
-The workflow uses `esbuild` and `sass`.
-
-- Build once: `npm run build`
-- Build on file changes: `npm run watch`
-- Makefile wrappers:
-  - `make build`
-  - `make watch`
-
-The webapp is released as a single HTML file (`ink-app.html`).
-
-Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
-
-## Branding Assets
-
-- Canonical logo source: `assets/branding/logo.svg`
-- Generated favicon: `assets/branding/favicon.svg`
-- Regenerate favicon after logo updates: `npm run build:favicon`
-
-`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
-
-## Workflow Cheat Sheet
-
-Use this sequence when working on the app:
-
-1. Install dependencies (first time only): `npm install`
-2. Edit source files:
-   - `src/app.ts`
-   - `src/tags.ts`
-   - `src/styles.scss`
-   - `ink.template.html`
-3. Rebuild output: `npm run build`
-4. Open/use `ink-app.html`
-
-If you want automatic rebuilds while editing:
-
-1. Run: `npm run watch`
-2. Keep editing source files
-3. `ink-app.html` will be regenerated after changes
-
-## Testing
-
-Automated testing includes both QUnit and Cypress.
-
-- QUnit: `npm run test:qunit`
-- Cypress end-to-end: `npm run test:cypress`
-- Full suite: `npm test`
-
-The Cypress flow test verifies:
-
-1. Open/select a workspace
-2. Create a new markdown file
-3. Enter markdown content
-4. Save and verify persisted content
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-</file>
-
 <file path="src/app/dom.ts">
 import type { DomRefs } from "./types";
 
@@ -53248,6 +53256,60 @@ declare global {
   interface Window {
     showDirectoryPicker?: (options?: { id?: string; mode?: "read" | "readwrite" }) => Promise<DirectoryHandleLike>;
     FileSystemHandle?: unknown;
+  }
+}
+</file>
+
+<file path="package.json">
+{
+  "name": "ink",
+  "version": "1.3.0",
+  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
+  "homepage": "https://github.com/feddernico/ink#readme",
+  "bugs": {
+    "url": "https://github.com/feddernico/ink/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/feddernico/ink.git"
+  },
+  "license": "MIT",
+  "author": "Federico Viscioletti",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "npm run lint && node build/compile-and-assemble.js",
+    "watch": "node build/watch.js",
+    "build:favicon": "node build/generate-favicons.js",
+    "build:test": "node build/build-test.js",
+    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
+    "serve:test": "http-server . -p 4173 -s",
+    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
+    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
+    "test": "npm run test:qunit && npm run test:cypress"
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.29.2",
+    "@cypress/code-coverage": "^4.0.2",
+    "babel-plugin-istanbul": "^7.0.1",
+    "chokidar": "^4.0.3",
+    "cypress": "^15.12.0",
+    "esbuild": "^0.27.3",
+    "eslint": "^10.1.0",
+    "globals": "^17.6.0",
+    "http-server": "^14.1.1",
+    "nyc": "^18.0.0",
+    "qunit": "^2.24.2",
+    "sass": "^1.97.3",
+    "start-server-and-test": "^2.0.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "marked": "^17.0.4"
+  },
+  "overrides": {
+    "immutable": "^5.1.5"
   }
 }
 </file>
@@ -54457,60 +54519,6 @@ declare global {
     }
 </file>
 
-<file path="package.json">
-{
-  "name": "ink",
-  "version": "1.2.1",
-  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
-  "homepage": "https://github.com/feddernico/ink#readme",
-  "bugs": {
-    "url": "https://github.com/feddernico/ink/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/feddernico/ink.git"
-  },
-  "license": "MIT",
-  "author": "Federico Viscioletti",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "lint": "eslint .",
-    "build": "npm run lint && node build/compile-and-assemble.js",
-    "watch": "node build/watch.js",
-    "build:favicon": "node build/generate-favicons.js",
-    "build:test": "node build/build-test.js",
-    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
-    "serve:test": "http-server . -p 4173 -s",
-    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
-    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
-    "test": "npm run test:qunit && npm run test:cypress"
-  },
-  "devDependencies": {
-    "@babel/standalone": "^7.29.2",
-    "@cypress/code-coverage": "^4.0.2",
-    "babel-plugin-istanbul": "^7.0.1",
-    "chokidar": "^4.0.3",
-    "cypress": "^15.12.0",
-    "esbuild": "^0.27.3",
-    "eslint": "^10.1.0",
-    "globals": "^17.6.0",
-    "http-server": "^14.1.1",
-    "nyc": "^18.0.0",
-    "qunit": "^2.24.2",
-    "sass": "^1.97.3",
-    "start-server-and-test": "^2.0.12",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "marked": "^17.0.4"
-  },
-  "overrides": {
-    "immutable": "^5.1.5"
-  }
-}
-</file>
-
 <file path="ink.template.html">
 <!doctype html>
 <html lang="en">
@@ -54929,6 +54937,7 @@ declare global {
 - Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
 - Merged release PRs are finalized by `.github/workflows/release.yml`: the workflow detects `chore(main): release ink x.y.z` merges, creates the canonical `v*` tag plus a compatibility `ink-v*` tag, publishes the GitHub release from `v*`, and clears stale `autorelease:*` labels so the next release PR is not blocked.
 - Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
+- In this repo, `main` is protected and all changes land through PRs, so `.github/workflows/pr-checks.yml` is the validation gate, `.github/workflows/codeql.yml` runs on PRs plus schedule, and `.github/workflows/release.yml` should only assemble `ink-app.html` and publish the release instead of rerunning the full test suite after merge.
 - Contributor-facing workflow and validation steps now live in `CONTRIBUTING.md`; keep build, test, and single-file output guidance aligned with that document when project workflows change.
 - Declarative WebMCP note creation lives in the `#webmcpNoteForm` form in `ink.template.html`; keep its submit path wired to `createNoteFromTool()` in `src/app/workspace-io.ts` so agent-invoked note creation stays in the single-page app and does not navigate away.
 - Cogito Mode work is tracked in `openspec/changes/add-cogito-mode/`; preserve the strict three-question JSON contract and the markdown insertion block format (`> ### AI` then question text) when implementing it.

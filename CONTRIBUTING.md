@@ -69,6 +69,7 @@ Feature ideas are welcome. Open an issue describing the problem you want to solv
 - When a release PR is merged, the release workflow finalizes it by creating the plain `v*` tag, adding a compatibility `ink-v*` tag for release-please state reconciliation, publishing the GitHub release from `v*`, and clearing stale autorelease labels.
 - Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
 - If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
+- CI validation should happen in PR workflows before merge; the release workflow is intentionally limited to regenerating `ink-app.html` for the tagged release artifact instead of rerunning the full build/test suite after the protected-branch merge.
 
 ## Style Guide
 
