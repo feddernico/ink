@@ -1,0 +1,101 @@
+# This file is a template, and might need editing before it works on your project.
+# This is a sample GitLab CI/CD configuration file that should run without any modifications.
+# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
+# it uses echo commands to simulate the pipeline execution.
+#
+# A pipeline is composed of independent jobs that run scripts, grouped into stages.
+# Stages run in sequential order, but jobs within stages run in parallel.
+#
+# For more information, see: https://docs.gitlab.com/ee/ci/yaml/#stages
+#
+# You can copy and paste this template into a new `.gitlab-ci.yml` file.
+# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
+#
+# To contribute improvements to CI/CD templates, please follow the Development guide at:
+# https://docs.gitlab.com/development/cicd/templates/
+# This specific template is located at:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - when: never
+
+stages:
+  - verify
+
+default:
+  interruptible: true
+
+variables:
+  GIT_DEPTH: "0"
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.npm"
+
+.docs_only_check: &docs_only_check |
+  git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  changed_files="$(git diff --name-only "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...$CI_COMMIT_SHA")"
+
+  printf '%s\n' "$changed_files"
+
+  if [ -z "$changed_files" ]; then
+    echo "No changed files detected; continuing with full validation."
+  elif echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+    echo "Non-documentation changes detected."
+  else
+    echo "Documentation-only merge request detected; skipping job."
+    exit 0
+  fi
+
+.node_job:
+  stage: verify
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - *docs_only_check
+    - npm ci --prefer-offline
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+build:
+  extends: .node_job
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - ink-app.html
+    expire_in: 1 week
+
+qunit:
+  extends: .node_job
+  script:
+    - npm run test:qunit
+
+cypress:
+  stage: verify
+  image: cypress/included:15.12.0
+  variables:
+    CYPRESS_INSTALL_BINARY: "0"
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - *docs_only_check
+    - npm ci --prefer-offline
+  script:
+    - npm run build
+    - npm run test:cypress
+  artifacts:
+    when: on_failure
+    paths:
+      - cypress/screenshots/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
