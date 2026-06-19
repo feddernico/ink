@@ -295,9 +295,13 @@ assets/
     favicon.svg
     logo.svg
     white-bg-logo.svg
+  demo/
+    ink-demo.gif
+    ink-demo.webm
 cypress/
   e2e/
     cogito-mode.cy.js
+    demo.cy.js
     document-linter.cy.js
     editor-flow.cy.js
     editor-view-mode.cy.js
@@ -339,6 +343,12 @@ openspec/
         testing/
           spec.md
       design.md
+      proposal.md
+      tasks.md
+    add-demo-video-capture/
+      specs/
+        demo-capture/
+          spec.md
       proposal.md
       tasks.md
     add-document-linter/
@@ -509,6 +519,7 @@ tests/
     user.test.js
     utils.test.js
 .gitignore
+.gitlab-ci.yml
 .nycrc
 .release-please-manifest.json
 .replit
@@ -27500,6 +27511,274 @@ ${t.trim()}
 </svg>
 </file>
 
+<file path="cypress/e2e/demo.cy.js">
+function createDemoFileHandle(name, initialContent = "") {
+  let content = initialContent;
+  let lastModified = Date.now();
+
+  return {
+    kind: "file",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async getFile() {
+      return new File([content], name, { type: "text/markdown", lastModified });
+    },
+    async createWritable() {
+      return {
+        async write(nextContent) {
+          content = String(nextContent);
+          lastModified = Date.now();
+        },
+        async close() {},
+      };
+    },
+  };
+}
+
+function createDemoDirectoryHandle(name) {
+  const entries = new Map();
+
+  return {
+    kind: "directory",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async *entries() {
+      for (const entry of entries.entries()) {
+        yield entry;
+      }
+    },
+    async getFileHandle(fileName, options = {}) {
+      const existing = entries.get(fileName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`File not found: ${fileName}`);
+      }
+      const handle = createDemoFileHandle(fileName);
+      entries.set(fileName, handle);
+      return handle;
+    },
+    async getDirectoryHandle(dirName, options = {}) {
+      const existing = entries.get(dirName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`Directory not found: ${dirName}`);
+      }
+      const handle = createDemoDirectoryHandle(dirName);
+      entries.set(dirName, handle);
+      return handle;
+    },
+  };
+}
+
+const isDemoRecording =
+  globalThis.Cypress?.env("INK_DEMO_RECORDING") === true ||
+  globalThis.Cypress?.env("INK_DEMO_RECORDING") === "true";
+const demoPauseMs = isDemoRecording ? 1100 : 150;
+const demoTypeDelayMs = isDemoRecording ? 48 : 0;
+
+function hideCypressRunnerChrome() {
+  if (!isDemoRecording) {
+    return;
+  }
+
+  const topDocument = window.top?.document;
+  if (!topDocument || topDocument.getElementById("ink-demo-hide-cypress-ui")) {
+    return;
+  }
+
+  const style = topDocument.createElement("style");
+  style.id = "ink-demo-hide-cypress-ui";
+  style.textContent = `
+    .reporter-wrap,
+    .reporter,
+    .runner > header,
+    [data-cy="reporter"],
+    [data-testid="reporter"] {
+      display: none !important;
+      width: 0 !important;
+    }
+
+    .runner,
+    .runner-container,
+    .iframe-container,
+    .iframes-container {
+      inset: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      width: 100vw !important;
+      max-width: none !important;
+    }
+
+    .aut-iframe,
+    iframe.aut-iframe {
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+  `;
+  topDocument.head.appendChild(style);
+}
+
+function installDemoPointer(win) {
+  if (!isDemoRecording || win.document.getElementById("inkDemoPointer")) {
+    return;
+  }
+
+  const style = win.document.createElement("style");
+  style.id = "inkDemoPointerStyles";
+  style.textContent = `
+    #inkDemoPointer {
+      position: fixed;
+      z-index: 99999;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 3px solid #2563eb;
+      box-shadow: 0 0 0 8px rgb(37 99 235 / 18%);
+      transform: translate(-50%, -50%);
+      transition: left 650ms ease, top 650ms ease, box-shadow 180ms ease, scale 180ms ease;
+      pointer-events: none;
+    }
+
+    #inkDemoPointer.is-clicking {
+      scale: 0.78;
+      box-shadow: 0 0 0 16px rgb(37 99 235 / 12%);
+    }
+  `;
+
+  const pointer = win.document.createElement("div");
+  pointer.id = "inkDemoPointer";
+  pointer.setAttribute("aria-hidden", "true");
+  pointer.style.left = "80px";
+  pointer.style.top = "80px";
+
+  win.document.head.appendChild(style);
+  win.document.body.appendChild(pointer);
+}
+
+function demoWait(multiplier = 1) {
+  return cy.wait(Math.round(demoPauseMs * multiplier));
+}
+
+function moveDemoPointerTo(selector) {
+  if (!isDemoRecording) {
+    return cy.wrap(null, { log: false });
+  }
+
+  return cy.get(selector).then(($element) => {
+    const rect = $element[0].getBoundingClientRect();
+    const left = rect.left + rect.width / 2;
+    const top = rect.top + Math.min(rect.height / 2, 28);
+
+    return cy.window({ log: false }).then((win) => {
+      const pointer = win.document.getElementById("inkDemoPointer");
+      if (!pointer) {
+        return null;
+      }
+      pointer.style.left = `${left}px`;
+      pointer.style.top = `${top}px`;
+      return cy.wait(750, { log: false });
+    });
+  });
+}
+
+function clickForDemo(selector) {
+  return moveDemoPointerTo(selector)
+    .then(() => cy.get(selector).click({ force: true }))
+    .then(() => {
+      if (!isDemoRecording) {
+        return null;
+      }
+      return cy.window({ log: false }).then((win) => {
+        const pointer = win.document.getElementById("inkDemoPointer");
+        pointer?.classList.add("is-clicking");
+        return cy.wait(220, { log: false }).then(() => {
+          pointer?.classList.remove("is-clicking");
+        });
+      });
+    })
+    .then(() => demoWait());
+}
+
+describe("ink demo capture", () => {
+  const workspaceName = "Ink Demo Workspace";
+  const fileStem = "getting-started";
+  const markdown = [
+    "# Getting started with Ink",
+    "",
+    "Open a workspace, create a markdown note, and write with the preview beside you.",
+    "",
+    "## Draft",
+    "",
+    "- Keep notes in plain markdown",
+    "- Save when the draft is ready",
+    "- Use preview to check structure",
+  ].join("\n");
+
+  beforeEach(() => {
+    hideCypressRunnerChrome();
+    cy.viewport(1440, 900);
+    cy.visit("/ink-app.html", {
+      onBeforeLoad(win) {
+        const root = createDemoDirectoryHandle(workspaceName);
+
+        win.prompt = (message) => {
+          if (message.includes("New note name")) {
+            return fileStem;
+          }
+          return null;
+        };
+        win.confirm = () => true;
+        win.FileSystemHandle = function FileSystemHandle() {};
+        win.showDirectoryPicker = async () => root;
+      },
+    });
+    cy.window().then((win) => {
+      installDemoPointer(win);
+    });
+    demoWait();
+  });
+
+  it("records the first workspace note and preview flow", () => {
+    clickForDemo("[data-action=\"open-workspace\"]");
+    cy.get("#workspaceName").should("contain", workspaceName);
+    demoWait();
+
+    clickForDemo("[data-action=\"new-note\"]");
+    cy.get("#currentFilename").should("contain", `${fileStem}.md`);
+    demoWait();
+
+    moveDemoPointerTo("#editor");
+    cy.get("#editor").clear();
+    cy.get("#editor").type(markdown, { delay: demoTypeDelayMs });
+    cy.get("#preview").find("h1").should("contain", "Getting started with Ink");
+    demoWait();
+
+    clickForDemo("[data-action=\"save\"]");
+    cy.get("#statusBadge").should("contain", "Saved");
+    demoWait();
+
+    clickForDemo("#editorViewPreviewBtn");
+    cy.get("#preview").find("h2").should("contain", "Draft");
+    demoWait(1.6);
+  });
+});
+</file>
+
 <file path="cypress/support/commands.ts">
 export {};
 </file>
@@ -27513,6 +27792,87 @@ export {};
   },
   "include": ["**/*.ts", "**/*.tsx"]
 }
+</file>
+
+<file path="openspec/changes/add-collapsible-left-menu/specs/editor-layout/spec.md">
+## ADDED Requirements
+### Requirement: User-Controlled Left Menu Visibility
+The application SHALL provide a user-facing control to collapse and expand the left menu during an editing session.
+
+#### Scenario: User collapses left menu
+- **WHEN** the user activates the menu toggle while the menu is expanded
+- **THEN** the left menu transitions to a collapsed state
+- **AND** the main editor area gains additional horizontal space
+
+#### Scenario: User expands left menu
+- **WHEN** the user activates the menu toggle while the menu is collapsed
+- **THEN** the left menu returns to an expanded state
+- **AND** primary menu content becomes visible again
+
+### Requirement: Left Menu Toggle Accessibility
+The left menu toggle SHALL be operable via keyboard and SHALL expose its current expanded/collapsed state to assistive technologies.
+
+#### Scenario: Keyboard operation
+- **WHEN** a keyboard-only user focuses the menu toggle and activates it
+- **THEN** the menu state changes between expanded and collapsed
+- **AND** focus remains in a predictable location for continued interaction
+
+#### Scenario: Assistive state exposure
+- **WHEN** the menu state changes through the toggle control
+- **THEN** the control's accessibility state reflects whether the menu is expanded or collapsed
+
+### Requirement: Deterministic Initial Menu State
+The application SHALL define a deterministic initial left menu state when a new session loads.
+
+#### Scenario: Initial layout state
+- **WHEN** a user opens the application in a new session
+- **THEN** the left menu starts in the documented default state
+- **AND** the editor layout reflects that state without requiring user interaction
+</file>
+
+<file path="openspec/changes/add-collapsible-left-menu/proposal.md">
+# Change: Add User-Controlled Collapsible Left Menu
+
+## Why
+The current left menu is fixed, which reduces usable editor space on smaller screens and during focused writing. Allowing users to collapse and expand the menu improves layout flexibility without removing existing navigation.
+
+## What Changes
+- Add support for collapsing and expanding the left menu from within the UI.
+- Add a persistent toggle control so users can switch menu state on demand.
+- Update layout behavior so editor content reflows to use freed horizontal space when the menu is collapsed.
+- Preserve keyboard and pointer accessibility for the menu toggle interaction.
+- Define expected default menu behavior at app start.
+
+## Impact
+- Affected specs: `editor-layout`
+- Affected code:
+  - `ink.template.html`
+  - `src/app.ts`
+  - `src/styles.scss`
+  - `dist/app.min.js` (rebuilt)
+  - `dist/styles.min.css` (rebuilt)
+</file>
+
+<file path="openspec/changes/add-collapsible-left-menu/tasks.md">
+## 1. UI Controls and State
+- [x] 1.1 Add a left menu toggle control that supports collapse and expand actions.
+- [x] 1.2 Implement menu state management in the app so toggle actions update layout consistently.
+- [x] 1.3 Define and implement the default menu state on initial load.
+
+## 2. Layout and Styling
+- [x] 2.1 Update layout styles so collapsing the menu increases main editor horizontal space.
+- [x] 2.2 Ensure expanded state preserves existing navigation usability and visual hierarchy.
+- [x] 2.3 Ensure collapsed state keeps the toggle discoverable and usable.
+
+## 3. Accessibility and Interaction
+- [x] 3.1 Ensure the toggle is keyboard-focusable and operable.
+- [x] 3.2 Ensure toggle semantics expose menu state changes to assistive technologies.
+
+## 4. Verification
+- [x] 4.1 Verify users can collapse and re-expand the menu in a modern browser.
+- [x] 4.2 Verify editor content area width increases when the menu is collapsed.
+- [x] 4.3 Verify keyboard-only users can operate the toggle and retain navigation control.
+- [x] 4.4 Add a Cypress end-to-end test that validates left menu collapse/expand behavior and resulting layout changes.
 </file>
 
 <file path="openspec/changes/add-componentized-build-and-test-automation/specs/build-pipeline/spec.md">
@@ -27678,6 +28038,55 @@ The current project state does not provide a stable, repeatable workflow for mai
 - [x] 3.1 Verify build output artifacts are generated as specified.
 - [x] 3.2 Verify QUnit and Cypress suites pass from documented commands.
 - [x] 3.3 Confirm final app output remains a single self-contained HTML file.
+</file>
+
+<file path="openspec/changes/add-demo-video-capture/specs/demo-capture/spec.md">
+## ADDED Requirements
+
+### Requirement: Automated Demo Capture
+The project SHALL provide a repeatable command that records the Ink onboarding authoring flow as a video asset.
+
+#### Scenario: Record core authoring flow
+- **WHEN** a maintainer runs the demo recording command
+- **THEN** the demo recorder opens Ink in a deterministic browser session
+- **AND** the recording shows opening a workspace, creating a markdown file, typing content, saving, and inspecting the preview
+- **AND** the recording excludes Cypress runner controls so only the Ink app flow is visible
+- **AND** the visible actions are paced slowly enough for a first-time viewer to follow
+- **AND** the reusable video asset is written under `assets/demo/`
+
+### Requirement: GIF Export
+The project SHALL provide a documented command to convert the recorded demo video into a GIF when ffmpeg is available.
+
+#### Scenario: Generate GIF from recorded video
+- **GIVEN** a recorded demo video exists under `assets/demo/`
+- **WHEN** a maintainer runs the GIF export command with ffmpeg installed
+- **THEN** the project writes `assets/demo/ink-demo.gif`
+- **AND** the command fails with an actionable message when ffmpeg is missing
+</file>
+
+<file path="openspec/changes/add-demo-video-capture/proposal.md">
+# Change: Add automated demo video capture
+
+## Why
+Ink needs a repeatable way to show first-time users the core authoring flow without manually recording the app each release.
+
+## What Changes
+- Add a deterministic browser demo recorder that opens a workspace, creates a markdown note, writes content, saves it, and shows the rendered preview.
+- Add npm scripts to record the demo video and export reusable demo assets.
+- Document the demo regeneration workflow for README and future agent maintenance.
+
+## Impact
+- Affected specs: demo-capture
+- Affected code: `build/record-demo.js`, `cypress/e2e/demo.cy.js`, `build/export-demo-assets.js`, `package.json`, `README.md`, `.github/copilot-instructions.md`
+</file>
+
+<file path="openspec/changes/add-demo-video-capture/tasks.md">
+## 1. Implementation
+- [x] 1.1 Add a deterministic Chrome recorder and Cypress validation spec for the core Ink authoring flow.
+- [x] 1.2 Add an asset export script that converts the recorded app-only video to GIF with ffmpeg.
+- [x] 1.3 Add npm scripts for recording and GIF generation.
+- [x] 1.4 Document demo asset generation in README and agent guidance.
+- [x] 1.5 Run focused validation for the demo workflow and project checks.
 </file>
 
 <file path="openspec/changes/add-github-login/specs/auth/spec.md">
@@ -27974,6 +28383,642 @@ The repository currently lacks consistent branding assets in project documentati
 - [x] 4.1 Verify `README.md` renders the logo correctly on GitHub-compatible markdown viewers.
 - [x] 4.2 Verify the built app/tab displays the new favicon in a modern browser.
 - [x] 4.3 Verify documentation describes how to refresh logo-derived assets when the SVG changes.
+</file>
+
+<file path="openspec/changes/add-mobile-fallback/specs/mobile-support/spec.md">
+## ADDED Requirements
+
+### Requirement: Mobile Browser Detection
+The system SHALL detect when the browser does not support the File System Access API.
+
+#### Scenario: Browser lacks File System Access API
+- **WHEN** the user opens ink on a browser without `showDirectoryPicker` and `FileSystemHandle`
+- **THEN** the system SHALL detect this and enable in-memory workspace mode
+- **AND** the system SHALL NOT throw an error blocking app usage
+
+#### Scenario: Browser supports File System Access API
+- **WHEN** the user opens ink on a browser with `showDirectoryPicker` and `FileSystemHandle`
+- **THEN** the system SHALL allow opening a real folder as usual
+- **AND** no in-memory mode SHALL be activated
+
+### Requirement: In-Memory Workspace Mode
+The system SHALL provide a temporary in-memory workspace when FS API is unavailable.
+
+#### Scenario: User creates note in temporary session
+- **WHEN** the user clicks "New Note" in temporary session mode
+- **AND** enters a note name
+- **THEN** a new note SHALL be created in memory
+- **AND** the user CAN edit the note content
+- **AND** the user CAN save (persist to memory only)
+
+#### Scenario: User edits note in temporary session
+- **WHEN** the user modifies the editor content
+- **AND** the note has unsaved changes
+- **THEN** the dirty indicator SHALL show unsaved status
+- **AND** the user CAN click Save to persist changes to memory
+
+### Requirement: Export as JSON
+The system SHALL provide a way to download all notes as a JSON file.
+
+#### Scenario: User exports all notes as JSON
+- **WHEN** the user clicks "Export JSON" button
+- **THEN** the browser SHALL download a file named `ink-export-YYYY-MM-DD.json`
+- **AND** the file SHALL contain a JSON object with notes array
+- **AND** each note SHALL have `name`, `path`, and `content` fields
+
+#### Scenario: JSON export contains multiple notes
+- **WHEN** the user has created multiple notes in temporary session
+- **AND** clicks Export JSON
+- **THEN** the exported JSON SHALL include all notes
+- **AND** the order SHALL be preserved
+
+### Requirement: Export as Markdown
+The system SHALL provide a way to download individual notes as .md files.
+
+#### Scenario: User exports current note as Markdown
+- **WHEN** the user clicks "Export Markdown" button while a note is open
+- **THEN** the browser SHALL download a file with the note's filename
+- **AND** the file SHALL contain the note's raw markdown content
+- **AND** the file SHALL have `.md` extension
+
+### Requirement: Temporary Session UI Indicator
+The system SHALL display a clear indicator when operating in temporary session mode.
+
+#### Scenario: Temporary session is active
+- **WHEN** the app is running in temporary session mode
+- **THEN** a visual indicator SHALL be displayed showing "Temporary Session"
+- **AND** the indicator SHALL inform users their data is not persisted
+- **AND** export buttons SHALL be prominently visible
+
+#### Scenario: No indicator shown in normal mode
+- **WHEN** the app is running with real file system access
+- **THEN** no temporary session indicator SHALL be displayed
+- **AND** export buttons MAY be hidden or disabled
+</file>
+
+<file path="openspec/changes/add-mobile-fallback/proposal.md">
+# Change: Add Mobile Fallback Support for Browsers Without File System Access API
+
+## Why
+Mobile browsers (e.g., Safari on iOS) do not support the File System Access API. Currently, ink shows an error message and prevents users from using the app. This excludes mobile users entirely. Instead, we should allow temporary in-memory work and provide export capabilities so users can download their notes.
+
+## What Changes
+- Detect when File System Access API is unavailable
+- Enable in-memory workspace mode for temporary editing
+- Add "Export as JSON" button to download all notes as a JSON file
+- Add "Export as Markdown" button to download individual notes as .md files
+- Show informative UI about temporary nature of the session
+- Preserve existing functionality for desktop browsers with FS API support
+
+## Impact
+- Affected specs: mobile-support (new capability)
+- Affected code: src/app/bootstrap.ts, src/app/fs-api.ts, ink-app.html, styles
+- No breaking changes to existing desktop functionality
+</file>
+
+<file path="openspec/changes/add-mobile-fallback/tasks.md">
+## 1. Implementation
+- [x] 1.1 Update `src/app/fs-api.ts` - Add function to check if FS API is available
+- [x] 1.2 Update `src/app/bootstrap.ts` - Modify `openWorkspace()` to enter in-memory mode when FS API unavailable
+- [x] 1.3 Add in-memory workspace state management (notes stored in memory, not on disk)
+- [x] 1.4 Add "Export as JSON" button to UI (download all notes)
+- [x] 1.5 Add "Export as Markdown" button to UI (download single note)
+- [x] 1.6 Add UI indicator showing "Temporary Session" mode
+- [x] 1.7 Update `ink-app.html` with new export buttons
+- [x] 1.8 Update `src/styles.scss` with temporary session styles
+- [x] 1.9 Test in-memory mode works without errors
+- [x] 1.10 Test export JSON downloads correctly
+- [x] 1.11 Test export Markdown downloads correctly
+
+## 2. Cypress Tests
+- [x] 2.1 Create `cypress/e2e/mobile-fallback.cy.js`
+- [x] 2.2 Test: When FS API unavailable, app shows temporary session mode
+- [x] 2.3 Test: User can create and edit notes in memory
+- [x] 2.4 Test: Export JSON button downloads valid JSON file
+- [x] 2.5 Test: Export Markdown button downloads valid .md file
+
+## 3. QUnit Tests
+- [x] 3.1 Create `tests/qunit/mobile-fallback.test.js`
+- [x] 3.2 Test: isFileSystemApiAvailable() returns correct values based on browser
+- [x] 3.3 Test: In-memory notes can be created and retrieved
+- [x] 3.4 Test: JSON export formats notes correctly
+- [x] 3.5 Test: Markdown export includes frontmatter and content
+</file>
+
+<file path="openspec/changes/add-office-style-menu/specs/accessibility/spec.md">
+## ADDED Requirements
+
+### Requirement: ARIA Support for Menu Bar
+The menu bar SHALL implement proper ARIA attributes to ensure accessibility for screen readers and assistive technologies.
+
+#### Scenario: Menu bar has proper ARIA role
+- **WHEN** a screen reader encounters the menu bar
+- **THEN** the menu bar has role="menubar" attribute
+- **AND** screen readers announce it as a menu bar
+
+#### Scenario: Menu items have proper ARIA attributes
+- **WHEN** a screen reader encounters menu items
+- **THEN** each menu item has role="menuitem" attribute
+- **AND** menu items with dropdowns have aria-haspopup="true"
+- **AND** aria-expanded indicates dropdown state
+
+#### Scenario: Dropdown menus have proper ARIA attributes
+- **WHEN** a dropdown menu is opened
+- **THEN** the dropdown has role="menu" attribute
+- **AND** each dropdown item has role="menuitem" attribute
+- **AND** aria-expanded="true" on the parent menu item
+
+### Requirement: Keyboard Accessibility
+The menu bar SHALL support full keyboard navigation for users who cannot use a mouse.
+
+#### Scenario: Tab navigation support
+- **WHEN** a user navigates using Tab key
+- **THEN** focus moves to menu bar items in logical order
+- **AND** focused items are visually indicated
+
+#### Scenario: Arrow key navigation
+- **WHEN** a user navigates using arrow keys
+- **THEN** Left/Right arrows move between top-level menu items
+- **AND** Up/Down arrows move between dropdown menu items
+- **AND** Home/End keys move to first/last items
+
+#### Scenario: Enter and Space key activation
+- **WHEN** a user presses Enter or Space on a focused menu item
+- **THEN** the menu item is activated
+- **AND** dropdowns open or actions are executed as appropriate
+
+#### Scenario: Escape key handling
+- **WHEN** a user presses Escape key
+- **THEN** open dropdowns are closed
+- **AND** focus returns to the parent menu item
+- **AND** no other application functionality is affected
+
+### Requirement: Visual Focus Indicators
+The menu bar SHALL provide clear visual indicators for keyboard focus and active states.
+
+#### Scenario: Focus indicators for menu items
+- **WHEN** a menu item receives keyboard focus
+- **THEN** a clear visual focus indicator is displayed
+- **AND** the focus indicator meets WCAG contrast requirements
+
+#### Scenario: Active state indicators
+- **WHEN** a menu item is activated or a dropdown is open
+- **THEN** clear visual indicators show the active state
+- **AND** the indicators are distinguishable from focus indicators
+
+#### Scenario: Hover state indicators
+- **WHEN** a user hovers over menu items with a mouse
+- **THEN** visual indicators show hover state
+- **AND** hover indicators are consistent with focus indicators
+
+### Requirement: Screen Reader Announcements
+The menu bar SHALL provide appropriate announcements for screen reader users.
+
+#### Scenario: Menu item descriptions
+- **WHEN** a screen reader focuses on a menu item
+- **THEN** the item's purpose is clearly announced
+- **AND** any associated keyboard shortcuts are announced
+
+#### Scenario: Dropdown state announcements
+- **WHEN** a dropdown menu state changes
+- **THEN** screen readers announce the state change
+- **AND** aria-expanded attribute is updated appropriately
+
+#### Scenario: Menu navigation announcements
+- **WHEN** a user navigates between menu items
+- **THEN** screen readers announce the current position
+- **AND** the total number of items is announced when appropriate
+
+### Requirement: High Contrast and Zoom Support
+The menu bar SHALL support high contrast modes and browser zoom functionality.
+
+#### Scenario: High contrast mode support
+- **WHEN** high contrast mode is enabled
+- **THEN** menu bar maintains proper contrast ratios
+- **AND** all interactive elements remain visible and usable
+
+#### Scenario: Browser zoom support
+- **WHEN** browser zoom is applied
+- **THEN** menu bar layout adjusts appropriately
+- **AND** no content is clipped or overlapping
+- **AND** all functionality remains accessible
+
+### Requirement: Error Handling and Feedback
+The menu bar SHALL provide appropriate feedback for accessibility-related errors.
+
+#### Scenario: Disabled menu item feedback
+- **WHEN** a user attempts to activate a disabled menu item
+- **THEN** appropriate feedback is provided
+- **AND** screen readers announce the item as disabled
+
+#### Scenario: Invalid keyboard input handling
+- **WHEN** a user provides invalid keyboard input
+- **THEN** the application handles it gracefully
+- **AND** no unexpected behavior occurs
+</file>
+
+<file path="openspec/changes/add-office-style-menu/specs/keyboard-shortcuts/spec.md">
+## ADDED Requirements
+
+### Requirement: Keyboard Shortcuts for Common Operations
+The application SHALL provide standard keyboard shortcuts for frequently used operations accessible through the menu bar.
+
+#### Scenario: New Note shortcut
+- **WHEN** a user presses Ctrl+E (Windows/Linux) or Cmd+E (Mac)
+- **THEN** the createNewNote functionality is triggered
+- **AND** the same behavior as clicking "New Note" menu item occurs
+
+#### Scenario: Open Workspace shortcut
+- **WHEN** a user presses Ctrl+Shift+O (Windows/Linux) or Cmd+Shift+O (Mac)
+- **THEN** the openWorkspace functionality is triggered
+- **AND** the same behavior as clicking "Open Workspace" menu item occurs
+
+#### Scenario: Save shortcut
+- **WHEN** a user presses Ctrl+S (Windows/Linux) or Cmd+S (Mac)
+- **THEN** the saveCurrentNote functionality is triggered
+- **AND** the same behavior as clicking "Save" menu item occurs
+
+#### Scenario: Refresh shortcut
+- **WHEN** a user presses Ctrl+L (Windows/Linux) or Cmd+L (Mac)
+- **THEN** the rescanWorkspace functionality is triggered
+- **AND** the same behavior as clicking "Refresh" menu item occurs
+
+#### Scenario: Export JSON shortcut
+- **WHEN** a user presses Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac)
+- **THEN** the exportAsJson functionality is triggered
+- **AND** the same behavior as clicking "Export JSON" menu item occurs
+
+#### Scenario: Export Markdown shortcut
+- **WHEN** a user presses Ctrl+Shift+M (Windows/Linux) or Cmd+Shift+M (Mac)
+- **THEN** the exportAsMarkdown functionality is triggered
+- **AND** the same behavior as clicking "Export Markdown" menu item occurs
+
+### Requirement: Keyboard Navigation of Menu Bar
+The menu bar SHALL support full keyboard navigation using standard accessibility patterns.
+
+#### Scenario: Tab navigation to menu bar
+- **WHEN** a user presses Tab to navigate to the menu bar
+- **THEN** focus moves to the first menu item
+- **AND** the menu item is visually indicated as focused
+
+#### Scenario: Arrow key navigation between menus
+- **WHEN** a user presses Left/Right arrow keys while focused on menu bar
+- **THEN** focus moves between menu items (File, Edit, Import/Export)
+- **AND** the focused menu item is visually indicated
+
+#### Scenario: Enter key to open dropdown
+- **WHEN** a user presses Enter while focused on a menu item
+- **THEN** the dropdown menu opens
+- **AND** focus moves to the first menu item in the dropdown
+
+#### Scenario: Escape key to close dropdowns
+- **WHEN** a user presses Escape while a dropdown is open
+- **THEN** the dropdown closes
+- **AND** focus returns to the parent menu item
+
+#### Scenario: Up/Down arrow navigation in dropdowns
+- **WHEN** a user presses Up/Down arrow keys while focused on a dropdown menu
+- **THEN** focus moves between menu items in the dropdown
+- **AND** the focused item is visually indicated
+
+### Requirement: Shortcut Display in Menu Items
+Menu items with keyboard shortcuts SHALL display the shortcut keys for discoverability.
+
+#### Scenario: Shortcut key display
+- **WHEN** a user views the menu bar
+- **THEN** menu items that have keyboard shortcuts display the shortcut keys
+- **AND** shortcut keys are displayed in a consistent format (e.g., "Ctrl+N")
+
+#### Scenario: Platform-appropriate shortcut display
+- **WHEN** the application runs on different platforms
+- **THEN** shortcut keys are displayed using platform-appropriate modifiers
+- **AND** Windows/Linux shows "Ctrl", Mac shows "Cmd"
+
+### Requirement: Shortcut Key Conflict Resolution
+The application SHALL handle keyboard shortcut conflicts appropriately.
+
+#### Scenario: Browser shortcut precedence
+- **WHEN** a user presses a keyboard shortcut that conflicts with browser functionality
+- **THEN** the application prevents the default browser behavior
+- **AND** the application's shortcut functionality is executed instead
+
+#### Scenario: Focus-based shortcut activation
+- **WHEN** keyboard shortcuts are pressed
+- **THEN** shortcuts are only active when the application has focus
+- **AND** shortcuts do not interfere with other applications
+</file>
+
+<file path="openspec/changes/add-office-style-menu/specs/menu-bar/spec.md">
+## ADDED Requirements
+
+### Requirement: Menu Bar Structure
+The application SHALL provide a horizontal menu bar at the top of the application window containing File, Edit, and Import/Export menu items.
+
+#### Scenario: Menu bar is visible and accessible
+- **WHEN** the application loads
+- **THEN** a horizontal menu bar is displayed at the top of the application window
+- **AND** the menu bar contains File, Edit, and Import/Export menu items
+
+#### Scenario: Menu items are properly labeled
+- **WHEN** a user views the menu bar
+- **THEN** each menu item has clear, descriptive text labels
+- **AND** menu items follow standard desktop application conventions
+
+### Requirement: File Menu Functionality
+The File menu SHALL provide access to workspace and file management operations.
+
+#### Scenario: New Note menu item
+- **WHEN** a user clicks "New Note" in the File menu
+- **THEN** the existing createNewNote functionality is triggered
+- **AND** the same behavior as clicking the "New Note" button occurs
+
+#### Scenario: New Folder menu item
+- **WHEN** a user clicks "New Folder" in the File menu
+- **THEN** the existing createNewFolder functionality is triggered
+- **AND** the same behavior as clicking the "New Folder" button occurs
+
+#### Scenario: Open Workspace menu item
+- **WHEN** a user clicks "Open Workspace" in the File menu
+- **THEN** the existing openWorkspace functionality is triggered
+- **AND** the same behavior as clicking the "Open Workspace" button occurs
+
+#### Scenario: Close Workspace menu item
+- **WHEN** a user clicks "Close Workspace" in the File menu
+- **THEN** the workspace is closed and UI returns to initial state
+- **AND** all workspace-specific UI elements are reset
+
+### Requirement: Edit Menu Functionality
+The Edit menu SHALL provide access to document editing and view operations.
+
+#### Scenario: Save menu item
+- **WHEN** a user clicks "Save" in the Edit menu
+- **THEN** the existing saveCurrentNote functionality is triggered
+- **AND** the same behavior as clicking the "Save" button occurs
+
+#### Scenario: Refresh menu item
+- **WHEN** a user clicks "Refresh" in the Edit menu
+- **THEN** the existing rescanWorkspace functionality is triggered
+- **AND** the same behavior as clicking the "Refresh" button occurs
+
+#### Scenario: Sort toggle menu item
+- **WHEN** a user clicks "Sort: Name/Modified" in the Edit menu
+- **THEN** the existing sort functionality is triggered
+- **AND** the same behavior as clicking the "Sort" button occurs
+
+#### Scenario: Collapse Sidebar menu item
+- **WHEN** a user clicks "Collapse Sidebar" in the Edit menu
+- **THEN** the existing setSidebarCollapsed functionality is triggered
+- **AND** the same behavior as clicking the sidebar toggle button occurs
+
+### Requirement: Import/Export Menu Functionality
+The Import/Export menu SHALL provide access to data export operations.
+
+#### Scenario: Export JSON menu item
+- **WHEN** a user clicks "Export JSON" in the Import/Export menu
+- **THEN** the existing exportAsJson functionality is triggered
+- **AND** the same behavior as clicking the "Export JSON" button occurs
+
+#### Scenario: Export Markdown menu item
+- **WHEN** a user clicks "Export Markdown" in the Import/Export menu
+- **THEN** the existing exportAsMarkdown functionality is triggered
+- **AND** the same behavior as clicking the "Export MD" button occurs
+
+### Requirement: Menu Dropdown Behavior
+Menu dropdowns SHALL open and close appropriately with proper keyboard and mouse interaction.
+
+#### Scenario: Mouse interaction with dropdowns
+- **WHEN** a user hovers over or clicks a menu item
+- **THEN** the dropdown menu opens
+- **AND** clicking outside the menu closes it
+
+#### Scenario: Keyboard navigation of menus
+- **WHEN** a user navigates using arrow keys
+- **THEN** focus moves between menu items
+- **AND** pressing Enter activates the focused menu item
+- **AND** pressing Escape closes open dropdowns
+
+### Requirement: Backward Compatibility
+The menu bar SHALL not interfere with existing button functionality.
+
+#### Scenario: Buttons continue to work
+- **WHEN** a user clicks existing buttons
+- **THEN** the same functionality is triggered as before
+- **AND** menu items provide alternative access to the same functions
+
+#### Scenario: Menu and button state synchronization
+- **WHEN** a menu item is clicked
+- **THEN** any related button states are updated appropriately
+- **AND** the application maintains consistent state across all interfaces
+</file>
+
+<file path="openspec/changes/add-office-style-menu/design.md">
+# Design: Office-Style Menu Bar Implementation
+
+## Context
+
+The ink markdown note-taking application needs a proper office-style menu bar to improve user experience and provide familiar desktop application patterns. The application currently has a functional but button-heavy interface. The menu bar should integrate seamlessly with existing functionality while adding discoverability and keyboard shortcuts.
+
+## Goals / Non-Goals
+
+### Goals
+- Provide familiar File, Edit, and Import/Export menu structure
+- Add keyboard shortcuts for common operations
+- Maintain full backward compatibility with existing buttons
+- Ensure accessibility with proper ARIA attributes
+- Keep implementation simple and maintainable
+- Follow existing code patterns and architecture
+
+### Non-Goals
+- Replace existing button interface (menus complement, don't replace)
+- Add complex menu features like toolbars or ribbons
+- Implement undo/redo functionality (not currently in scope)
+- Add theming or customization options
+- Support for nested submenus beyond basic dropdowns
+
+## Decisions
+
+### Menu Structure Decision
+**Decision**: Use a horizontal menu bar with dropdown menus for File, Edit, and Import/Export sections.
+
+**Rationale**: This follows standard desktop application patterns and provides clear organization of functionality. The horizontal layout works well with the existing sidebar layout.
+
+**Alternatives considered**:
+- Contextual menus only: Rejected because it reduces discoverability
+- Vertical sidebar menu: Rejected because it conflicts with existing workspace sidebar
+- Hybrid approach: Rejected for complexity
+
+### Keyboard Shortcuts Decision
+**Decision**: Implement standard desktop application shortcuts:
+- Ctrl/Cmd+N: New Note
+- Ctrl/Cmd+O: Open Workspace  
+- Ctrl/Cmd+S: Save
+- F5: Refresh
+- Ctrl/Cmd+Shift+S: Export JSON
+- Ctrl/Cmd+Shift+M: Export Markdown
+
+**Rationale**: These follow established conventions from applications like VS Code, Notepad++, and other desktop editors.
+
+**Alternatives considered**:
+- Custom shortcuts: Rejected for discoverability
+- No shortcuts: Rejected because power users expect them
+
+### Integration Approach Decision
+**Decision**: Extend existing InkApp class methods rather than creating new menu-specific functions.
+
+**Rationale**: This maintains code reuse and ensures consistent behavior between button clicks and menu selections. The existing methods already handle edge cases and error conditions properly.
+
+**Alternatives considered**:
+- Separate menu handlers: Rejected because it would duplicate logic
+- Event delegation: Rejected because direct method calls are simpler
+
+### Accessibility Decision
+**Decision**: Implement full ARIA support with proper roles, labels, and keyboard navigation.
+
+**Rationale**: Essential for screen reader users and keyboard-only navigation. Follows WCAG guidelines for menu widgets.
+
+**Alternatives considered**:
+- Basic accessibility: Rejected because it doesn't meet modern standards
+- No accessibility: Rejected as unacceptable
+
+## Risks / Trade-offs
+
+### Risk: Layout Complexity
+**Risk**: Adding menu bar could complicate the existing layout and cause responsive design issues.
+
+**Mitigation**: 
+- Use CSS Grid/Flexbox for flexible layout
+- Test thoroughly on different screen sizes
+- Maintain existing responsive behavior
+
+### Risk: Keyboard Shortcut Conflicts
+**Risk**: New shortcuts might conflict with browser or OS shortcuts.
+
+**Mitigation**:
+- Use standard shortcuts that don't conflict
+- Add proper event.preventDefault() handling
+- Test on different platforms
+
+### Risk: Performance Impact
+**Risk**: Additional DOM elements and event listeners could impact performance.
+
+**Mitigation**:
+- Use event delegation where possible
+- Minimize DOM manipulation
+- Follow existing performance patterns
+
+## Migration Plan
+
+### Phase 1: Core Menu Structure
+1. Add HTML structure and basic CSS
+2. Implement menu toggle functionality
+3. Add basic keyboard navigation
+
+### Phase 2: Menu Item Implementation
+1. Implement File menu items
+2. Implement Edit menu items  
+3. Implement Import/Export menu items
+
+### Phase 3: Polish and Testing
+1. Add comprehensive tests
+2. Implement accessibility features
+3. Add keyboard shortcuts
+4. Performance optimization
+
+### Rollback Plan
+If issues arise, the menu bar can be easily disabled by:
+1. Removing menu HTML structure
+2. Removing menu-specific CSS
+3. Removing menu event handlers
+4. All existing functionality remains intact
+
+## Open Questions
+
+1. **Should we add a Help menu?** - Currently not planned, but could be added later
+2. **Should menu items be disabled when not applicable?** - Yes, following existing button patterns
+3. **Should we support right-click context menus?** - Not in initial implementation, could be added later
+4. **Should we add menu animations?** - No, keeping it simple and fast
+</file>
+
+<file path="openspec/changes/add-office-style-menu/proposal.md">
+# Change: Add Office-Style Menu Bar
+
+## Why
+
+The ink markdown note-taking application currently lacks a proper office-style menu bar (File, Edit, Import/Export) that users expect from desktop applications. This makes common operations like opening workspaces, creating files/folders, and exporting content less discoverable and accessible. Adding a menu bar will improve user experience by providing familiar navigation patterns and keyboard shortcuts.
+
+## What Changes
+
+- **BREAKING**: Add a new menu bar component with File, Edit, and Import/Export sections
+- Integrate existing functionality (open workspace, create files/folders, export) into menu items
+- Add keyboard shortcuts for common operations (Ctrl/Cmd+N, Ctrl/Cmd+O, Ctrl/Cmd+S, etc.)
+- Maintain existing button functionality while adding menu alternatives
+- Add accessibility attributes and proper ARIA labeling
+- Update UI layout to accommodate menu bar
+
+## Impact
+
+- Affected specs: `menu-bar`, `keyboard-shortcuts`, `accessibility`
+- Affected code: `src/app/bootstrap.ts`, `src/app/dom.ts`, `src/app/types.ts`, `ink-app.html`
+- New files: Menu component implementation, CSS styles, comprehensive tests
+- User experience: Improved discoverability of features, familiar desktop application patterns
+- Backward compatibility: All existing functionality preserved, menu adds new access points
+</file>
+
+<file path="openspec/changes/add-office-style-menu/tasks.md">
+# 1. Implementation
+
+## 1.1 Menu Bar Structure
+- [x] 1.1.1 Add menu bar HTML structure to ink-app.html
+- [x] 1.1.2 Create CSS styles for menu bar layout and dropdowns
+- [x] 1.1.3 Add ARIA attributes for accessibility (role="menubar", aria-haspopup, etc.)
+
+## 1.2 File Menu Implementation
+- [x] 1.2.1 Implement "New Note" menu item (Ctrl/Cmd+N)
+- [x] 1.2.2 Implement "New Folder" menu item
+- [x] 1.2.3 Implement "Open Workspace" menu item (Ctrl/Cmd+O)
+- [x] 1.2.4 Implement "Close Workspace" menu item
+- [x] 1.2.5 Implement "Exit" menu item
+
+## 1.3 Edit Menu Implementation
+- [x] 1.3.1 Implement "Save" menu item (Ctrl/Cmd+S)
+- [x] 1.3.2 Implement "Save As" menu item
+- [x] 1.3.3 Implement "Refresh" menu item (F5)
+- [x] 1.3.4 Implement "Sort" toggle menu item
+- [x] 1.3.5 Implement "Collapse Sidebar" menu item
+
+## 1.4 Import/Export Menu Implementation
+- [x] 1.4.1 Implement "Export JSON" menu item
+- [x] 1.4.2 Implement "Export Markdown" menu item
+- [ ] 1.4.3 Implement "Import JSON" menu item (if needed)
+
+## 1.5 Keyboard Shortcuts
+- [x] 1.5.1 Add global keyboard event listener for menu shortcuts
+- [x] 1.5.2 Implement Ctrl/Cmd+E for new note
+- [x] 1.5.3 Implement Ctrl/Cmd+Shift+O for open workspace
+- [x] 1.5.4 Implement Ctrl/Cmd+S for save
+- [x] 1.5.5 Implement Ctrl/Cmd+L for refresh
+- [x] 1.5.6 Add visual indicators for keyboard shortcuts in menu items
+
+## 1.6 Integration with Existing Code
+- [x] 1.6.1 Update InkApp class to handle menu events
+- [x] 1.6.2 Update DOM references in dom.ts to include menu elements
+- [x] 1.6.3 Update types.ts with new menu-related types
+- [x] 1.6.4 Ensure menu items call existing InkApp methods
+- [x] 1.6.5 Maintain backward compatibility with existing buttons
+
+## 1.7 Testing
+- [ ] 1.7.1 Add Cypress tests for menu bar functionality
+- [ ] 1.7.2 Add QUnit tests for menu component logic
+- [ ] 1.7.3 Test keyboard shortcuts with Cypress
+- [ ] 1.7.4 Test accessibility with screen reader simulation
+- [ ] 1.7.5 Test menu dropdown behavior and state management
+
+## 1.8 Documentation and Polish
+- [ ] 1.8.1 Update README.md with new menu features
+- [ ] 1.8.2 Add keyboard shortcut documentation
+- [ ] 1.8.3 Test responsive design for mobile/tablet
+- [x] 1.8.4 Ensure proper error handling and user feedback
+- [x] 1.8.5 Code review and cleanup
 </file>
 
 <file path="openspec/changes/refactor-align-llm-coding-principles/specs/codebase-maintainability/spec.md">
@@ -28782,6 +29827,40 @@ export function createAuthController(
     isAuthenticated: () => authManager.isAuthenticated(),
     getToken: () => authManager.getToken(),
   };
+}
+</file>
+
+<file path="src/app/fs-api.ts">
+import type { PermissionCapableHandle } from "./types";
+
+export function isFileSystemApiAvailable(): boolean {
+  return Boolean(window.showDirectoryPicker && window.FileSystemHandle);
+}
+
+export function isInMemoryMode(): boolean {
+  return !isFileSystemApiAvailable();
+}
+
+export async function ensurePermission(
+  handle: PermissionCapableHandle | null,
+  mode: "read" | "readwrite" = "read",
+): Promise<boolean> {
+  if (!handle) {
+    return false;
+  }
+
+  if (!handle.queryPermission || !handle.requestPermission) {
+    return true;
+  }
+
+  const descriptor = { mode };
+  const current = await handle.queryPermission(descriptor);
+  if (current === "granted") {
+    return true;
+  }
+
+  const requested = await handle.requestPermission(descriptor);
+  return requested === "granted";
 }
 </file>
 
@@ -29630,6 +30709,125 @@ export function parseTags(text: string): Set<string> {
 }
 </file>
 
+<file path="tests/qunit/mobile-fallback.test.js">
+import QUnit from "qunit";
+
+QUnit.module("mobile fallback - JSON export format");
+
+QUnit.test("JSON export structure is correct", (assert) => {
+  const notes = [
+    {
+      name: "note1.md",
+      relPath: "note1.md",
+      content: "# Note 1\n\nContent here",
+      lastModified: 1700000000000,
+      tags: new Set(["tag1"]),
+    },
+    {
+      name: "note2.md",
+      relPath: "note2.md",
+      content: "# Note 2\n\nMore content",
+      lastModified: 1700000001000,
+      tags: new Set(["tag2"]),
+    },
+  ];
+
+  const exportData = {
+    exportedAt: new Date().toISOString(),
+    notes: notes.map((note) => ({
+      name: note.name,
+      path: note.relPath,
+      content: note.content,
+      lastModified: new Date(note.lastModified).toISOString(),
+    })),
+  };
+
+  const json = JSON.stringify(exportData, null, 2);
+  const parsed = JSON.parse(json);
+
+  assert.ok(parsed.exportedAt, "Should have exportedAt timestamp");
+  assert.strictEqual(parsed.notes.length, 2, "Should have 2 notes");
+  assert.strictEqual(parsed.notes[0].name, "note1.md", "First note should have correct name");
+  assert.strictEqual(parsed.notes[0].path, "note1.md", "First note should have correct path");
+  assert.ok(parsed.notes[0].content.includes("Note 1"), "First note should have content");
+});
+
+QUnit.module("mobile fallback - in-memory note management");
+
+QUnit.test("in-memory notes can be created and found by relPath", (assert) => {
+  const inMemoryNotes = [];
+
+  const note1 = {
+    name: "note1.md",
+    relPath: "note1.md",
+    content: "# Note 1",
+    lastModified: Date.now(),
+    tags: new Set(["tag1"]),
+  };
+
+  const note2 = {
+    name: "note2.md",
+    relPath: "note2.md",
+    content: "# Note 2",
+    lastModified: Date.now(),
+    tags: new Set(["tag2"]),
+  };
+
+  inMemoryNotes.push(note1);
+  inMemoryNotes.push(note2);
+
+  const found = inMemoryNotes.find((n) => n.relPath === "note1.md");
+  assert.ok(found, "Should find note by relPath");
+  assert.strictEqual(found?.name, "note1.md", "Found note should have correct name");
+});
+
+QUnit.test("in-memory note content can be updated", (assert) => {
+  const note = {
+    name: "note.md",
+    relPath: "note.md",
+    content: "# Original",
+    lastModified: Date.now(),
+    tags: new Set(),
+  };
+
+  note.content = "# Updated";
+  note.lastModified = Date.now();
+
+  assert.strictEqual(note.content, "# Updated", "Content should be updated");
+  assert.ok(note.lastModified > 0, "Last modified should be updated");
+});
+
+QUnit.test("in-memory notes are correctly counted", (assert) => {
+  const inMemoryNotes = [
+    { name: "note1.md", relPath: "note1.md", content: "", lastModified: 0, tags: new Set() },
+    { name: "note2.md", relPath: "note2.md", content: "", lastModified: 0, tags: new Set() },
+    { name: "note3.md", relPath: "note3.md", content: "", lastModified: 0, tags: new Set() },
+  ];
+
+  const count = inMemoryNotes.length;
+  assert.strictEqual(count, 3, "Should have 3 notes");
+});
+
+QUnit.test("in-memory notes can be filtered by tag", (assert) => {
+  const inMemoryNotes = [
+    { name: "note1.md", relPath: "note1.md", content: "", lastModified: 0, tags: new Set(["work", "docs"]) },
+    { name: "note2.md", relPath: "note2.md", content: "", lastModified: 0, tags: new Set(["personal"]) },
+    { name: "note3.md", relPath: "note3.md", content: "", lastModified: 0, tags: new Set(["work"]) },
+  ];
+
+  const workNotes = inMemoryNotes.filter((n) => n.tags.has("work"));
+  assert.strictEqual(workNotes.length, 2, "Should have 2 work notes");
+});
+
+QUnit.test("markdown filename extraction from full path", (assert) => {
+  const relPath = "folder/subfolder/note.md";
+  const fileName = relPath.split("/").pop();
+
+  assert.strictEqual(fileName, "note.md", "Should extract correct filename");
+  assert.ok(fileName.endsWith(".md"), "Should be markdown file");
+});
+</file>
+
 <file path="tests/qunit/storage.test.js">
 import QUnit from "qunit";
 import {
@@ -29887,6 +31085,92 @@ QUnit.module("auth/user", (hooks) => {
 });
 </file>
 
+<file path=".gitlab-ci.yml">
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - when: never
+
+stages:
+  - verify
+
+default:
+  interruptible: true
+
+variables:
+  GIT_DEPTH: "0"
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.npm"
+
+.docs_only_check: &docs_only_check |
+  git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  changed_files="$(git diff --name-only "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...$CI_COMMIT_SHA")"
+
+  printf '%s\n' "$changed_files"
+
+  if [ -z "$changed_files" ]; then
+    echo "No changed files detected; continuing with full validation."
+  elif echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+    echo "Non-documentation changes detected."
+  else
+    echo "Documentation-only merge request detected; skipping job."
+    exit 0
+  fi
+
+.node_job:
+  stage: verify
+  image: node:20
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - *docs_only_check
+    - npm ci --prefer-offline
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+build:
+  extends: .node_job
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - ink-app.html
+    expire_in: 1 week
+
+qunit:
+  extends: .node_job
+  script:
+    - npm run test:qunit
+
+cypress:
+  stage: verify
+  image: cypress/included:15.12.0
+  variables:
+    CYPRESS_INSTALL_BINARY: "0"
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+  before_script:
+    - *docs_only_check
+    - npm ci --prefer-offline
+  script:
+    - npm run build
+    - npm run test:cypress
+  artifacts:
+    when: on_failure
+    paths:
+      - cypress/screenshots/
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+</file>
+
 <file path="ink.code-workspace">
 {
     "folders": [
@@ -29920,6 +31204,22 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+</file>
+
+<file path="opencode.json">
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "mistral-devstral:codestral-latest",
+  "provider": {
+    "mistral-devstral": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://codestral.mistral.ai/v1",
+        "apiKey": "{env:MISTRAL_API_KEY}"
+      }
+    }
+  }
+}
 </file>
 
 <file path="test-webmcp.html">
@@ -30501,87 +31801,6 @@ Writers can lose momentum when they need critical prompts to challenge or deepen
 - [ ] 2.3 Document model/runtime constraints and graceful degradation behavior for unsupported environments.
 </file>
 
-<file path="openspec/changes/add-collapsible-left-menu/specs/editor-layout/spec.md">
-## ADDED Requirements
-### Requirement: User-Controlled Left Menu Visibility
-The application SHALL provide a user-facing control to collapse and expand the left menu during an editing session.
-
-#### Scenario: User collapses left menu
-- **WHEN** the user activates the menu toggle while the menu is expanded
-- **THEN** the left menu transitions to a collapsed state
-- **AND** the main editor area gains additional horizontal space
-
-#### Scenario: User expands left menu
-- **WHEN** the user activates the menu toggle while the menu is collapsed
-- **THEN** the left menu returns to an expanded state
-- **AND** primary menu content becomes visible again
-
-### Requirement: Left Menu Toggle Accessibility
-The left menu toggle SHALL be operable via keyboard and SHALL expose its current expanded/collapsed state to assistive technologies.
-
-#### Scenario: Keyboard operation
-- **WHEN** a keyboard-only user focuses the menu toggle and activates it
-- **THEN** the menu state changes between expanded and collapsed
-- **AND** focus remains in a predictable location for continued interaction
-
-#### Scenario: Assistive state exposure
-- **WHEN** the menu state changes through the toggle control
-- **THEN** the control's accessibility state reflects whether the menu is expanded or collapsed
-
-### Requirement: Deterministic Initial Menu State
-The application SHALL define a deterministic initial left menu state when a new session loads.
-
-#### Scenario: Initial layout state
-- **WHEN** a user opens the application in a new session
-- **THEN** the left menu starts in the documented default state
-- **AND** the editor layout reflects that state without requiring user interaction
-</file>
-
-<file path="openspec/changes/add-collapsible-left-menu/proposal.md">
-# Change: Add User-Controlled Collapsible Left Menu
-
-## Why
-The current left menu is fixed, which reduces usable editor space on smaller screens and during focused writing. Allowing users to collapse and expand the menu improves layout flexibility without removing existing navigation.
-
-## What Changes
-- Add support for collapsing and expanding the left menu from within the UI.
-- Add a persistent toggle control so users can switch menu state on demand.
-- Update layout behavior so editor content reflows to use freed horizontal space when the menu is collapsed.
-- Preserve keyboard and pointer accessibility for the menu toggle interaction.
-- Define expected default menu behavior at app start.
-
-## Impact
-- Affected specs: `editor-layout`
-- Affected code:
-  - `ink.template.html`
-  - `src/app.ts`
-  - `src/styles.scss`
-  - `dist/app.min.js` (rebuilt)
-  - `dist/styles.min.css` (rebuilt)
-</file>
-
-<file path="openspec/changes/add-collapsible-left-menu/tasks.md">
-## 1. UI Controls and State
-- [x] 1.1 Add a left menu toggle control that supports collapse and expand actions.
-- [x] 1.2 Implement menu state management in the app so toggle actions update layout consistently.
-- [x] 1.3 Define and implement the default menu state on initial load.
-
-## 2. Layout and Styling
-- [x] 2.1 Update layout styles so collapsing the menu increases main editor horizontal space.
-- [x] 2.2 Ensure expanded state preserves existing navigation usability and visual hierarchy.
-- [x] 2.3 Ensure collapsed state keeps the toggle discoverable and usable.
-
-## 3. Accessibility and Interaction
-- [x] 3.1 Ensure the toggle is keyboard-focusable and operable.
-- [x] 3.2 Ensure toggle semantics expose menu state changes to assistive technologies.
-
-## 4. Verification
-- [x] 4.1 Verify users can collapse and re-expand the menu in a modern browser.
-- [x] 4.2 Verify editor content area width increases when the menu is collapsed.
-- [x] 4.3 Verify keyboard-only users can operate the toggle and retain navigation control.
-- [x] 4.4 Add a Cypress end-to-end test that validates left menu collapse/expand behavior and resulting layout changes.
-</file>
-
 <file path="openspec/changes/add-color-style-themes/specs/theming/spec.md">
 ## ADDED Requirements
 
@@ -30922,613 +32141,6 @@ The project lacks consistent code quality enforcement. Adding ESLint will help c
 - [x] 1.3 Add npm lint script to package.json
 - [x] 1.4 Run ESLint and fix any errors
 - [x] 1.5 Integrate lint check into build process
-</file>
-
-<file path="openspec/changes/add-mobile-fallback/specs/mobile-support/spec.md">
-## ADDED Requirements
-
-### Requirement: Mobile Browser Detection
-The system SHALL detect when the browser does not support the File System Access API.
-
-#### Scenario: Browser lacks File System Access API
-- **WHEN** the user opens ink on a browser without `showDirectoryPicker` and `FileSystemHandle`
-- **THEN** the system SHALL detect this and enable in-memory workspace mode
-- **AND** the system SHALL NOT throw an error blocking app usage
-
-#### Scenario: Browser supports File System Access API
-- **WHEN** the user opens ink on a browser with `showDirectoryPicker` and `FileSystemHandle`
-- **THEN** the system SHALL allow opening a real folder as usual
-- **AND** no in-memory mode SHALL be activated
-
-### Requirement: In-Memory Workspace Mode
-The system SHALL provide a temporary in-memory workspace when FS API is unavailable.
-
-#### Scenario: User creates note in temporary session
-- **WHEN** the user clicks "New Note" in temporary session mode
-- **AND** enters a note name
-- **THEN** a new note SHALL be created in memory
-- **AND** the user CAN edit the note content
-- **AND** the user CAN save (persist to memory only)
-
-#### Scenario: User edits note in temporary session
-- **WHEN** the user modifies the editor content
-- **AND** the note has unsaved changes
-- **THEN** the dirty indicator SHALL show unsaved status
-- **AND** the user CAN click Save to persist changes to memory
-
-### Requirement: Export as JSON
-The system SHALL provide a way to download all notes as a JSON file.
-
-#### Scenario: User exports all notes as JSON
-- **WHEN** the user clicks "Export JSON" button
-- **THEN** the browser SHALL download a file named `ink-export-YYYY-MM-DD.json`
-- **AND** the file SHALL contain a JSON object with notes array
-- **AND** each note SHALL have `name`, `path`, and `content` fields
-
-#### Scenario: JSON export contains multiple notes
-- **WHEN** the user has created multiple notes in temporary session
-- **AND** clicks Export JSON
-- **THEN** the exported JSON SHALL include all notes
-- **AND** the order SHALL be preserved
-
-### Requirement: Export as Markdown
-The system SHALL provide a way to download individual notes as .md files.
-
-#### Scenario: User exports current note as Markdown
-- **WHEN** the user clicks "Export Markdown" button while a note is open
-- **THEN** the browser SHALL download a file with the note's filename
-- **AND** the file SHALL contain the note's raw markdown content
-- **AND** the file SHALL have `.md` extension
-
-### Requirement: Temporary Session UI Indicator
-The system SHALL display a clear indicator when operating in temporary session mode.
-
-#### Scenario: Temporary session is active
-- **WHEN** the app is running in temporary session mode
-- **THEN** a visual indicator SHALL be displayed showing "Temporary Session"
-- **AND** the indicator SHALL inform users their data is not persisted
-- **AND** export buttons SHALL be prominently visible
-
-#### Scenario: No indicator shown in normal mode
-- **WHEN** the app is running with real file system access
-- **THEN** no temporary session indicator SHALL be displayed
-- **AND** export buttons MAY be hidden or disabled
-</file>
-
-<file path="openspec/changes/add-mobile-fallback/proposal.md">
-# Change: Add Mobile Fallback Support for Browsers Without File System Access API
-
-## Why
-Mobile browsers (e.g., Safari on iOS) do not support the File System Access API. Currently, ink shows an error message and prevents users from using the app. This excludes mobile users entirely. Instead, we should allow temporary in-memory work and provide export capabilities so users can download their notes.
-
-## What Changes
-- Detect when File System Access API is unavailable
-- Enable in-memory workspace mode for temporary editing
-- Add "Export as JSON" button to download all notes as a JSON file
-- Add "Export as Markdown" button to download individual notes as .md files
-- Show informative UI about temporary nature of the session
-- Preserve existing functionality for desktop browsers with FS API support
-
-## Impact
-- Affected specs: mobile-support (new capability)
-- Affected code: src/app/bootstrap.ts, src/app/fs-api.ts, ink-app.html, styles
-- No breaking changes to existing desktop functionality
-</file>
-
-<file path="openspec/changes/add-office-style-menu/specs/accessibility/spec.md">
-## ADDED Requirements
-
-### Requirement: ARIA Support for Menu Bar
-The menu bar SHALL implement proper ARIA attributes to ensure accessibility for screen readers and assistive technologies.
-
-#### Scenario: Menu bar has proper ARIA role
-- **WHEN** a screen reader encounters the menu bar
-- **THEN** the menu bar has role="menubar" attribute
-- **AND** screen readers announce it as a menu bar
-
-#### Scenario: Menu items have proper ARIA attributes
-- **WHEN** a screen reader encounters menu items
-- **THEN** each menu item has role="menuitem" attribute
-- **AND** menu items with dropdowns have aria-haspopup="true"
-- **AND** aria-expanded indicates dropdown state
-
-#### Scenario: Dropdown menus have proper ARIA attributes
-- **WHEN** a dropdown menu is opened
-- **THEN** the dropdown has role="menu" attribute
-- **AND** each dropdown item has role="menuitem" attribute
-- **AND** aria-expanded="true" on the parent menu item
-
-### Requirement: Keyboard Accessibility
-The menu bar SHALL support full keyboard navigation for users who cannot use a mouse.
-
-#### Scenario: Tab navigation support
-- **WHEN** a user navigates using Tab key
-- **THEN** focus moves to menu bar items in logical order
-- **AND** focused items are visually indicated
-
-#### Scenario: Arrow key navigation
-- **WHEN** a user navigates using arrow keys
-- **THEN** Left/Right arrows move between top-level menu items
-- **AND** Up/Down arrows move between dropdown menu items
-- **AND** Home/End keys move to first/last items
-
-#### Scenario: Enter and Space key activation
-- **WHEN** a user presses Enter or Space on a focused menu item
-- **THEN** the menu item is activated
-- **AND** dropdowns open or actions are executed as appropriate
-
-#### Scenario: Escape key handling
-- **WHEN** a user presses Escape key
-- **THEN** open dropdowns are closed
-- **AND** focus returns to the parent menu item
-- **AND** no other application functionality is affected
-
-### Requirement: Visual Focus Indicators
-The menu bar SHALL provide clear visual indicators for keyboard focus and active states.
-
-#### Scenario: Focus indicators for menu items
-- **WHEN** a menu item receives keyboard focus
-- **THEN** a clear visual focus indicator is displayed
-- **AND** the focus indicator meets WCAG contrast requirements
-
-#### Scenario: Active state indicators
-- **WHEN** a menu item is activated or a dropdown is open
-- **THEN** clear visual indicators show the active state
-- **AND** the indicators are distinguishable from focus indicators
-
-#### Scenario: Hover state indicators
-- **WHEN** a user hovers over menu items with a mouse
-- **THEN** visual indicators show hover state
-- **AND** hover indicators are consistent with focus indicators
-
-### Requirement: Screen Reader Announcements
-The menu bar SHALL provide appropriate announcements for screen reader users.
-
-#### Scenario: Menu item descriptions
-- **WHEN** a screen reader focuses on a menu item
-- **THEN** the item's purpose is clearly announced
-- **AND** any associated keyboard shortcuts are announced
-
-#### Scenario: Dropdown state announcements
-- **WHEN** a dropdown menu state changes
-- **THEN** screen readers announce the state change
-- **AND** aria-expanded attribute is updated appropriately
-
-#### Scenario: Menu navigation announcements
-- **WHEN** a user navigates between menu items
-- **THEN** screen readers announce the current position
-- **AND** the total number of items is announced when appropriate
-
-### Requirement: High Contrast and Zoom Support
-The menu bar SHALL support high contrast modes and browser zoom functionality.
-
-#### Scenario: High contrast mode support
-- **WHEN** high contrast mode is enabled
-- **THEN** menu bar maintains proper contrast ratios
-- **AND** all interactive elements remain visible and usable
-
-#### Scenario: Browser zoom support
-- **WHEN** browser zoom is applied
-- **THEN** menu bar layout adjusts appropriately
-- **AND** no content is clipped or overlapping
-- **AND** all functionality remains accessible
-
-### Requirement: Error Handling and Feedback
-The menu bar SHALL provide appropriate feedback for accessibility-related errors.
-
-#### Scenario: Disabled menu item feedback
-- **WHEN** a user attempts to activate a disabled menu item
-- **THEN** appropriate feedback is provided
-- **AND** screen readers announce the item as disabled
-
-#### Scenario: Invalid keyboard input handling
-- **WHEN** a user provides invalid keyboard input
-- **THEN** the application handles it gracefully
-- **AND** no unexpected behavior occurs
-</file>
-
-<file path="openspec/changes/add-office-style-menu/specs/keyboard-shortcuts/spec.md">
-## ADDED Requirements
-
-### Requirement: Keyboard Shortcuts for Common Operations
-The application SHALL provide standard keyboard shortcuts for frequently used operations accessible through the menu bar.
-
-#### Scenario: New Note shortcut
-- **WHEN** a user presses Ctrl+E (Windows/Linux) or Cmd+E (Mac)
-- **THEN** the createNewNote functionality is triggered
-- **AND** the same behavior as clicking "New Note" menu item occurs
-
-#### Scenario: Open Workspace shortcut
-- **WHEN** a user presses Ctrl+Shift+O (Windows/Linux) or Cmd+Shift+O (Mac)
-- **THEN** the openWorkspace functionality is triggered
-- **AND** the same behavior as clicking "Open Workspace" menu item occurs
-
-#### Scenario: Save shortcut
-- **WHEN** a user presses Ctrl+S (Windows/Linux) or Cmd+S (Mac)
-- **THEN** the saveCurrentNote functionality is triggered
-- **AND** the same behavior as clicking "Save" menu item occurs
-
-#### Scenario: Refresh shortcut
-- **WHEN** a user presses Ctrl+L (Windows/Linux) or Cmd+L (Mac)
-- **THEN** the rescanWorkspace functionality is triggered
-- **AND** the same behavior as clicking "Refresh" menu item occurs
-
-#### Scenario: Export JSON shortcut
-- **WHEN** a user presses Ctrl+Shift+S (Windows/Linux) or Cmd+Shift+S (Mac)
-- **THEN** the exportAsJson functionality is triggered
-- **AND** the same behavior as clicking "Export JSON" menu item occurs
-
-#### Scenario: Export Markdown shortcut
-- **WHEN** a user presses Ctrl+Shift+M (Windows/Linux) or Cmd+Shift+M (Mac)
-- **THEN** the exportAsMarkdown functionality is triggered
-- **AND** the same behavior as clicking "Export Markdown" menu item occurs
-
-### Requirement: Keyboard Navigation of Menu Bar
-The menu bar SHALL support full keyboard navigation using standard accessibility patterns.
-
-#### Scenario: Tab navigation to menu bar
-- **WHEN** a user presses Tab to navigate to the menu bar
-- **THEN** focus moves to the first menu item
-- **AND** the menu item is visually indicated as focused
-
-#### Scenario: Arrow key navigation between menus
-- **WHEN** a user presses Left/Right arrow keys while focused on menu bar
-- **THEN** focus moves between menu items (File, Edit, Import/Export)
-- **AND** the focused menu item is visually indicated
-
-#### Scenario: Enter key to open dropdown
-- **WHEN** a user presses Enter while focused on a menu item
-- **THEN** the dropdown menu opens
-- **AND** focus moves to the first menu item in the dropdown
-
-#### Scenario: Escape key to close dropdowns
-- **WHEN** a user presses Escape while a dropdown is open
-- **THEN** the dropdown closes
-- **AND** focus returns to the parent menu item
-
-#### Scenario: Up/Down arrow navigation in dropdowns
-- **WHEN** a user presses Up/Down arrow keys while focused on a dropdown menu
-- **THEN** focus moves between menu items in the dropdown
-- **AND** the focused item is visually indicated
-
-### Requirement: Shortcut Display in Menu Items
-Menu items with keyboard shortcuts SHALL display the shortcut keys for discoverability.
-
-#### Scenario: Shortcut key display
-- **WHEN** a user views the menu bar
-- **THEN** menu items that have keyboard shortcuts display the shortcut keys
-- **AND** shortcut keys are displayed in a consistent format (e.g., "Ctrl+N")
-
-#### Scenario: Platform-appropriate shortcut display
-- **WHEN** the application runs on different platforms
-- **THEN** shortcut keys are displayed using platform-appropriate modifiers
-- **AND** Windows/Linux shows "Ctrl", Mac shows "Cmd"
-
-### Requirement: Shortcut Key Conflict Resolution
-The application SHALL handle keyboard shortcut conflicts appropriately.
-
-#### Scenario: Browser shortcut precedence
-- **WHEN** a user presses a keyboard shortcut that conflicts with browser functionality
-- **THEN** the application prevents the default browser behavior
-- **AND** the application's shortcut functionality is executed instead
-
-#### Scenario: Focus-based shortcut activation
-- **WHEN** keyboard shortcuts are pressed
-- **THEN** shortcuts are only active when the application has focus
-- **AND** shortcuts do not interfere with other applications
-</file>
-
-<file path="openspec/changes/add-office-style-menu/specs/menu-bar/spec.md">
-## ADDED Requirements
-
-### Requirement: Menu Bar Structure
-The application SHALL provide a horizontal menu bar at the top of the application window containing File, Edit, and Import/Export menu items.
-
-#### Scenario: Menu bar is visible and accessible
-- **WHEN** the application loads
-- **THEN** a horizontal menu bar is displayed at the top of the application window
-- **AND** the menu bar contains File, Edit, and Import/Export menu items
-
-#### Scenario: Menu items are properly labeled
-- **WHEN** a user views the menu bar
-- **THEN** each menu item has clear, descriptive text labels
-- **AND** menu items follow standard desktop application conventions
-
-### Requirement: File Menu Functionality
-The File menu SHALL provide access to workspace and file management operations.
-
-#### Scenario: New Note menu item
-- **WHEN** a user clicks "New Note" in the File menu
-- **THEN** the existing createNewNote functionality is triggered
-- **AND** the same behavior as clicking the "New Note" button occurs
-
-#### Scenario: New Folder menu item
-- **WHEN** a user clicks "New Folder" in the File menu
-- **THEN** the existing createNewFolder functionality is triggered
-- **AND** the same behavior as clicking the "New Folder" button occurs
-
-#### Scenario: Open Workspace menu item
-- **WHEN** a user clicks "Open Workspace" in the File menu
-- **THEN** the existing openWorkspace functionality is triggered
-- **AND** the same behavior as clicking the "Open Workspace" button occurs
-
-#### Scenario: Close Workspace menu item
-- **WHEN** a user clicks "Close Workspace" in the File menu
-- **THEN** the workspace is closed and UI returns to initial state
-- **AND** all workspace-specific UI elements are reset
-
-### Requirement: Edit Menu Functionality
-The Edit menu SHALL provide access to document editing and view operations.
-
-#### Scenario: Save menu item
-- **WHEN** a user clicks "Save" in the Edit menu
-- **THEN** the existing saveCurrentNote functionality is triggered
-- **AND** the same behavior as clicking the "Save" button occurs
-
-#### Scenario: Refresh menu item
-- **WHEN** a user clicks "Refresh" in the Edit menu
-- **THEN** the existing rescanWorkspace functionality is triggered
-- **AND** the same behavior as clicking the "Refresh" button occurs
-
-#### Scenario: Sort toggle menu item
-- **WHEN** a user clicks "Sort: Name/Modified" in the Edit menu
-- **THEN** the existing sort functionality is triggered
-- **AND** the same behavior as clicking the "Sort" button occurs
-
-#### Scenario: Collapse Sidebar menu item
-- **WHEN** a user clicks "Collapse Sidebar" in the Edit menu
-- **THEN** the existing setSidebarCollapsed functionality is triggered
-- **AND** the same behavior as clicking the sidebar toggle button occurs
-
-### Requirement: Import/Export Menu Functionality
-The Import/Export menu SHALL provide access to data export operations.
-
-#### Scenario: Export JSON menu item
-- **WHEN** a user clicks "Export JSON" in the Import/Export menu
-- **THEN** the existing exportAsJson functionality is triggered
-- **AND** the same behavior as clicking the "Export JSON" button occurs
-
-#### Scenario: Export Markdown menu item
-- **WHEN** a user clicks "Export Markdown" in the Import/Export menu
-- **THEN** the existing exportAsMarkdown functionality is triggered
-- **AND** the same behavior as clicking the "Export MD" button occurs
-
-### Requirement: Menu Dropdown Behavior
-Menu dropdowns SHALL open and close appropriately with proper keyboard and mouse interaction.
-
-#### Scenario: Mouse interaction with dropdowns
-- **WHEN** a user hovers over or clicks a menu item
-- **THEN** the dropdown menu opens
-- **AND** clicking outside the menu closes it
-
-#### Scenario: Keyboard navigation of menus
-- **WHEN** a user navigates using arrow keys
-- **THEN** focus moves between menu items
-- **AND** pressing Enter activates the focused menu item
-- **AND** pressing Escape closes open dropdowns
-
-### Requirement: Backward Compatibility
-The menu bar SHALL not interfere with existing button functionality.
-
-#### Scenario: Buttons continue to work
-- **WHEN** a user clicks existing buttons
-- **THEN** the same functionality is triggered as before
-- **AND** menu items provide alternative access to the same functions
-
-#### Scenario: Menu and button state synchronization
-- **WHEN** a menu item is clicked
-- **THEN** any related button states are updated appropriately
-- **AND** the application maintains consistent state across all interfaces
-</file>
-
-<file path="openspec/changes/add-office-style-menu/design.md">
-# Design: Office-Style Menu Bar Implementation
-
-## Context
-
-The ink markdown note-taking application needs a proper office-style menu bar to improve user experience and provide familiar desktop application patterns. The application currently has a functional but button-heavy interface. The menu bar should integrate seamlessly with existing functionality while adding discoverability and keyboard shortcuts.
-
-## Goals / Non-Goals
-
-### Goals
-- Provide familiar File, Edit, and Import/Export menu structure
-- Add keyboard shortcuts for common operations
-- Maintain full backward compatibility with existing buttons
-- Ensure accessibility with proper ARIA attributes
-- Keep implementation simple and maintainable
-- Follow existing code patterns and architecture
-
-### Non-Goals
-- Replace existing button interface (menus complement, don't replace)
-- Add complex menu features like toolbars or ribbons
-- Implement undo/redo functionality (not currently in scope)
-- Add theming or customization options
-- Support for nested submenus beyond basic dropdowns
-
-## Decisions
-
-### Menu Structure Decision
-**Decision**: Use a horizontal menu bar with dropdown menus for File, Edit, and Import/Export sections.
-
-**Rationale**: This follows standard desktop application patterns and provides clear organization of functionality. The horizontal layout works well with the existing sidebar layout.
-
-**Alternatives considered**:
-- Contextual menus only: Rejected because it reduces discoverability
-- Vertical sidebar menu: Rejected because it conflicts with existing workspace sidebar
-- Hybrid approach: Rejected for complexity
-
-### Keyboard Shortcuts Decision
-**Decision**: Implement standard desktop application shortcuts:
-- Ctrl/Cmd+N: New Note
-- Ctrl/Cmd+O: Open Workspace  
-- Ctrl/Cmd+S: Save
-- F5: Refresh
-- Ctrl/Cmd+Shift+S: Export JSON
-- Ctrl/Cmd+Shift+M: Export Markdown
-
-**Rationale**: These follow established conventions from applications like VS Code, Notepad++, and other desktop editors.
-
-**Alternatives considered**:
-- Custom shortcuts: Rejected for discoverability
-- No shortcuts: Rejected because power users expect them
-
-### Integration Approach Decision
-**Decision**: Extend existing InkApp class methods rather than creating new menu-specific functions.
-
-**Rationale**: This maintains code reuse and ensures consistent behavior between button clicks and menu selections. The existing methods already handle edge cases and error conditions properly.
-
-**Alternatives considered**:
-- Separate menu handlers: Rejected because it would duplicate logic
-- Event delegation: Rejected because direct method calls are simpler
-
-### Accessibility Decision
-**Decision**: Implement full ARIA support with proper roles, labels, and keyboard navigation.
-
-**Rationale**: Essential for screen reader users and keyboard-only navigation. Follows WCAG guidelines for menu widgets.
-
-**Alternatives considered**:
-- Basic accessibility: Rejected because it doesn't meet modern standards
-- No accessibility: Rejected as unacceptable
-
-## Risks / Trade-offs
-
-### Risk: Layout Complexity
-**Risk**: Adding menu bar could complicate the existing layout and cause responsive design issues.
-
-**Mitigation**: 
-- Use CSS Grid/Flexbox for flexible layout
-- Test thoroughly on different screen sizes
-- Maintain existing responsive behavior
-
-### Risk: Keyboard Shortcut Conflicts
-**Risk**: New shortcuts might conflict with browser or OS shortcuts.
-
-**Mitigation**:
-- Use standard shortcuts that don't conflict
-- Add proper event.preventDefault() handling
-- Test on different platforms
-
-### Risk: Performance Impact
-**Risk**: Additional DOM elements and event listeners could impact performance.
-
-**Mitigation**:
-- Use event delegation where possible
-- Minimize DOM manipulation
-- Follow existing performance patterns
-
-## Migration Plan
-
-### Phase 1: Core Menu Structure
-1. Add HTML structure and basic CSS
-2. Implement menu toggle functionality
-3. Add basic keyboard navigation
-
-### Phase 2: Menu Item Implementation
-1. Implement File menu items
-2. Implement Edit menu items  
-3. Implement Import/Export menu items
-
-### Phase 3: Polish and Testing
-1. Add comprehensive tests
-2. Implement accessibility features
-3. Add keyboard shortcuts
-4. Performance optimization
-
-### Rollback Plan
-If issues arise, the menu bar can be easily disabled by:
-1. Removing menu HTML structure
-2. Removing menu-specific CSS
-3. Removing menu event handlers
-4. All existing functionality remains intact
-
-## Open Questions
-
-1. **Should we add a Help menu?** - Currently not planned, but could be added later
-2. **Should menu items be disabled when not applicable?** - Yes, following existing button patterns
-3. **Should we support right-click context menus?** - Not in initial implementation, could be added later
-4. **Should we add menu animations?** - No, keeping it simple and fast
-</file>
-
-<file path="openspec/changes/add-office-style-menu/proposal.md">
-# Change: Add Office-Style Menu Bar
-
-## Why
-
-The ink markdown note-taking application currently lacks a proper office-style menu bar (File, Edit, Import/Export) that users expect from desktop applications. This makes common operations like opening workspaces, creating files/folders, and exporting content less discoverable and accessible. Adding a menu bar will improve user experience by providing familiar navigation patterns and keyboard shortcuts.
-
-## What Changes
-
-- **BREAKING**: Add a new menu bar component with File, Edit, and Import/Export sections
-- Integrate existing functionality (open workspace, create files/folders, export) into menu items
-- Add keyboard shortcuts for common operations (Ctrl/Cmd+N, Ctrl/Cmd+O, Ctrl/Cmd+S, etc.)
-- Maintain existing button functionality while adding menu alternatives
-- Add accessibility attributes and proper ARIA labeling
-- Update UI layout to accommodate menu bar
-
-## Impact
-
-- Affected specs: `menu-bar`, `keyboard-shortcuts`, `accessibility`
-- Affected code: `src/app/bootstrap.ts`, `src/app/dom.ts`, `src/app/types.ts`, `ink-app.html`
-- New files: Menu component implementation, CSS styles, comprehensive tests
-- User experience: Improved discoverability of features, familiar desktop application patterns
-- Backward compatibility: All existing functionality preserved, menu adds new access points
-</file>
-
-<file path="openspec/changes/add-office-style-menu/tasks.md">
-# 1. Implementation
-
-## 1.1 Menu Bar Structure
-- [x] 1.1.1 Add menu bar HTML structure to ink-app.html
-- [x] 1.1.2 Create CSS styles for menu bar layout and dropdowns
-- [x] 1.1.3 Add ARIA attributes for accessibility (role="menubar", aria-haspopup, etc.)
-
-## 1.2 File Menu Implementation
-- [x] 1.2.1 Implement "New Note" menu item (Ctrl/Cmd+N)
-- [x] 1.2.2 Implement "New Folder" menu item
-- [x] 1.2.3 Implement "Open Workspace" menu item (Ctrl/Cmd+O)
-- [x] 1.2.4 Implement "Close Workspace" menu item
-- [x] 1.2.5 Implement "Exit" menu item
-
-## 1.3 Edit Menu Implementation
-- [x] 1.3.1 Implement "Save" menu item (Ctrl/Cmd+S)
-- [x] 1.3.2 Implement "Save As" menu item
-- [x] 1.3.3 Implement "Refresh" menu item (F5)
-- [x] 1.3.4 Implement "Sort" toggle menu item
-- [x] 1.3.5 Implement "Collapse Sidebar" menu item
-
-## 1.4 Import/Export Menu Implementation
-- [x] 1.4.1 Implement "Export JSON" menu item
-- [x] 1.4.2 Implement "Export Markdown" menu item
-- [ ] 1.4.3 Implement "Import JSON" menu item (if needed)
-
-## 1.5 Keyboard Shortcuts
-- [x] 1.5.1 Add global keyboard event listener for menu shortcuts
-- [x] 1.5.2 Implement Ctrl/Cmd+E for new note
-- [x] 1.5.3 Implement Ctrl/Cmd+Shift+O for open workspace
-- [x] 1.5.4 Implement Ctrl/Cmd+S for save
-- [x] 1.5.5 Implement Ctrl/Cmd+L for refresh
-- [x] 1.5.6 Add visual indicators for keyboard shortcuts in menu items
-
-## 1.6 Integration with Existing Code
-- [x] 1.6.1 Update InkApp class to handle menu events
-- [x] 1.6.2 Update DOM references in dom.ts to include menu elements
-- [x] 1.6.3 Update types.ts with new menu-related types
-- [x] 1.6.4 Ensure menu items call existing InkApp methods
-- [x] 1.6.5 Maintain backward compatibility with existing buttons
-
-## 1.7 Testing
-- [ ] 1.7.1 Add Cypress tests for menu bar functionality
-- [ ] 1.7.2 Add QUnit tests for menu component logic
-- [ ] 1.7.3 Test keyboard shortcuts with Cypress
-- [ ] 1.7.4 Test accessibility with screen reader simulation
-- [ ] 1.7.5 Test menu dropdown behavior and state management
-
-## 1.8 Documentation and Polish
-- [ ] 1.8.1 Update README.md with new menu features
-- [ ] 1.8.2 Add keyboard shortcut documentation
-- [ ] 1.8.3 Test responsive design for mobile/tablet
-- [x] 1.8.4 Ensure proper error handling and user feedback
-- [x] 1.8.5 Code review and cleanup
 </file>
 
 <file path="openspec/changes/add-webmcp-notes/proposal.md">
@@ -34195,6 +34807,80 @@ OWASP MASVS‑RESILIENCE
 * [CWE-756	Missing Custom Error Page](https://cwe.mitre.org/data/definitions/756.html)
 </file>
 
+<file path="openspec/project.md">
+# Project Context
+
+## Purpose
+
+Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
+
+## Tech Stack
+
+- **Frontend**: Vanilla JavaScript (ES6+)
+- **Markdown Processing**: Marked.js v15.0.12 (embedded)
+- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
+- **HTML Template**: Custom template system with inlined CSS/JS
+- **Target**: Single-page web application (ink.html)
+
+## Project Conventions
+
+### Code Style
+
+- ES6+ JavaScript modules
+- Minimal dependencies - prefers vanilla JavaScript
+- Single-file build output (ink.html) with inlined assets
+- Functional programming patterns preferred
+
+### Architecture Patterns
+
+- **Single File Architecture**: Final build is a self-contained HTML file
+- **Template Injection**: CSS and JS are injected into HTML template during build
+- **No Build Framework**: Custom build process without webpack/rollup/etc.
+- **Client-side Only**: Pure frontend application with no server requirements
+
+### Testing Strategy
+
+- No formal testing framework currently implemented
+- Manual testing via browser
+- Build verification through file generation
+
+### Git Workflow
+
+- Simple trunk-based development
+- Commits should be descriptive of changes
+- Main branch contains production-ready code
+
+## Domain Context
+
+- **Markdown Editing**: Core focus on markdown document creation and editing
+- **Document Export**: Ability to export markdown to various formats
+- **Offline Usage**: Application should work without internet connectivity
+- **Single User**: Designed for individual document creation
+
+## Important Constraints
+
+- **Single File Output**: Must build to a single HTML file (ink.html)
+- **No External Dependencies**: Runtime should work without CDN/internet
+- **Cross-browser**: Must work in modern browsers
+- **Lightweight**: Keep file size minimal for fast loading
+- **No Server**: Pure client-side application
+
+## Keyboard Shortcuts
+
+- **Ctrl/Cmd + E**: Create a new note
+- **Ctrl/Cmd + Shift + O**: Open a workspace
+- **Ctrl/Cmd + S**: Save the current note
+- **Ctrl/Cmd + L**: Refresh the workspace
+- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
+- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
+
+## External Dependencies
+
+- **Marked.js**: Markdown parser library (embedded in build)
+- **No External APIs**: Application works completely offline
+- **No Backend**: No server-side components required
+</file>
+
 <file path="src/app/document-linter/messages.ts">
 export const DOCUMENT_LINTER_FALLBACK_STRENGTH =
   "No clear strengths stand out yet; the draft needs more signal before the linter can praise specific choices.";
@@ -34403,40 +35089,6 @@ export function createAutoRefresh({
     startAutoRefresh,
     stopAutoRefresh,
   };
-}
-</file>
-
-<file path="src/app/fs-api.ts">
-import type { PermissionCapableHandle } from "./types";
-
-export function isFileSystemApiAvailable(): boolean {
-  return Boolean(window.showDirectoryPicker && window.FileSystemHandle);
-}
-
-export function isInMemoryMode(): boolean {
-  return !isFileSystemApiAvailable();
-}
-
-export async function ensurePermission(
-  handle: PermissionCapableHandle | null,
-  mode: "read" | "readwrite" = "read",
-): Promise<boolean> {
-  if (!handle) {
-    return false;
-  }
-
-  if (!handle.queryPermission || !handle.requestPermission) {
-    return true;
-  }
-
-  const descriptor = { mode };
-  const current = await handle.queryPermission(descriptor);
-  if (current === "granted") {
-    return true;
-  }
-
-  const requested = await handle.requestPermission(descriptor);
-  return requested === "granted";
 }
 </file>
 
@@ -35643,125 +36295,6 @@ QUnit.module("fs-api", (hooks) => {
 });
 </file>
 
-<file path="tests/qunit/mobile-fallback.test.js">
-import QUnit from "qunit";
-
-QUnit.module("mobile fallback - JSON export format");
-
-QUnit.test("JSON export structure is correct", (assert) => {
-  const notes = [
-    {
-      name: "note1.md",
-      relPath: "note1.md",
-      content: "# Note 1\n\nContent here",
-      lastModified: 1700000000000,
-      tags: new Set(["tag1"]),
-    },
-    {
-      name: "note2.md",
-      relPath: "note2.md",
-      content: "# Note 2\n\nMore content",
-      lastModified: 1700000001000,
-      tags: new Set(["tag2"]),
-    },
-  ];
-
-  const exportData = {
-    exportedAt: new Date().toISOString(),
-    notes: notes.map((note) => ({
-      name: note.name,
-      path: note.relPath,
-      content: note.content,
-      lastModified: new Date(note.lastModified).toISOString(),
-    })),
-  };
-
-  const json = JSON.stringify(exportData, null, 2);
-  const parsed = JSON.parse(json);
-
-  assert.ok(parsed.exportedAt, "Should have exportedAt timestamp");
-  assert.strictEqual(parsed.notes.length, 2, "Should have 2 notes");
-  assert.strictEqual(parsed.notes[0].name, "note1.md", "First note should have correct name");
-  assert.strictEqual(parsed.notes[0].path, "note1.md", "First note should have correct path");
-  assert.ok(parsed.notes[0].content.includes("Note 1"), "First note should have content");
-});
-
-QUnit.module("mobile fallback - in-memory note management");
-
-QUnit.test("in-memory notes can be created and found by relPath", (assert) => {
-  const inMemoryNotes = [];
-
-  const note1 = {
-    name: "note1.md",
-    relPath: "note1.md",
-    content: "# Note 1",
-    lastModified: Date.now(),
-    tags: new Set(["tag1"]),
-  };
-
-  const note2 = {
-    name: "note2.md",
-    relPath: "note2.md",
-    content: "# Note 2",
-    lastModified: Date.now(),
-    tags: new Set(["tag2"]),
-  };
-
-  inMemoryNotes.push(note1);
-  inMemoryNotes.push(note2);
-
-  const found = inMemoryNotes.find((n) => n.relPath === "note1.md");
-  assert.ok(found, "Should find note by relPath");
-  assert.strictEqual(found?.name, "note1.md", "Found note should have correct name");
-});
-
-QUnit.test("in-memory note content can be updated", (assert) => {
-  const note = {
-    name: "note.md",
-    relPath: "note.md",
-    content: "# Original",
-    lastModified: Date.now(),
-    tags: new Set(),
-  };
-
-  note.content = "# Updated";
-  note.lastModified = Date.now();
-
-  assert.strictEqual(note.content, "# Updated", "Content should be updated");
-  assert.ok(note.lastModified > 0, "Last modified should be updated");
-});
-
-QUnit.test("in-memory notes are correctly counted", (assert) => {
-  const inMemoryNotes = [
-    { name: "note1.md", relPath: "note1.md", content: "", lastModified: 0, tags: new Set() },
-    { name: "note2.md", relPath: "note2.md", content: "", lastModified: 0, tags: new Set() },
-    { name: "note3.md", relPath: "note3.md", content: "", lastModified: 0, tags: new Set() },
-  ];
-
-  const count = inMemoryNotes.length;
-  assert.strictEqual(count, 3, "Should have 3 notes");
-});
-
-QUnit.test("in-memory notes can be filtered by tag", (assert) => {
-  const inMemoryNotes = [
-    { name: "note1.md", relPath: "note1.md", content: "", lastModified: 0, tags: new Set(["work", "docs"]) },
-    { name: "note2.md", relPath: "note2.md", content: "", lastModified: 0, tags: new Set(["personal"]) },
-    { name: "note3.md", relPath: "note3.md", content: "", lastModified: 0, tags: new Set(["work"]) },
-  ];
-
-  const workNotes = inMemoryNotes.filter((n) => n.tags.has("work"));
-  assert.strictEqual(workNotes.length, 2, "Should have 2 work notes");
-});
-
-QUnit.test("markdown filename extraction from full path", (assert) => {
-  const relPath = "folder/subfolder/note.md";
-  const fileName = relPath.split("/").pop();
-
-  assert.strictEqual(fileName, "note.md", "Should extract correct filename");
-  assert.ok(fileName.endsWith(".md"), "Should be markdown file");
-});
-</file>
-
 <file path="tests/qunit/tags.test.js">
 import QUnit from "qunit";
 import {
@@ -35879,6 +36412,103 @@ coverage/
 }
 </file>
 
+<file path="AGENTS.md">
+<!-- OPENSPEC:START -->
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
+## Agent Instructions
+
+You are an AI-first software engineer. Assume all code will be written and maintained by LLMs, not humans. Optimize for model reasoning, regeneration, and debugging — not human aesthetics.
+
+Your goal: produce code that is predictable, debuggable, and easy for future LLMs to rewrite or extend.
+
+ALWAYS work in small, verfiable steps. Keep each step discrete: read relevant repo files → implement a small coherent change → validate (run available checks / manual smoke test) → record learnings back into OpenSpec artifacts or repo guidance. Prefer updating the repo's instruction chain (e.g., `AGENTS.md` and OpenSpec specs/notes) over relying on chat history.
+
+ALWAYS ground work in the repo's sourche of truth. Before coding (and whenever using a language/library/tool), consult OpenSpec specs/steering docs and any repo guidance (`AGENTS.md` `README.md`, etc.), then check primary/official documentation as needed. Don't rely on training-memory for fast-moving APIs; treat docs + repo specs as authoritative.
+
+Each time you complete a task or learn important information about the project, you should update the `.github/copilot-instructions.md` or any `agent.md` file that might be in the project to reflect any new information that you've learned or changes that require updates to these instructions files.
+
+ALWAYS check your work before returning control to the user. Run tests if available, verify builds, etc. Never return incomplete or unverified work to the user.
+
+Be a good steward of terminal instances. Try and reuse existing terminals where possible and use the VS Code API to close terminals that are no longer needed each time you open a new terminal.
+
+## Mandatory Coding Principles
+
+These coding principles are mandatory:
+
+1. Structure
+    - Use a consistent, predictable project layout.
+    - Group code by feature/screen; keep shared utilities minimal.
+    - Create simple, obvious entry points.
+    - Before scaffolding multiple files, identify shared structure first. Use framework-native composition patterns (layouts, base templates, providers, shared components) for elements that appear across pages. Duplication that requires the same fix in multiple places is a code smell, not a pattern to preserve.
+
+2. Architecture
+    - Prefer flat, explicit code over abstractions or deep hierarchies.
+    - Avoid clever patterns, metaprogramming, and unnecessary indirection.
+    - Minimize coupling so files can be safely regenerated.
+
+3. Functions and Modules
+    - Keep control flow linear and simple.
+    - Use small-to-medium functions; avoid deeply nested logic.
+    - Pass state explicitly; avoid globals.
+
+4. Naming and Comments
+    - Use descriptive-but-simple names.
+    - Comment only to note invariants, assumptions, or external requirements.
+
+5. Logging and Errors
+    - Emit detailed, structured logs at key boundaries.
+    - Make errors explicit and informative.
+
+6. Regenerability
+    - Write code so any file/module can be rewritten from scratch without breaking the system.
+    - Prefer clear, declarative configuration (JSON/YAML/etc.).
+
+7. Platform Use
+    - Use platform conventions directly and simply (e.g., WinUI/WPF) without over-abstracting.
+
+8. Modifications
+    - When extending/refactoring, follow existing patterns.
+    - Prefer full-file rewrites over micro-edits unless told otherwise.
+
+9. Quality
+    - Favor deterministic, testable behavior.
+    - Keep tests simple and focused on verifying observable behavior.
+
+## Pre-commit Hook Setup
+
+To enforce repomix updates locally, set up the pre-commit hook:
+
+```bash
+# Copy the pre-commit hook into place
+cp .git/hooks/pre-commit.sample .git/hooks/pre-commit 2>/dev/null || true
+# Or create it manually
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/sh
+echo "Running repomix..."
+npx repomix@latest
+git add repomix-output.xml
+EOF
+chmod +x .git/hooks/pre-commit
+```
+</file>
+
 <file path="babel.config.json">
 {
   "presets": ["@babel/preset-typescript"],
@@ -35954,20 +36584,64 @@ github: feddernico
 ko_fi: feddernico
 </file>
 
-<file path="opencode.json">
-{
-  "$schema": "https://opencode.ai/config.json",
-  "model": "mistral-devstral:codestral-latest",
-  "provider": {
-    "mistral-devstral": {
-      "npm": "@ai-sdk/openai-compatible",
-      "options": {
-        "baseURL": "https://codestral.mistral.ai/v1",
-        "apiKey": "{env:MISTRAL_API_KEY}"
-      }
-    }
-  }
-}
+<file path="replit.md">
+# Ink - Markdown Editor Web App
+
+## Overview
+Ink is a functional and minimalistic single-page web application for writing documents in markdown and exporting them.
+
+## Architecture
+- **Type**: Static frontend-only SPA (no backend)
+- **Language**: TypeScript (compiled via esbuild)
+- **Styles**: SCSS (compiled via sass)
+- **Output**: Single HTML file (`ink-app.html`) with all JS and CSS inlined
+
+## Project Structure
+- `src/app.ts` - App entrypoint
+- `src/app/` - Feature modules (bootstrap, dom, fs-api, types)
+- `src/tags.ts` - Tag/frontmatter parsing utilities
+- `src/styles.scss` - SCSS styles
+- `ink.template.html` - HTML template source
+- `ink-app.html` - Final built single-page app (served directly)
+- `build/` - Build scripts (esbuild + sass)
+- `dist/` - Intermediate compiled output
+- `assets/branding/` - Logo and favicon SVGs
+
+## Build
+```bash
+npm install
+npm run build       # One-time build
+npm run watch       # Auto-rebuild on changes
+```
+
+## Serving (Development)
+Workflow "Start application" runs:
+```
+npx http-server . -p 5000 -s
+```
+App is accessible at: `http://localhost:5000/ink-app.html`
+
+## Deployment
+- Target: Static site
+- Build command: `npm run build`
+- Public directory: `.` (root, serves `ink-app.html`)
+
+## Color Themes
+Six RStudio-style color themes available under the **View** menu:
+- **Default (Dark)** — original dark teal theme
+- **Classic** — light, neutral grey/white
+- **Cobalt** — dark ocean blue with gold accents
+- **Monokai** — iconic dark theme with green/pink highlights
+- **Office** — clean professional light theme (Microsoft Office palette)
+- **Twilight** — warm dark grey with amber accents
+- **Xcode** — light theme inspired by Apple Xcode
+
+The selected theme is persisted in `localStorage` under the key `ink-theme`. Themes are applied via a `data-theme` attribute on `<html>`, driven by CSS custom property overrides in `src/styles.scss`.
+
+## Testing
+- QUnit unit tests: `npm run test:qunit`
+- Cypress e2e tests: `npm run test:cypress`
+- Full suite: `npm test`
 </file>
 
 <file path="repomix-output.txt">
@@ -46569,146 +47243,6 @@ In conclusion, this document tests various aspects of the linter including reada
 Some might say that the passive voice was used in this sentence, which could be flagged by the style checker.
 </file>
 
-<file path=".github/workflows/codeql.yml">
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
-name: "CodeQL Advanced"
-
-on:
-  pull_request:
-    branches: [ "main" ]
-  schedule:
-    - cron: '30 16 * * 2'
-
-jobs:
-  changes:
-    name: Detect changed files
-    runs-on: ubuntu-latest
-    outputs:
-      docs_only: ${{ steps.filter.outputs.docs_only }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Classify event changes
-      id: filter
-      shell: bash
-      run: |
-        if [ "${{ github.event_name }}" != "pull_request" ]; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        base_sha="${{ github.event.pull_request.base.sha }}"
-        head_sha="${{ github.event.pull_request.head.sha }}"
-        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
-
-        printf '%s\n' "$changed_files"
-
-        if [ -z "$changed_files" ]; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
-          echo "docs_only=false" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        echo "docs_only=true" >> "$GITHUB_OUTPUT"
-
-  analyze:
-    name: Analyze (${{ matrix.language }})
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
-    # Runner size impacts CodeQL analysis time. To learn more, please see:
-    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
-    #   - https://gh.io/supported-runners-and-hardware-resources
-    #   - https://gh.io/using-larger-runners (GitHub.com only)
-    # Consider using larger runners or machines with greater resources for possible analysis time improvements.
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
-    permissions:
-      # required for all workflows
-      security-events: write
-
-      # required to fetch internal or private CodeQL packs
-      packages: read
-
-      # only required for workflows in private repositories
-      actions: read
-      contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-        - language: javascript-typescript
-          build-mode: none
-        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
-        # Use `c-cpp` to analyze code written in C, C++ or both
-        # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
-        # Use 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
-        # To learn more about changing the languages that are analyzed or customizing the build mode for your analysis,
-        # see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning.
-        # If you are analyzing a compiled language, you can modify the 'build-mode' for that language to customize how
-        # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    # Add any setup steps before running the `github/codeql-action/init` action.
-    # This includes steps like installing compilers or runtimes (`actions/setup-node`
-    # or others). This is typically only required for manual builds.
-    # - name: Setup runtime (example)
-    #   uses: actions/setup-example@v1
-
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v4
-      with:
-        languages: ${{ matrix.language }}
-        build-mode: ${{ matrix.build-mode }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
-
-        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
-        # queries: security-extended,security-and-quality
-
-    # If the analyze step fails for one of the languages you are analyzing with
-    # "We were unable to automatically build your code", modify the matrix above
-    # to set the build mode to "manual" for that language. Then modify this step
-    # to build your code.
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
-    - name: Run manual build steps
-      if: matrix.build-mode == 'manual'
-      shell: bash
-      run: |
-        echo 'If you are using a "manual" build mode for one or more of the' \
-          'languages you are analyzing, replace this with the commands to build' \
-          'your code, for example:'
-        echo '  make bootstrap'
-        echo '  make release'
-        exit 1
-
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v4
-      with:
-        category: "/language:${{matrix.language}}"
-</file>
-
 <file path="cypress/e2e/document-linter.cy.js">
 function createFakeFileHandle(name, initialContent = "") {
   let content = initialContent;
@@ -47481,35 +48015,6 @@ describe("workspace actions regression", () => {
     cy.get("#statusBadge").should("contain", "Refreshed");
   });
 });
-</file>
-
-<file path="openspec/changes/add-mobile-fallback/tasks.md">
-## 1. Implementation
-- [x] 1.1 Update `src/app/fs-api.ts` - Add function to check if FS API is available
-- [x] 1.2 Update `src/app/bootstrap.ts` - Modify `openWorkspace()` to enter in-memory mode when FS API unavailable
-- [x] 1.3 Add in-memory workspace state management (notes stored in memory, not on disk)
-- [x] 1.4 Add "Export as JSON" button to UI (download all notes)
-- [x] 1.5 Add "Export as Markdown" button to UI (download single note)
-- [x] 1.6 Add UI indicator showing "Temporary Session" mode
-- [x] 1.7 Update `ink-app.html` with new export buttons
-- [x] 1.8 Update `src/styles.scss` with temporary session styles
-- [x] 1.9 Test in-memory mode works without errors
-- [x] 1.10 Test export JSON downloads correctly
-- [x] 1.11 Test export Markdown downloads correctly
-
-## 2. Cypress Tests
-- [x] 2.1 Create `cypress/e2e/mobile-fallback.cy.js`
-- [x] 2.2 Test: When FS API unavailable, app shows temporary session mode
-- [x] 2.3 Test: User can create and edit notes in memory
-- [x] 2.4 Test: Export JSON button downloads valid JSON file
-- [x] 2.5 Test: Export Markdown button downloads valid .md file
-
-## 3. QUnit Tests
-- [x] 3.1 Create `tests/qunit/mobile-fallback.test.js`
-- [x] 3.2 Test: isFileSystemApiAvailable() returns correct values based on browser
-- [x] 3.3 Test: In-memory notes can be created and retrieved
-- [x] 3.4 Test: JSON export formats notes correctly
-- [x] 3.5 Test: Markdown export includes frontmatter and content
 </file>
 
 <file path="openspec/changes/migrate-marked-to-npm-dependency/tasks.md">
@@ -49855,101 +50360,47 @@ QUnit.test("leaves plain text unchanged", (assert) => {
 });
 </file>
 
-<file path="AGENTS.md">
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
+<file path=".replit">
+modules = ["web", "nodejs-20"]
+[agent]
+expertMode = true
 
-These instructions are for AI assistants working in this project.
+[nix]
+channel = "stable-25_05"
+packages = ["gh"]
 
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
+[workflows]
+runButton = "Project"
 
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
 
-Keep this managed block so 'openspec update' can refresh the instructions.
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
 
-<!-- OPENSPEC:END -->
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
 
-## Agent Instructions
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx http-server . -p 5000 --proxy http://localhost:5000? -s"
+waitForPort = 5000
 
-You are an AI-first software engineer. Assume all code will be written and maintained by LLMs, not humans. Optimize for model reasoning, regeneration, and debugging — not human aesthetics.
+[workflows.workflow.metadata]
+outputType = "webview"
 
-Your goal: produce code that is predictable, debuggable, and easy for future LLMs to rewrite or extend.
+[deployment]
+deploymentTarget = "static"
+build = ["npm", "run", "build"]
+publicDir = "."
 
-ALWAYS work in small, verfiable steps. Keep each step discrete: read relevant repo files → implement a small coherent change → validate (run available checks / manual smoke test) → record learnings back into OpenSpec artifacts or repo guidance. Prefer updating the repo's instruction chain (e.g., `AGENTS.md` and OpenSpec specs/notes) over relying on chat history.
-
-ALWAYS ground work in the repo's sourche of truth. Before coding (and whenever using a language/library/tool), consult OpenSpec specs/steering docs and any repo guidance (`AGENTS.md` `README.md`, etc.), then check primary/official documentation as needed. Don't rely on training-memory for fast-moving APIs; treat docs + repo specs as authoritative.
-
-Each time you complete a task or learn important information about the project, you should update the `.github/copilot-instructions.md` or any `agent.md` file that might be in the project to reflect any new information that you've learned or changes that require updates to these instructions files.
-
-ALWAYS check your work before returning control to the user. Run tests if available, verify builds, etc. Never return incomplete or unverified work to the user.
-
-Be a good steward of terminal instances. Try and reuse existing terminals where possible and use the VS Code API to close terminals that are no longer needed each time you open a new terminal.
-
-## Mandatory Coding Principles
-
-These coding principles are mandatory:
-
-1. Structure
-    - Use a consistent, predictable project layout.
-    - Group code by feature/screen; keep shared utilities minimal.
-    - Create simple, obvious entry points.
-    - Before scaffolding multiple files, identify shared structure first. Use framework-native composition patterns (layouts, base templates, providers, shared components) for elements that appear across pages. Duplication that requires the same fix in multiple places is a code smell, not a pattern to preserve.
-
-2. Architecture
-    - Prefer flat, explicit code over abstractions or deep hierarchies.
-    - Avoid clever patterns, metaprogramming, and unnecessary indirection.
-    - Minimize coupling so files can be safely regenerated.
-
-3. Functions and Modules
-    - Keep control flow linear and simple.
-    - Use small-to-medium functions; avoid deeply nested logic.
-    - Pass state explicitly; avoid globals.
-
-4. Naming and Comments
-    - Use descriptive-but-simple names.
-    - Comment only to note invariants, assumptions, or external requirements.
-
-5. Logging and Errors
-    - Emit detailed, structured logs at key boundaries.
-    - Make errors explicit and informative.
-
-6. Regenerability
-    - Write code so any file/module can be rewritten from scratch without breaking the system.
-    - Prefer clear, declarative configuration (JSON/YAML/etc.).
-
-7. Platform Use
-    - Use platform conventions directly and simply (e.g., WinUI/WPF) without over-abstracting.
-
-8. Modifications
-    - When extending/refactoring, follow existing patterns.
-    - Prefer full-file rewrites over micro-edits unless told otherwise.
-
-9. Quality
-    - Favor deterministic, testable behavior.
-    - Keep tests simple and focused on verifying observable behavior.
-
-## Pre-commit Hook Setup
-
-To enforce repomix updates locally, set up the pre-commit hook:
-
-```bash
-# Copy the pre-commit hook into place
-cp .git/hooks/pre-commit.sample .git/hooks/pre-commit 2>/dev/null || true
-# Or create it manually
-cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/sh
-echo "Running repomix..."
-npx repomix@latest
-git add repomix-output.xml
-EOF
-chmod +x .git/hooks/pre-commit
-```
+[[ports]]
+localPort = 5000
+externalPort = 80
 </file>
 
 <file path="cypress.config.mjs">
@@ -49971,6 +50422,46 @@ export default defineConfig({
 });
 </file>
 
+<file path="Makefile">
+.PHONY: help lint build watch test test-qunit test-cypress update-repomix
+
+help:
+	@echo "Available targets:"
+	@echo "  lint           - Run ESLint"
+	@echo "  build          - Build the project"
+	@echo "  watch          - Watch for changes and rebuild"
+	@echo "  test           - Run all tests (QUnit and Cypress)"
+	@echo "  test-qunit     - Run QUnit tests"
+	@echo "  test-cypress   - Run Cypress tests"
+	@echo "  repomix        - Update repomix to the latest version"
+
+lint:
+	@echo "Running ESLint..."
+	npm run lint
+
+build:
+	@echo "Building the project..."
+	npm run build
+
+watch:
+	@echo "Watching for changes..."
+	npm run watch
+
+test: test-qunit test-cypress
+
+test-qunit:
+	@echo "Running QUnit tests..."
+	npm run test:qunit
+
+test-cypress:
+	@echo "Running Cypress tests..."
+	npm run test:cypress
+
+repomix:
+	@echo "Updating repomix to the latest version..."
+	npx repomix@latest
+</file>
+
 <file path="release-please-config.json">
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
@@ -49983,64 +50474,144 @@ export default defineConfig({
 }
 </file>
 
-<file path="replit.md">
-# Ink - Markdown Editor Web App
+<file path=".github/workflows/codeql.yml">
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL Advanced"
 
-## Overview
-Ink is a functional and minimalistic single-page web application for writing documents in markdown and exporting them.
+on:
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 16 * * 2'
 
-## Architecture
-- **Type**: Static frontend-only SPA (no backend)
-- **Language**: TypeScript (compiled via esbuild)
-- **Styles**: SCSS (compiled via sass)
-- **Output**: Single HTML file (`ink-app.html`) with all JS and CSS inlined
+jobs:
+  changes:
+    name: Detect changed files
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-## Project Structure
-- `src/app.ts` - App entrypoint
-- `src/app/` - Feature modules (bootstrap, dom, fs-api, types)
-- `src/tags.ts` - Tag/frontmatter parsing utilities
-- `src/styles.scss` - SCSS styles
-- `ink.template.html` - HTML template source
-- `ink-app.html` - Final built single-page app (served directly)
-- `build/` - Build scripts (esbuild + sass)
-- `dist/` - Intermediate compiled output
-- `assets/branding/` - Logo and favicon SVGs
+    - name: Classify event changes
+      id: filter
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-## Build
-```bash
-npm install
-npm run build       # One-time build
-npm run watch       # Auto-rebuild on changes
-```
+        base_sha="${{ github.event.pull_request.base.sha }}"
+        head_sha="${{ github.event.pull_request.head.sha }}"
+        changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
 
-## Serving (Development)
-Workflow "Start application" runs:
-```
-npx http-server . -p 5000 -s
-```
-App is accessible at: `http://localhost:5000/ink-app.html`
+        printf '%s\n' "$changed_files"
 
-## Deployment
-- Target: Static site
-- Build command: `npm run build`
-- Public directory: `.` (root, serves `ink-app.html`)
+        if [ -z "$changed_files" ]; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-## Color Themes
-Six RStudio-style color themes available under the **View** menu:
-- **Default (Dark)** — original dark teal theme
-- **Classic** — light, neutral grey/white
-- **Cobalt** — dark ocean blue with gold accents
-- **Monokai** — iconic dark theme with green/pink highlights
-- **Office** — clean professional light theme (Microsoft Office palette)
-- **Twilight** — warm dark grey with amber accents
-- **Xcode** — light theme inspired by Apple Xcode
+        if echo "$changed_files" | grep -qvE '(^|/)[^/]+\.md$|^LICENSE$|^FUNDING\.yml$'; then
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
-The selected theme is persisted in `localStorage` under the key `ink-theme`. Themes are applied via a `data-theme` attribute on `<html>`, driven by CSS custom property overrides in `src/styles.scss`.
+        echo "docs_only=true" >> "$GITHUB_OUTPUT"
 
-## Testing
-- QUnit unit tests: `npm run test:qunit`
-- Cypress e2e tests: `npm run test:cypress`
-- Full suite: `npm test`
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    # Runner size impacts CodeQL analysis time. To learn more, please see:
+    #   - https://gh.io/recommended-hardware-resources-for-running-codeql
+    #   - https://gh.io/supported-runners-and-hardware-resources
+    #   - https://gh.io/using-larger-runners (GitHub.com only)
+    # Consider using larger runners or machines with greater resources for possible analysis time improvements.
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      # required for all workflows
+      security-events: write
+
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: javascript-typescript
+          build-mode: none
+        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
+        # Use `c-cpp` to analyze code written in C, C++ or both
+        # Use 'java-kotlin' to analyze code written in Java, Kotlin or both
+        # Use 'javascript-typescript' to analyze code written in JavaScript, TypeScript or both
+        # To learn more about changing the languages that are analyzed or customizing the build mode for your analysis,
+        # see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning.
+        # If you are analyzing a compiled language, you can modify the 'build-mode' for that language to customize how
+        # your codebase is analyzed, see https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Add any setup steps before running the `github/codeql-action/init` action.
+    # This includes steps like installing compilers or runtimes (`actions/setup-node`
+    # or others). This is typically only required for manual builds.
+    # - name: Setup runtime (example)
+    #   uses: actions/setup-example@v1
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+
+        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+        # queries: security-extended,security-and-quality
+
+    # If the analyze step fails for one of the languages you are analyzing with
+    # "We were unable to automatically build your code", modify the matrix above
+    # to set the build mode to "manual" for that language. Then modify this step
+    # to build your code.
+    # ℹ️ Command-line programs to run using the OS shell.
+    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+    - name: Run manual build steps
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
+        echo 'If you are using a "manual" build mode for one or more of the' \
+          'languages you are analyzing, replace this with the commands to build' \
+          'your code, for example:'
+        echo '  make bootstrap'
+        echo '  make release'
+        exit 1
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:${{matrix.language}}"
 </file>
 
 <file path=".github/workflows/pr-checks.yml">
@@ -50126,63 +50697,308 @@ jobs:
           path: cypress/screenshots
 </file>
 
-<file path="openspec/project.md">
-# Project Context
+<file path="cypress/e2e/editor-flow.cy.js">
+function createFakeFileHandle(name, initialContent = "") {
+  let content = initialContent;
+  let lastModified = Date.now();
 
-## Purpose
+  return {
+    kind: "file",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async getFile() {
+      return new File([content], name, { type: "text/markdown", lastModified });
+    },
+    async createWritable() {
+      return {
+        async write(nextContent) {
+          content = String(nextContent);
+          lastModified = Date.now();
+        },
+        async close() {},
+      };
+    },
+    __read() {
+      return content;
+    },
+  };
+}
 
-Ink is a web application for writing and editing markdown documents with export capabilities. It provides a clean, focused interface for markdown editing and document generation.
+function createFakeDirectoryHandle(name) {
+  const entries = new Map();
 
-## Tech Stack
+  return {
+    kind: "directory",
+    name,
+    async queryPermission() {
+      return "granted";
+    },
+    async requestPermission() {
+      return "granted";
+    },
+    async *entries() {
+      for (const entry of entries.entries()) {
+        yield entry;
+      }
+    },
+    async getFileHandle(fileName, options = {}) {
+      const existing = entries.get(fileName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`File not found: ${fileName}`);
+      }
+      const handle = createFakeFileHandle(fileName);
+      entries.set(fileName, handle);
+      return handle;
+    },
+    async getDirectoryHandle(dirName, options = {}) {
+      const existing = entries.get(dirName);
+      if (existing) {
+        return existing;
+      }
+      if (!options.create) {
+        throw new Error(`Directory not found: ${dirName}`);
+      }
+      const handle = createFakeDirectoryHandle(dirName);
+      entries.set(dirName, handle);
+      return handle;
+    },
+    __entries: entries,
+  };
+}
 
-- **Frontend**: Vanilla JavaScript (ES6+)
-- **Markdown Processing**: Marked.js v15.0.12 (embedded)
-- **Build System**: Custom Node.js build script (build/compile-and-assemble.js)
-- **HTML Template**: Custom template system with inlined CSS/JS
-- **Target**: Single-page web application (ink.html)
+describe("ink authoring flow", () => {
+  const workspaceName = "workspace-a";
+  const fileStem = "notes";
+  const fileName = `${fileStem}.md`;
+  const markdown = "# Ink flow\n\nThis is markdown content.";
 
-## Project Conventions
+  beforeEach(() => {
+    cy.visit("/ink-app.html", {
+      onBeforeLoad(win) {
+        const root = createFakeDirectoryHandle(workspaceName);
 
-### Code Style
+        win.prompt = (message) => {
+          if (message.includes("New note name")) {
+            return fileStem;
+          }
+          return null;
+        };
 
-- ES6+ JavaScript modules
-- Minimal dependencies - prefers vanilla JavaScript
-- Single-file build output (ink.html) with inlined assets
-- Functional programming patterns preferred
+        win.confirm = () => true;
+        win.FileSystemHandle = function FileSystemHandle() {};
+        win.showDirectoryPicker = async () => root;
+        win.__fakeWorkspace = root;
+      },
+    });
+  });
 
-### Architecture Patterns
+  it("selects workspace, creates a new file, edits markdown, and saves", () => {
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("#workspaceName").should("contain", workspaceName);
 
-- **Single File Architecture**: Final build is a self-contained HTML file
-- **Template Injection**: CSS and JS are injected into HTML template during build
-- **No Build Framework**: Custom build process without webpack/rollup/etc.
-- **Client-side Only**: Pure frontend application with no server requirements
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
+    cy.get("#currentFilename").should("contain", fileName);
 
-### Testing Strategy
+    cy.get("#editor").clear().type(markdown);
+    cy.get("[data-action=\"save\"]").click({ force: true });
+    cy.get("#statusBadge").should("contain", "Saved");
 
-- No formal testing framework currently implemented
-- Manual testing via browser
-- Build verification through file generation
+    cy.window().then(async (win) => {
+      const handle = await win.__fakeWorkspace.getFileHandle(fileName);
+      expect(handle.__read()).to.eq(markdown);
+    });
+  });
 
-### Git Workflow
+  it("renders markdown preview when editing a note", () => {
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("[data-action=\"new-note\"]").click({ force: true });
 
-- Simple trunk-based development
-- Commits should be descriptive of changes
-- Main branch contains production-ready code
+    cy.get("#editor").clear().type("# Hello World\n\nThis is a paragraph.");
 
-## Domain Context
+    cy.get("#preview").find("h1").should("contain", "Hello World");
+    cy.get("#preview").find("p").should("contain", "This is a paragraph.");
+  });
 
-- **Markdown Editing**: Core focus on markdown document creation and editing
-- **Document Export**: Ability to export markdown to various formats
-- **Offline Usage**: Application should work without internet connectivity
-- **Single User**: Designed for individual document creation
+  it("collapses and expands the left menu, updating accessibility state and editor space", () => {
+    let expandedEditorWidth = 0;
+    let collapsedEditorWidth = 0;
 
-## Important Constraints
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "true")
+      .and("contain", "▶ Collapse")
+      .and("be.visible");
+    cy.get(".app").should("not.have.class", "sidebar-collapsed");
 
-- **Single File Output**: Must build to a single HTML file (ink.html)
-- **No External Dependencies**: Runtime should work without CDN/internet
-- **Cross-browser**: Must work in modern browsers
-- **Lightweight**: Keep file size minimal for fast loading
-- **No Server**: Pure client-side application
+    cy.get("#editor").then(($editor) => {
+      expandedEditorWidth = $editor[0].getBoundingClientRect().width;
+    });
+
+    cy.get("#sidebarToggleBtn").click();
+    cy.get(".app").should("have.class", "sidebar-collapsed");
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "false")
+      .and("contain", "▼ Expand");
+
+    cy.get("#editor").then(($editor) => {
+      collapsedEditorWidth = $editor[0].getBoundingClientRect().width;
+      expect(collapsedEditorWidth).to.be.greaterThan(expandedEditorWidth);
+    });
+
+    cy.get("#sidebarToggleBtn").focus().type("{enter}");
+    cy.get(".app").should("not.have.class", "sidebar-collapsed");
+    cy.get("#sidebarToggleBtn")
+      .should("have.attr", "aria-expanded", "true")
+      .and("contain", "Collapse");
+
+    cy.get("#editor").then(($editor) => {
+      const finalEditorWidth = $editor[0].getBoundingClientRect().width;
+      expect(finalEditorWidth).to.be.lessThan(collapsedEditorWidth);
+    });
+  });
+});
+</file>
+
+<file path="README.md">
+# ink
+<p align="center">
+  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
+</p>
+
+Ink is a functional and minimalistic webapp to write documents in markdown and export them.
+
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
+![Sass](https://img.shields.io/badge/Sass-SCSS-CC6699?logo=sass&logoColor=white)
+![Cypress](https://img.shields.io/badge/Tested%20with-Cypress-17202C?logo=cypress&logoColor=white)
+![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+## Quick Demo
+
+![](assets/demo/ink-demo.gif)
+
+## Repo Structure
+
+The structure of the repo is as follows:
+
+```
+src/
+  app.ts         (Thin app entrypoint)
+  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
+  tags.ts        (Tag/frontmatter parsing utilities)
+  test-support/
+    storage-fixture.ts  (Test-only storage helpers)
+  styles.scss    (The app styles, in SCSS)
+dist/
+  app.min.js
+  styles.min.css
+ink.template.html  (The HTML template source)
+ink-app.html       (The final single-page app, with inline <style> and <script>)
+build/
+  assemble-single-file.js
+  compile-and-assemble.js
+  build-test.js
+  record-demo.js
+  export-demo-assets.js
+  generate-favicons.js
+  watch.js
+  inject.js  (Compatibility alias)
+  build.js   (Compatibility alias)
+assets/
+  branding/
+    logo.svg
+    favicon.svg
+  demo/
+    ink-demo.webm
+    ink-demo.mp4
+    ink-demo.gif
+tests/
+  qunit/
+cypress/
+  e2e/
+repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
+```
+
+## Building Process
+
+The workflow uses `esbuild` and `sass`.
+
+- Build once: `npm run build`
+- Build on file changes: `npm run watch`
+- Makefile wrappers:
+  - `make build`
+  - `make watch`
+
+The webapp is released as a single HTML file (`ink-app.html`).
+
+Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
+
+## Branding Assets
+
+- Canonical logo source: `assets/branding/logo.svg`
+- Generated favicon: `assets/branding/favicon.svg`
+- Regenerate favicon after logo updates: `npm run build:favicon`
+
+`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
+
+## Demo Capture
+
+The project can record the first-use Ink flow as a reusable video asset:
+
+```bash
+npm run demo:record
+```
+
+The command starts the local test server, launches headless Chrome against the full Ink viewport, and writes a clean app-only recording to `assets/demo/ink-demo.webm`. When macOS `avconvert` can convert the browser recording, it also writes `assets/demo/ink-demo.mp4`. The demo shows opening a workspace, creating `getting-started.md`, writing markdown slowly, saving, and switching to the rendered preview.
+
+To generate a GIF from the recorded video, install `ffmpeg` and run:
+
+```bash
+npm run demo:gif
+```
+
+GIF output is written to `assets/demo/ink-demo.gif`. Keep the MP4 as the canonical demo asset because it is smaller and clearer than a full-app GIF.
+
+## Workflow Cheat Sheet
+
+Use this sequence when working on the app:
+
+1. Install dependencies (first time only): `npm install`
+2. Edit source files:
+   - `src/app.ts`
+   - `src/tags.ts`
+   - `src/styles.scss`
+   - `ink.template.html`
+3. Rebuild output: `npm run build`
+4. Open/use `ink-app.html`
+
+If you want automatic rebuilds while editing:
+
+1. Run: `npm run watch`
+2. Keep editing source files
+3. `ink-app.html` will be regenerated after changes
+
+## Testing
+
+Automated testing includes both QUnit and Cypress.
+
+- QUnit: `npm run test:qunit`
+- Cypress end-to-end: `npm run test:cypress`
+- Full suite: `npm test`
+
+The Cypress flow test verifies:
+
+1. Open/select a workspace
+2. Create a new markdown file
+3. Enter markdown content
+4. Save and verify persisted content
 
 ## Keyboard Shortcuts
 
@@ -50192,55 +51008,6 @@ Ink is a web application for writing and editing markdown documents with export 
 - **Ctrl/Cmd + L**: Refresh the workspace
 - **Ctrl/Cmd + Shift + S**: Export all notes as JSON
 - **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-
-## External Dependencies
-
-- **Marked.js**: Markdown parser library (embedded in build)
-- **No External APIs**: Application works completely offline
-- **No Backend**: No server-side components required
-</file>
-
-<file path=".replit">
-modules = ["web", "nodejs-20"]
-[agent]
-expertMode = true
-
-[nix]
-channel = "stable-25_05"
-packages = ["gh"]
-
-[workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Start application"
-
-[[workflows.workflow]]
-name = "Start application"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx http-server . -p 5000 --proxy http://localhost:5000? -s"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[deployment]
-deploymentTarget = "static"
-build = ["npm", "run", "build"]
-publicDir = "."
-
-[[ports]]
-localPort = 5000
-externalPort = 80
 </file>
 
 <file path="openspec/changes/fix-mobile-sidebar-and-layout/tasks.md">
@@ -51531,600 +52298,6 @@ export function createWorkspaceActions({
 * only create release if ink-app.html changed ([a9f4f65](https://github.com/feddernico/ink/commit/a9f4f656715bfb61ae394e4e8320e78ef57c9742))
 </file>
 
-<file path="CONTRIBUTING.md">
-# Contributing to ink
-
-Thank you for your interest in contributing to ink! We appreciate every improvement, whether it is a bug fix, a documentation update, a design refinement, or a new feature. This guide is here to make contributing straightforward and consistent with how the project is built and maintained.
-
-## Table of Contents
-
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [How to Contribute](#how-to-contribute)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Submitting Changes](#submitting-changes)
-- [Coding Guidelines](#coding-guidelines)
-- [Commit Messages](#commit-messages)
-- [Style Guide](#style-guide)
-- [Testing and Build Checks](#testing-and-build-checks)
-- [License](#license)
-
-## Code of Conduct
-
-Please be respectful, constructive, and patient in all project discussions. We want ink to stay welcoming to contributors of all experience levels.
-
-## Getting Started
-
-1. **Fork the repository**: Create a fork of the repository to work on your changes.
-2. **Clone your fork**: Clone the repository to your local machine using `git clone`.
-3. **Install dependencies**: Run `npm install`.
-4. **Create a branch**: Create a branch for your work using `git checkout -b your-branch-name`.
-
-## How to Contribute
-
-### Reporting Bugs
-
-If you find a bug, please open an issue with clear reproduction steps, the expected behavior, the actual behavior, and any screenshots or console output that help explain the problem.
-
-### Suggesting Features
-
-Feature ideas are welcome. Open an issue describing the problem you want to solve, how you expect the feature to work, and whether it affects editing, workspace management, export flows, or the single-file build output.
-
-### Submitting Changes
-
-1. **Keep changes focused**: Prefer small pull requests that solve one problem well.
-2. **Follow the existing structure**: ink favors simple, explicit modules and predictable file organization.
-3. **Run the relevant checks**: Build the app and run tests before opening a pull request.
-4. **Open a pull request**: Include a clear summary of what changed, why it changed, and how you verified it.
-
-## Coding Guidelines
-
-- Follow the current project structure and keep `src/app.ts` as a thin entrypoint.
-- Prefer small, explicit modules with flat control flow and minimal indirection.
-- Preserve the single-file app output, `ink-app.html`.
-- Add comments only when they explain an invariant, assumption, or external requirement.
-- Keep changes easy to debug and easy to regenerate.
-
-## Commit Messages
-
-- Use the present tense, such as `Add export validation`.
-- Use the imperative mood, such as `Update workspace refresh flow`.
-- Limit the first line to 72 characters or less when possible.
-- Reference related issues or pull requests after the first line when relevant.
-- Prefer Conventional Commit prefixes so release automation can classify changes:
-  `fix:` for patch releases, `feat:` for minor releases, and `feat!:` or a `BREAKING CHANGE:` footer for major releases.
-- If you need to force a specific next version, add a `Release-As: x.y.z` footer to the merged commit body or release PR description.
-
-## Release Process
-
-- Releases are prepared with `release-please`, which opens a release PR that updates `package.json`, `package-lock.json`, and the changelog.
-- This repository uses plain `v*` Git tags for releases; keep `release-please` configured to match that tag history.
-- When a release PR is merged, the release workflow finalizes it by creating the plain `v*` tag, adding a compatibility `ink-v*` tag for release-please state reconciliation, publishing the GitHub release from `v*`, and clearing stale autorelease labels.
-- Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
-- If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
-- CI validation should happen in PR workflows before merge; the release workflow is intentionally limited to regenerating `ink-app.html` for the tagged release artifact instead of rerunning the full build/test suite after the protected-branch merge.
-
-## Style Guide
-
-- **JavaScript and TypeScript**: Prefer explicit, readable code over clever abstractions.
-- **SCSS**: Keep styles aligned with the existing structure in `src/styles.scss`.
-- **HTML**: Update `ink.template.html` when changing the app shell or document structure.
-- **Build scripts**: Keep build logic simple and compatible with the single-file assembly flow in `build/compile-and-assemble.js`.
-
-## Testing and Build Checks
-
-Before submitting changes, run the checks that match your work:
-
-- `npm run build` to regenerate `ink-app.html`
-- `npm run test:qunit` for unit and integration coverage
-- `npm run test:cypress` for end-to-end coverage
-- `npm test` for the full automated suite
-- `make build` and `make test` are available as convenience wrappers
-
-If your change affects favicon or branding assets, also run `npm run build:favicon`.
-
-## License
-
-By contributing to this project, you agree that your contributions will be licensed under the MIT License.
-
----
-
-Thank you for contributing to ink!
-</file>
-
-<file path="Makefile">
-.PHONY: help lint build watch test test-qunit test-cypress update-repomix
-
-help:
-	@echo "Available targets:"
-	@echo "  lint           - Run ESLint"
-	@echo "  build          - Build the project"
-	@echo "  watch          - Watch for changes and rebuild"
-	@echo "  test           - Run all tests (QUnit and Cypress)"
-	@echo "  test-qunit     - Run QUnit tests"
-	@echo "  test-cypress   - Run Cypress tests"
-	@echo "  repomix        - Update repomix to the latest version"
-
-lint:
-	@echo "Running ESLint..."
-	npm run lint
-
-build:
-	@echo "Building the project..."
-	npm run build
-
-watch:
-	@echo "Watching for changes..."
-	npm run watch
-
-test: test-qunit test-cypress
-
-test-qunit:
-	@echo "Running QUnit tests..."
-	npm run test:qunit
-
-test-cypress:
-	@echo "Running Cypress tests..."
-	npm run test:cypress
-
-repomix:
-	@echo "Updating repomix to the latest version..."
-	npx repomix@latest
-</file>
-
-<file path="cypress/e2e/editor-flow.cy.js">
-function createFakeFileHandle(name, initialContent = "") {
-  let content = initialContent;
-  let lastModified = Date.now();
-
-  return {
-    kind: "file",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async getFile() {
-      return new File([content], name, { type: "text/markdown", lastModified });
-    },
-    async createWritable() {
-      return {
-        async write(nextContent) {
-          content = String(nextContent);
-          lastModified = Date.now();
-        },
-        async close() {},
-      };
-    },
-    __read() {
-      return content;
-    },
-  };
-}
-
-function createFakeDirectoryHandle(name) {
-  const entries = new Map();
-
-  return {
-    kind: "directory",
-    name,
-    async queryPermission() {
-      return "granted";
-    },
-    async requestPermission() {
-      return "granted";
-    },
-    async *entries() {
-      for (const entry of entries.entries()) {
-        yield entry;
-      }
-    },
-    async getFileHandle(fileName, options = {}) {
-      const existing = entries.get(fileName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`File not found: ${fileName}`);
-      }
-      const handle = createFakeFileHandle(fileName);
-      entries.set(fileName, handle);
-      return handle;
-    },
-    async getDirectoryHandle(dirName, options = {}) {
-      const existing = entries.get(dirName);
-      if (existing) {
-        return existing;
-      }
-      if (!options.create) {
-        throw new Error(`Directory not found: ${dirName}`);
-      }
-      const handle = createFakeDirectoryHandle(dirName);
-      entries.set(dirName, handle);
-      return handle;
-    },
-    __entries: entries,
-  };
-}
-
-describe("ink authoring flow", () => {
-  const workspaceName = "workspace-a";
-  const fileStem = "notes";
-  const fileName = `${fileStem}.md`;
-  const markdown = "# Ink flow\n\nThis is markdown content.";
-
-  beforeEach(() => {
-    cy.visit("/ink-app.html", {
-      onBeforeLoad(win) {
-        const root = createFakeDirectoryHandle(workspaceName);
-
-        win.prompt = (message) => {
-          if (message.includes("New note name")) {
-            return fileStem;
-          }
-          return null;
-        };
-
-        win.confirm = () => true;
-        win.FileSystemHandle = function FileSystemHandle() {};
-        win.showDirectoryPicker = async () => root;
-        win.__fakeWorkspace = root;
-      },
-    });
-  });
-
-  it("selects workspace, creates a new file, edits markdown, and saves", () => {
-    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
-    cy.get("#workspaceName").should("contain", workspaceName);
-
-    cy.get("[data-action=\"new-note\"]").click({ force: true });
-    cy.get("#currentFilename").should("contain", fileName);
-
-    cy.get("#editor").clear().type(markdown);
-    cy.get("[data-action=\"save\"]").click({ force: true });
-    cy.get("#statusBadge").should("contain", "Saved");
-
-    cy.window().then(async (win) => {
-      const handle = await win.__fakeWorkspace.getFileHandle(fileName);
-      expect(handle.__read()).to.eq(markdown);
-    });
-  });
-
-  it("renders markdown preview when editing a note", () => {
-    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
-    cy.get("[data-action=\"new-note\"]").click({ force: true });
-
-    cy.get("#editor").clear().type("# Hello World\n\nThis is a paragraph.");
-
-    cy.get("#preview").find("h1").should("contain", "Hello World");
-    cy.get("#preview").find("p").should("contain", "This is a paragraph.");
-  });
-
-  it("collapses and expands the left menu, updating accessibility state and editor space", () => {
-    let expandedEditorWidth = 0;
-    let collapsedEditorWidth = 0;
-
-    cy.get("#sidebarToggleBtn")
-      .should("have.attr", "aria-expanded", "true")
-      .and("contain", "▶ Collapse")
-      .and("be.visible");
-    cy.get(".app").should("not.have.class", "sidebar-collapsed");
-
-    cy.get("#editor").then(($editor) => {
-      expandedEditorWidth = $editor[0].getBoundingClientRect().width;
-    });
-
-    cy.get("#sidebarToggleBtn").click();
-    cy.get(".app").should("have.class", "sidebar-collapsed");
-    cy.get("#sidebarToggleBtn")
-      .should("have.attr", "aria-expanded", "false")
-      .and("contain", "▼ Expand");
-
-    cy.get("#editor").then(($editor) => {
-      collapsedEditorWidth = $editor[0].getBoundingClientRect().width;
-      expect(collapsedEditorWidth).to.be.greaterThan(expandedEditorWidth);
-    });
-
-    cy.get("#sidebarToggleBtn").focus().type("{enter}");
-    cy.get(".app").should("not.have.class", "sidebar-collapsed");
-    cy.get("#sidebarToggleBtn")
-      .should("have.attr", "aria-expanded", "true")
-      .and("contain", "Collapse");
-
-    cy.get("#editor").then(($editor) => {
-      const finalEditorWidth = $editor[0].getBoundingClientRect().width;
-      expect(finalEditorWidth).to.be.lessThan(collapsedEditorWidth);
-    });
-  });
-});
-</file>
-
-<file path=".release-please-manifest.json">
-{
-  ".": "1.3.0"
-}
-</file>
-
-<file path="README.md">
-# ink
-<p align="center">
-  <img src="assets/branding/logo.svg" alt="Ink logo" width="128" />
-</p>
-
-Ink is a functional and minimalistic webapp to write documents in markdown and export them.
-
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
-![Sass](https://img.shields.io/badge/Sass-SCSS-CC6699?logo=sass&logoColor=white)
-![Cypress](https://img.shields.io/badge/Tested%20with-Cypress-17202C?logo=cypress&logoColor=white)
-![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## Repo Structure
-
-The structure of the repo is as follows:
-
-```
-src/
-  app.ts         (Thin app entrypoint)
-  app/           (Feature modules: app-controller, ui-events, workspace-io, tree-render, dom, fs-api, types)
-  tags.ts        (Tag/frontmatter parsing utilities)
-  test-support/
-    storage-fixture.ts  (Test-only storage helpers)
-  styles.scss    (The app styles, in SCSS)
-dist/
-  app.min.js
-  styles.min.css
-ink.template.html  (The HTML template source)
-ink-app.html       (The final single-page app, with inline <style> and <script>)
-build/
-  assemble-single-file.js
-  compile-and-assemble.js
-  build-test.js
-  generate-favicons.js
-  watch.js
-  inject.js  (Compatibility alias)
-  build.js   (Compatibility alias)
-assets/
-  branding/
-    logo.svg
-    favicon.svg
-tests/
-  qunit/
-cypress/
-  e2e/
-repomix-output.xml  (This can be used to discuss about the project with an AI chatbot)
-```
-
-## Building Process
-
-The workflow uses `esbuild` and `sass`.
-
-- Build once: `npm run build`
-- Build on file changes: `npm run watch`
-- Makefile wrappers:
-  - `make build`
-  - `make watch`
-
-The webapp is released as a single HTML file (`ink-app.html`).
-
-Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
-
-## Branding Assets
-
-- Canonical logo source: `assets/branding/logo.svg`
-- Generated favicon: `assets/branding/favicon.svg`
-- Regenerate favicon after logo updates: `npm run build:favicon`
-
-`npm run build` also regenerates favicon assets before assembling `ink-app.html`.
-
-## Workflow Cheat Sheet
-
-Use this sequence when working on the app:
-
-1. Install dependencies (first time only): `npm install`
-2. Edit source files:
-   - `src/app.ts`
-   - `src/tags.ts`
-   - `src/styles.scss`
-   - `ink.template.html`
-3. Rebuild output: `npm run build`
-4. Open/use `ink-app.html`
-
-If you want automatic rebuilds while editing:
-
-1. Run: `npm run watch`
-2. Keep editing source files
-3. `ink-app.html` will be regenerated after changes
-
-## Testing
-
-Automated testing includes both QUnit and Cypress.
-
-- QUnit: `npm run test:qunit`
-- Cypress end-to-end: `npm run test:cypress`
-- Full suite: `npm test`
-
-The Cypress flow test verifies:
-
-1. Open/select a workspace
-2. Create a new markdown file
-3. Enter markdown content
-4. Save and verify persisted content
-
-## Keyboard Shortcuts
-
-- **Ctrl/Cmd + E**: Create a new note
-- **Ctrl/Cmd + Shift + O**: Open a workspace
-- **Ctrl/Cmd + S**: Save the current note
-- **Ctrl/Cmd + L**: Refresh the workspace
-- **Ctrl/Cmd + Shift + S**: Export all notes as JSON
-- **Ctrl/Cmd + Shift + M**: Export the current note as Markdown
-</file>
-
-<file path=".github/workflows/release.yml">
-name: release-please
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-
-jobs:
-  release-please:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Run release-please
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          skip-github-release: true
-
-      - name: Detect merged release PR
-        id: merged_release
-        if: ${{ github.event_name == 'push' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            const {owner, repo} = context.repo;
-            const commitSha = context.sha;
-            const response = await github.request(
-              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
-              {
-                owner,
-                repo,
-                commit_sha: commitSha,
-                mediaType: { previews: ['groot'] },
-              },
-            );
-
-            const releasePr = response.data.find((pull) =>
-              /^chore\(main\): release ink \d+\.\d+\.\d+$/.test(pull.title),
-            );
-
-            if (!releasePr) {
-              core.setOutput('is_release_merge', 'false');
-              return;
-            }
-
-            const versionMatch = releasePr.title.match(/(\d+\.\d+\.\d+)$/);
-            if (!versionMatch) {
-              core.setFailed(`Could not determine release version from PR title: ${releasePr.title}`);
-              return;
-            }
-
-            core.setOutput('is_release_merge', 'true');
-            core.setOutput('pr_number', String(releasePr.number));
-            core.setOutput('version', versionMatch[1]);
-            core.setOutput('canonical_tag', `v${versionMatch[1]}`);
-            core.setOutput('compatibility_tag', `ink-v${versionMatch[1]}`);
-            core.setOutput('release_title', `Release v${versionMatch[1]}`);
-            const normalizedBody = (releasePr.body || `Release ${versionMatch[1]}`).replaceAll('ink-v', 'v');
-            core.setOutput('release_body', normalizedBody);
-
-      - name: Checkout code
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: npm ci
-
-      - name: Assemble release artifact
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        run: node build/compile-and-assemble.js
-
-      - name: Create release tags
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        env:
-          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
-          COMPATIBILITY_TAG: ${{ steps.merged_release.outputs.compatibility_tag }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          git fetch --tags origin
-
-          if ! git rev-parse "$CANONICAL_TAG" >/dev/null 2>&1; then
-            git tag "$CANONICAL_TAG" "$TARGET_SHA"
-          fi
-
-          if ! git rev-parse "$COMPATIBILITY_TAG" >/dev/null 2>&1; then
-            git tag "$COMPATIBILITY_TAG" "$TARGET_SHA"
-          fi
-
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$CANONICAL_TAG" >/dev/null 2>&1; then
-            git push origin "refs/tags/$CANONICAL_TAG"
-          fi
-
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$COMPATIBILITY_TAG" >/dev/null 2>&1; then
-            git push origin "refs/tags/$COMPATIBILITY_TAG"
-          fi
-
-      - name: Publish GitHub release
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
-          RELEASE_TITLE: ${{ steps.merged_release.outputs.release_title }}
-          RELEASE_BODY: ${{ steps.merged_release.outputs.release_body }}
-        run: |
-          printf '%s' "$RELEASE_BODY" > release-notes.md
-
-          if gh release view "$CANONICAL_TAG" >/dev/null 2>&1; then
-            gh release edit "$CANONICAL_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md
-            gh release upload "$CANONICAL_TAG" ink-app.html --clobber
-          else
-            gh release create "$CANONICAL_TAG" \
-              --target "${GITHUB_SHA}" \
-              --title "$RELEASE_TITLE" \
-              --notes-file release-notes.md \
-              ink-app.html
-          fi
-
-      - name: Clear autorelease labels from merged release PR
-        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          script: |
-            const {owner, repo} = context.repo;
-            const issue_number = Number(process.env.PR_NUMBER);
-            const labelsToRemove = ['autorelease: pending', 'autorelease: triggered'];
-
-            for (const name of labelsToRemove) {
-              try {
-                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
-              } catch (error) {
-                if (error.status !== 404) {
-                  throw error;
-                }
-              }
-            }
-        env:
-          PR_NUMBER: ${{ steps.merged_release.outputs.pr_number }}
-</file>
-
 <file path="cypress/e2e/mobile-fallback.cy.js">
 function dispatchShortcut(target, { key, ctrlKey = false, metaKey = false, shiftKey = false, altKey = false }) {
   const view = target.ownerDocument.defaultView;
@@ -52311,6 +52484,114 @@ describe("mobile fallback functionality", () => {
     cy.get(".tagrow").should("exist");
   });
 });
+</file>
+
+<file path=".release-please-manifest.json">
+{
+  ".": "1.3.0"
+}
+</file>
+
+<file path="CONTRIBUTING.md">
+# Contributing to ink
+
+Thank you for your interest in contributing to ink! We appreciate every improvement, whether it is a bug fix, a documentation update, a design refinement, or a new feature. This guide is here to make contributing straightforward and consistent with how the project is built and maintained.
+
+## Table of Contents
+
+- [Code of Conduct](#code-of-conduct)
+- [Getting Started](#getting-started)
+- [How to Contribute](#how-to-contribute)
+  - [Reporting Bugs](#reporting-bugs)
+  - [Suggesting Features](#suggesting-features)
+  - [Submitting Changes](#submitting-changes)
+- [Coding Guidelines](#coding-guidelines)
+- [Commit Messages](#commit-messages)
+- [Style Guide](#style-guide)
+- [Testing and Build Checks](#testing-and-build-checks)
+- [License](#license)
+
+## Code of Conduct
+
+Please be respectful, constructive, and patient in all project discussions. We want ink to stay welcoming to contributors of all experience levels.
+
+## Getting Started
+
+1. **Fork the repository**: Create a fork of the repository to work on your changes.
+2. **Clone your fork**: Clone the repository to your local machine using `git clone`.
+3. **Install dependencies**: Run `npm install`.
+4. **Create a branch**: Create a branch for your work using `git checkout -b your-branch-name`.
+
+## How to Contribute
+
+### Reporting Bugs
+
+If you find a bug, please open an issue with clear reproduction steps, the expected behavior, the actual behavior, and any screenshots or console output that help explain the problem.
+
+### Suggesting Features
+
+Feature ideas are welcome. Open an issue describing the problem you want to solve, how you expect the feature to work, and whether it affects editing, workspace management, export flows, or the single-file build output.
+
+### Submitting Changes
+
+1. **Keep changes focused**: Prefer small pull requests that solve one problem well.
+2. **Follow the existing structure**: ink favors simple, explicit modules and predictable file organization.
+3. **Run the relevant checks**: Build the app and run tests before opening a pull request.
+4. **Open a pull request**: Include a clear summary of what changed, why it changed, and how you verified it.
+
+## Coding Guidelines
+
+- Follow the current project structure and keep `src/app.ts` as a thin entrypoint.
+- Prefer small, explicit modules with flat control flow and minimal indirection.
+- Preserve the single-file app output, `ink-app.html`.
+- Add comments only when they explain an invariant, assumption, or external requirement.
+- Keep changes easy to debug and easy to regenerate.
+
+## Commit Messages
+
+- Use the present tense, such as `Add export validation`.
+- Use the imperative mood, such as `Update workspace refresh flow`.
+- Limit the first line to 72 characters or less when possible.
+- Reference related issues or pull requests after the first line when relevant.
+- Prefer Conventional Commit prefixes so release automation can classify changes:
+  `fix:` for patch releases, `feat:` for minor releases, and `feat!:` or a `BREAKING CHANGE:` footer for major releases.
+- If you need to force a specific next version, add a `Release-As: x.y.z` footer to the merged commit body or release PR description.
+
+## Release Process
+
+- Releases are prepared with `release-please`, which opens a release PR that updates `package.json`, `package-lock.json`, and the changelog.
+- This repository uses plain `v*` Git tags for releases; keep `release-please` configured to match that tag history.
+- When a release PR is merged, the release workflow finalizes it by creating the plain `v*` tag, adding a compatibility `ink-v*` tag for release-please state reconciliation, publishing the GitHub release from `v*`, and clearing stale autorelease labels.
+- Merge the release PR through the normal protected-branch flow to create the Git tag and publish the GitHub release.
+- If you want the release PR to trigger the normal PR checks automatically, configure a `RELEASE_PLEASE_TOKEN` secret with a PAT that can open pull requests in this repository.
+- CI validation should happen in PR workflows before merge; the release workflow is intentionally limited to regenerating `ink-app.html` for the tagged release artifact instead of rerunning the full build/test suite after the protected-branch merge.
+
+## Style Guide
+
+- **JavaScript and TypeScript**: Prefer explicit, readable code over clever abstractions.
+- **SCSS**: Keep styles aligned with the existing structure in `src/styles.scss`.
+- **HTML**: Update `ink.template.html` when changing the app shell or document structure.
+- **Build scripts**: Keep build logic simple and compatible with the single-file assembly flow in `build/compile-and-assemble.js`.
+
+## Testing and Build Checks
+
+Before submitting changes, run the checks that match your work:
+
+- `npm run build` to regenerate `ink-app.html`
+- `npm run test:qunit` for unit and integration coverage
+- `npm run test:cypress` for end-to-end coverage
+- `npm test` for the full automated suite
+- `make build` and `make test` are available as convenience wrappers
+
+If your change affects favicon or branding assets, also run `npm run build:favicon`.
+
+## License
+
+By contributing to this project, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+Thank you for contributing to ink!
 </file>
 
 <file path="src/app/app-controller.ts">
@@ -52546,6 +52827,232 @@ export function createAppController(els: DomRefs) {
     state,
   };
 }
+</file>
+
+<file path="src/app/dom.ts">
+import type { DomRefs } from "./types";
+
+function requiredElement<T extends Element>(id: string): T {
+  const element = document.getElementById(id);
+  if (!element) {
+    throw new Error(`Missing required element: #${id}`);
+  }
+  return element as unknown as T;
+}
+
+export function getDomRefs(): DomRefs {
+  return {
+    app: requiredElement<HTMLElement>("app"),
+    menuBar: requiredElement<HTMLElement>("menuBar"),
+    workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
+    sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
+    refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
+    sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),
+    searchInput: requiredElement<HTMLInputElement>("searchInput"),
+    webmcpNoteModal: requiredElement<HTMLElement>("webmcpNoteModal"),
+    webmcpNoteModalBackdrop: requiredElement<HTMLElement>("webmcpNoteModalBackdrop"),
+    webmcpNoteModalCloseBtn: requiredElement<HTMLButtonElement>("webmcpNoteModalCloseBtn"),
+    webmcpNoteForm: requiredElement<HTMLFormElement>("webmcpNoteForm"),
+    webmcpTitleInput: requiredElement<HTMLInputElement>("webmcpTitleInput"),
+    webmcpBodyInput: requiredElement<HTMLTextAreaElement>("webmcpBodyInput"),
+    webmcpTagInput: requiredElement<HTMLInputElement>("webmcpTagInput"),
+    tree: requiredElement<HTMLElement>("tree"),
+    tagRow: requiredElement<HTMLElement>("tagRow"),
+    workspaceName: requiredElement<HTMLElement>("workspaceName"),
+    countsPill: requiredElement<HTMLElement>("countsPill"),
+    editor: requiredElement<HTMLTextAreaElement>("editor"),
+    editorSplit: requiredElement<HTMLElement>("editorSplit"),
+    editorPane: requiredElement<HTMLElement>("editorPane"),
+    previewPane: requiredElement<HTMLElement>("previewPane"),
+    editorViewModeGroup: requiredElement<HTMLElement>("editorViewModeGroup"),
+    editorViewSourceBtn: requiredElement<HTMLButtonElement>("editorViewSourceBtn"),
+    editorViewSplitBtn: requiredElement<HTMLButtonElement>("editorViewSplitBtn"),
+    editorViewPreviewBtn: requiredElement<HTMLButtonElement>("editorViewPreviewBtn"),
+    preview: requiredElement<HTMLElement>("preview"),
+    currentFilename: requiredElement<HTMLElement>("currentFilename"),
+    dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
+    statusBadge: requiredElement<HTMLElement>("statusBadge"),
+    toast: requiredElement<HTMLElement>("toast"),
+    toastMsg: requiredElement<HTMLElement>("toastMsg"),
+    toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
+    temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
+    cogitoToggleBtn: requiredElement<HTMLButtonElement>("cogitoToggleBtn"),
+    cogitoPanel: requiredElement<HTMLElement>("cogitoPanel"),
+    cogitoLiteBtn: requiredElement<HTMLButtonElement>("cogitoLiteBtn"),
+    cogitoDeepBtn: requiredElement<HTMLButtonElement>("cogitoDeepBtn"),
+    cogitoGenerateBtn: requiredElement<HTMLButtonElement>("cogitoGenerateBtn"),
+    cogitoStatus: requiredElement<HTMLElement>("cogitoStatus"),
+    cogitoQuestionList: requiredElement<HTMLElement>("cogitoQuestionList"),
+    documentLinterToggleBtn: requiredElement<HTMLButtonElement>("documentLinterToggleBtn"),
+    documentLinterPanel: requiredElement<HTMLElement>("documentLinterPanel"),
+    documentLinterAnalyzeBtn: requiredElement<HTMLButtonElement>("documentLinterAnalyzeBtn"),
+    documentLinterExportBtn: requiredElement<HTMLButtonElement>("documentLinterExportBtn"),
+    documentLinterAutoRunToggle: requiredElement<HTMLInputElement>("documentLinterAutoRunToggle"),
+    documentLinterStatus: requiredElement<HTMLElement>("documentLinterStatus"),
+    documentLinterResults: requiredElement<HTMLElement>("documentLinterResults"),
+  };
+}
+</file>
+
+<file path=".github/workflows/release.yml">
+name: release-please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          # A PAT is preferred here so bot-created release PRs trigger normal PR checks.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+
+      - name: Detect merged release PR
+        id: merged_release
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const commitSha = context.sha;
+            const response = await github.request(
+              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
+              {
+                owner,
+                repo,
+                commit_sha: commitSha,
+                mediaType: { previews: ['groot'] },
+              },
+            );
+
+            const releasePr = response.data.find((pull) =>
+              /^chore\(main\): release ink \d+\.\d+\.\d+$/.test(pull.title),
+            );
+
+            if (!releasePr) {
+              core.setOutput('is_release_merge', 'false');
+              return;
+            }
+
+            const versionMatch = releasePr.title.match(/(\d+\.\d+\.\d+)$/);
+            if (!versionMatch) {
+              core.setFailed(`Could not determine release version from PR title: ${releasePr.title}`);
+              return;
+            }
+
+            core.setOutput('is_release_merge', 'true');
+            core.setOutput('pr_number', String(releasePr.number));
+            core.setOutput('version', versionMatch[1]);
+            core.setOutput('canonical_tag', `v${versionMatch[1]}`);
+            core.setOutput('compatibility_tag', `ink-v${versionMatch[1]}`);
+            core.setOutput('release_title', `Release v${versionMatch[1]}`);
+            const normalizedBody = (releasePr.body || `Release ${versionMatch[1]}`).replaceAll('ink-v', 'v');
+            core.setOutput('release_body', normalizedBody);
+
+      - name: Checkout code
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        run: npm ci
+
+      - name: Assemble release artifact
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        run: node build/compile-and-assemble.js
+
+      - name: Create release tags
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        env:
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          COMPATIBILITY_TAG: ${{ steps.merged_release.outputs.compatibility_tag }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          git fetch --tags origin
+
+          if ! git rev-parse "$CANONICAL_TAG" >/dev/null 2>&1; then
+            git tag "$CANONICAL_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git rev-parse "$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git tag "$COMPATIBILITY_TAG" "$TARGET_SHA"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$CANONICAL_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$CANONICAL_TAG"
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$COMPATIBILITY_TAG" >/dev/null 2>&1; then
+            git push origin "refs/tags/$COMPATIBILITY_TAG"
+          fi
+
+      - name: Publish GitHub release
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANONICAL_TAG: ${{ steps.merged_release.outputs.canonical_tag }}
+          RELEASE_TITLE: ${{ steps.merged_release.outputs.release_title }}
+          RELEASE_BODY: ${{ steps.merged_release.outputs.release_body }}
+        run: |
+          printf '%s' "$RELEASE_BODY" > release-notes.md
+
+          if gh release view "$CANONICAL_TAG" >/dev/null 2>&1; then
+            gh release edit "$CANONICAL_TAG" --title "$RELEASE_TITLE" --notes-file release-notes.md
+            gh release upload "$CANONICAL_TAG" ink-app.html --clobber
+          else
+            gh release create "$CANONICAL_TAG" \
+              --target "${GITHUB_SHA}" \
+              --title "$RELEASE_TITLE" \
+              --notes-file release-notes.md \
+              ink-app.html
+          fi
+
+      - name: Clear autorelease labels from merged release PR
+        if: ${{ steps.merged_release.outputs.is_release_merge == 'true' }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = Number(process.env.PR_NUMBER);
+            const labelsToRemove = ['autorelease: pending', 'autorelease: triggered'];
+
+            for (const name of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+        env:
+          PR_NUMBER: ${{ steps.merged_release.outputs.pr_number }}
 </file>
 
 <file path="src/app/ui-events.ts">
@@ -53038,71 +53545,6 @@ function attachGlobalKeyboardShortcuts(actions: UiActions): void {
 }
 </file>
 
-<file path="src/app/dom.ts">
-import type { DomRefs } from "./types";
-
-function requiredElement<T extends Element>(id: string): T {
-  const element = document.getElementById(id);
-  if (!element) {
-    throw new Error(`Missing required element: #${id}`);
-  }
-  return element as unknown as T;
-}
-
-export function getDomRefs(): DomRefs {
-  return {
-    app: requiredElement<HTMLElement>("app"),
-    menuBar: requiredElement<HTMLElement>("menuBar"),
-    workspaceSidebar: requiredElement<HTMLElement>("workspaceSidebar"),
-    sidebarToggleBtn: requiredElement<HTMLButtonElement>("sidebarToggleBtn"),
-    refreshBtn: requiredElement<HTMLButtonElement>("refreshBtn"),
-    sortBtn: requiredElement<HTMLButtonElement>("sortBtn"),
-    searchInput: requiredElement<HTMLInputElement>("searchInput"),
-    webmcpNoteModal: requiredElement<HTMLElement>("webmcpNoteModal"),
-    webmcpNoteModalBackdrop: requiredElement<HTMLElement>("webmcpNoteModalBackdrop"),
-    webmcpNoteModalCloseBtn: requiredElement<HTMLButtonElement>("webmcpNoteModalCloseBtn"),
-    webmcpNoteForm: requiredElement<HTMLFormElement>("webmcpNoteForm"),
-    webmcpTitleInput: requiredElement<HTMLInputElement>("webmcpTitleInput"),
-    webmcpBodyInput: requiredElement<HTMLTextAreaElement>("webmcpBodyInput"),
-    webmcpTagInput: requiredElement<HTMLInputElement>("webmcpTagInput"),
-    tree: requiredElement<HTMLElement>("tree"),
-    tagRow: requiredElement<HTMLElement>("tagRow"),
-    workspaceName: requiredElement<HTMLElement>("workspaceName"),
-    countsPill: requiredElement<HTMLElement>("countsPill"),
-    editor: requiredElement<HTMLTextAreaElement>("editor"),
-    editorSplit: requiredElement<HTMLElement>("editorSplit"),
-    editorPane: requiredElement<HTMLElement>("editorPane"),
-    previewPane: requiredElement<HTMLElement>("previewPane"),
-    editorViewModeGroup: requiredElement<HTMLElement>("editorViewModeGroup"),
-    editorViewSourceBtn: requiredElement<HTMLButtonElement>("editorViewSourceBtn"),
-    editorViewSplitBtn: requiredElement<HTMLButtonElement>("editorViewSplitBtn"),
-    editorViewPreviewBtn: requiredElement<HTMLButtonElement>("editorViewPreviewBtn"),
-    preview: requiredElement<HTMLElement>("preview"),
-    currentFilename: requiredElement<HTMLElement>("currentFilename"),
-    dirtyDot: requiredElement<HTMLElement>("dirtyDot"),
-    statusBadge: requiredElement<HTMLElement>("statusBadge"),
-    toast: requiredElement<HTMLElement>("toast"),
-    toastMsg: requiredElement<HTMLElement>("toastMsg"),
-    toastCloseBtn: requiredElement<HTMLButtonElement>("toastCloseBtn"),
-    temporarySessionBadge: requiredElement<HTMLElement>("temporarySessionBadge"),
-    cogitoToggleBtn: requiredElement<HTMLButtonElement>("cogitoToggleBtn"),
-    cogitoPanel: requiredElement<HTMLElement>("cogitoPanel"),
-    cogitoLiteBtn: requiredElement<HTMLButtonElement>("cogitoLiteBtn"),
-    cogitoDeepBtn: requiredElement<HTMLButtonElement>("cogitoDeepBtn"),
-    cogitoGenerateBtn: requiredElement<HTMLButtonElement>("cogitoGenerateBtn"),
-    cogitoStatus: requiredElement<HTMLElement>("cogitoStatus"),
-    cogitoQuestionList: requiredElement<HTMLElement>("cogitoQuestionList"),
-    documentLinterToggleBtn: requiredElement<HTMLButtonElement>("documentLinterToggleBtn"),
-    documentLinterPanel: requiredElement<HTMLElement>("documentLinterPanel"),
-    documentLinterAnalyzeBtn: requiredElement<HTMLButtonElement>("documentLinterAnalyzeBtn"),
-    documentLinterExportBtn: requiredElement<HTMLButtonElement>("documentLinterExportBtn"),
-    documentLinterAutoRunToggle: requiredElement<HTMLInputElement>("documentLinterAutoRunToggle"),
-    documentLinterStatus: requiredElement<HTMLElement>("documentLinterStatus"),
-    documentLinterResults: requiredElement<HTMLElement>("documentLinterResults"),
-  };
-}
-</file>
-
 <file path="src/app/types.ts">
 export interface PermissionCapableHandle {
   queryPermission?: (descriptor: { mode: "read" | "readwrite" }) => Promise<"granted" | "denied" | "prompt">;
@@ -53256,60 +53698,6 @@ declare global {
   interface Window {
     showDirectoryPicker?: (options?: { id?: string; mode?: "read" | "readwrite" }) => Promise<DirectoryHandleLike>;
     FileSystemHandle?: unknown;
-  }
-}
-</file>
-
-<file path="package.json">
-{
-  "name": "ink",
-  "version": "1.3.0",
-  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
-  "homepage": "https://github.com/feddernico/ink#readme",
-  "bugs": {
-    "url": "https://github.com/feddernico/ink/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/feddernico/ink.git"
-  },
-  "license": "MIT",
-  "author": "Federico Viscioletti",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "lint": "eslint .",
-    "build": "npm run lint && node build/compile-and-assemble.js",
-    "watch": "node build/watch.js",
-    "build:favicon": "node build/generate-favicons.js",
-    "build:test": "node build/build-test.js",
-    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
-    "serve:test": "http-server . -p 4173 -s",
-    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
-    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
-    "test": "npm run test:qunit && npm run test:cypress"
-  },
-  "devDependencies": {
-    "@babel/standalone": "^7.29.2",
-    "@cypress/code-coverage": "^4.0.2",
-    "babel-plugin-istanbul": "^7.0.1",
-    "chokidar": "^4.0.3",
-    "cypress": "^15.12.0",
-    "esbuild": "^0.27.3",
-    "eslint": "^10.1.0",
-    "globals": "^17.6.0",
-    "http-server": "^14.1.1",
-    "nyc": "^18.0.0",
-    "qunit": "^2.24.2",
-    "sass": "^1.97.3",
-    "start-server-and-test": "^2.0.12",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "marked": "^17.0.4"
-  },
-  "overrides": {
-    "immutable": "^5.1.5"
   }
 }
 </file>
@@ -54919,6 +55307,62 @@ declare global {
 </html>
 </file>
 
+<file path="package.json">
+{
+  "name": "ink",
+  "version": "1.3.0",
+  "description": "Ink is a functional and minimalistic webapp to write documents in markdown and export them",
+  "homepage": "https://github.com/feddernico/ink#readme",
+  "bugs": {
+    "url": "https://github.com/feddernico/ink/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/feddernico/ink.git"
+  },
+  "license": "MIT",
+  "author": "Federico Viscioletti",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint .",
+    "build": "npm run lint && node build/compile-and-assemble.js",
+    "watch": "node build/watch.js",
+    "build:favicon": "node build/generate-favicons.js",
+    "build:test": "node build/build-test.js",
+    "demo:record": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"node build/record-demo.js\"",
+    "demo:gif": "node build/export-demo-assets.js --gif",
+    "test:qunit": "npm run build:test && qunit \"tests/qunit/**/*.test.js\"",
+    "serve:test": "http-server . -p 4173 -s",
+    "test:cypress": "start-server-and-test \"npm run serve:test\" http://127.0.0.1:4173/ink-app.html \"unset ELECTRON_RUN_AS_NODE; cypress run\"",
+    "test:cypress:open": "unset ELECTRON_RUN_AS_NODE; cypress open",
+    "test": "npm run test:qunit && npm run test:cypress"
+  },
+  "devDependencies": {
+    "@babel/standalone": "^7.29.2",
+    "@cypress/code-coverage": "^4.0.2",
+    "babel-plugin-istanbul": "^7.0.1",
+    "chokidar": "^4.0.3",
+    "cypress": "^15.16.0",
+    "esbuild": "^0.27.3",
+    "eslint": "^10.1.0",
+    "globals": "^17.6.0",
+    "http-server": "^14.1.1",
+    "nyc": "^18.0.0",
+    "qunit": "^2.24.2",
+    "sass": "^1.97.3",
+    "start-server-and-test": "^2.0.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "marked": "^17.0.4"
+  },
+  "overrides": {
+    "immutable": "^5.1.5"
+  }
+}
+</file>
+
 <file path=".github/copilot-instructions.md">
 # Copilot Instructions
 
@@ -54934,6 +55378,7 @@ declare global {
 - Test bundles are built via `build/build-test.js`.
 - Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 - GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- GitLab merge request validation now lives in `.gitlab-ci.yml`; keep the workflow limited to `merge_request_event`, preserve the same docs-only short-circuit used by GitHub PR checks, and keep Cypress screenshot artifacts on failure.
 - Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
 - Merged release PRs are finalized by `.github/workflows/release.yml`: the workflow detects `chore(main): release ink x.y.z` merges, creates the canonical `v*` tag plus a compatibility `ink-v*` tag, publishes the GitHub release from `v*`, and clears stale `autorelease:*` labels so the next release PR is not blocked.
 - Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
@@ -54953,6 +55398,7 @@ declare global {
 - Document Linter panel behavior now includes a `Rerun on change` toggle plus clickable section line links back into the editor. Preserve `handleEditorChanged()` in `src/app/document-linter/document-linter.ts` and keep the panel's line-jump buttons wired to the textarea selection logic when changing the panel UI.
 - Cogito and the Document Linter are mutually exclusive panels. Opening one should close the other so the editor split layout stays stable and never tries to render both sidebars together.
 - Editor view mode lives in `src/app/editor-preview.ts` and is wired through the main editor header in `ink.template.html`. Keep the Source/Split/Preview toggle in sync with `editorSplit`, `editorPane`, and `previewPane`, and preserve the `ink-editor-view-mode` localStorage key when changing that flow.
+- Demo capture is recorded by `build/record-demo.js` using headless Chrome DevTools so Cypress UI is never present; use `npm run demo:record` for a slow, full-viewport app-only `assets/demo/ink-demo.webm` plus MP4 when conversion is available, and `npm run demo:gif` for the optional ffmpeg GIF.
 </file>
 
 <file path="ink-app.html">

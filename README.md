@@ -11,6 +11,10 @@ Ink is a functional and minimalistic webapp to write documents in markdown and e
 ![GitHub Pages](https://img.shields.io/badge/Deployed%20on-GitHub%20Pages-222222?logo=github&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Quick Demo
+
+![](assets/demo/ink-demo.gif)
+
 ## Repo Structure
 
 The structure of the repo is as follows:
@@ -32,6 +36,8 @@ build/
   assemble-single-file.js
   compile-and-assemble.js
   build-test.js
+  record-demo.js
+  export-demo-assets.js
   generate-favicons.js
   watch.js
   inject.js  (Compatibility alias)
@@ -40,6 +46,10 @@ assets/
   branding/
     logo.svg
     favicon.svg
+  demo/
+    ink-demo.webm
+    ink-demo.mp4
+    ink-demo.gif
 tests/
   qunit/
 cypress/
@@ -68,6 +78,24 @@ Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run bu
 - Regenerate favicon after logo updates: `npm run build:favicon`
 
 `npm run build` also regenerates favicon assets before assembling `ink-app.html`.
+
+## Demo Capture
+
+The project can record the first-use Ink flow as a reusable video asset:
+
+```bash
+npm run demo:record
+```
+
+The command starts the local test server, launches headless Chrome against the full Ink viewport, and writes a clean app-only recording to `assets/demo/ink-demo.webm`. When macOS `avconvert` can convert the browser recording, it also writes `assets/demo/ink-demo.mp4`. The demo shows opening a workspace, creating `getting-started.md`, writing markdown slowly, saving, and switching to the rendered preview.
+
+To generate a GIF from the recorded video, install `ffmpeg` and run:
+
+```bash
+npm run demo:gif
+```
+
+GIF output is written to `assets/demo/ink-demo.gif`. Keep the MP4 as the canonical demo asset because it is smaller and clearer than a full-app GIF.
 
 ## Workflow Cheat Sheet
 
