@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/feddernico/ink/compare/ink-v1.3.1...ink-v1.4.0) (2026-06-19)
+
+
+### Features
+
+* add automated Ink demo capture ([2e78ec0](https://github.com/feddernico/ink/commit/2e78ec0cd00b46b7fbada32b47e58a93d516cdda))
+
 ## [1.3.1](https://github.com/feddernico/ink/compare/ink-v1.3.0...ink-v1.3.1) (2026-06-19)
 
 
