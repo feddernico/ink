@@ -12,3 +12,5 @@ On mobile devices, tapping the textarea causes unwanted zoom because the font-si
 - Affected specs: mobile-support
 - Affected code: src/styles.scss
 - Breaking changes: none (style-only improvement)
+
+.
