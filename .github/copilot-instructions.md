@@ -12,6 +12,7 @@
 - Test bundles are built via `build/build-test.js`.
 - Dependency security overrides live in `package.json` under `overrides` (immutable pinned to 5.1.5+).
 - GitHub workflows should stay triggerable for PRs and use job-level docs-only gating rather than workflow-level path filters so required checks do not remain pending.
+- GitLab merge request validation now lives in `.gitlab-ci.yml`; keep the workflow limited to `merge_request_event`, preserve the same docs-only short-circuit used by GitHub PR checks, and keep Cypress screenshot artifacts on failure.
 - Release automation is handled by `release-please`; keep `release-please-config.json` and `.release-please-manifest.json` aligned with the latest published tag, keep root tags in the existing plain `v*` format, and prefer Conventional Commit subjects (`fix:`, `feat:`, `deps:`) so release PRs are generated correctly.
 - Merged release PRs are finalized by `.github/workflows/release.yml`: the workflow detects `chore(main): release ink x.y.z` merges, creates the canonical `v*` tag plus a compatibility `ink-v*` tag, publishes the GitHub release from `v*`, and clears stale `autorelease:*` labels so the next release PR is not blocked.
 - Protected-branch repos should prefer a `RELEASE_PLEASE_TOKEN` PAT for the release workflow so bot-created release PRs trigger the normal PR checks.
@@ -31,3 +32,4 @@
 - Document Linter panel behavior now includes a `Rerun on change` toggle plus clickable section line links back into the editor. Preserve `handleEditorChanged()` in `src/app/document-linter/document-linter.ts` and keep the panel's line-jump buttons wired to the textarea selection logic when changing the panel UI.
 - Cogito and the Document Linter are mutually exclusive panels. Opening one should close the other so the editor split layout stays stable and never tries to render both sidebars together.
 - Editor view mode lives in `src/app/editor-preview.ts` and is wired through the main editor header in `ink.template.html`. Keep the Source/Split/Preview toggle in sync with `editorSplit`, `editorPane`, and `previewPane`, and preserve the `ink-editor-view-mode` localStorage key when changing that flow.
+- Demo capture is recorded by `build/record-demo.js` using headless Chrome DevTools so Cypress UI is never present; use `npm run demo:record` for a slow, full-viewport app-only `assets/demo/ink-demo.webm` plus MP4 when conversion is available, and `npm run demo:gif` for the optional ffmpeg GIF.
