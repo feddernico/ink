@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/feddernico/ink/compare/ink-v1.3.0...ink-v1.3.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* prevent mobile textarea auto-zoom on tap ([86d66f8](https://github.com/feddernico/ink/commit/86d66f8a4a95ec59d7e5b7b7e36d774c4fd9710f))
+* prevent textarea auto-zoom on mobile ([836dbc9](https://github.com/feddernico/ink/commit/836dbc9a4ce373e13b79bd7d3af03448bea1fca1))
+
 ## [1.3.0](https://github.com/feddernico/ink/compare/ink-v1.2.1...ink-v1.3.0) (2026-06-02)
 
 
