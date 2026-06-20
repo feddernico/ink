@@ -1068,7 +1068,7 @@
       backdrop-filter: blur(10px);
     }
     .toast.show{ display: block; }
-    .toast .trow{ display: flex; gap: 10px; align-items: flex-start; }
+    .toast .trow{ display: flex; gap: 10px; align-items: center; }
     .toast .trow .tmsg{ flex: 1 1 auto; }
     .toast .trow button{
       padding: 6px 8px;
