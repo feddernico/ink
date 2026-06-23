@@ -15,7 +15,11 @@ import { createCogitoController } from "./cogito";
 import { createDocumentLinterController } from "./document-linter/document-linter";
 import type { AppState, DeclarativeNoteInput, DeclarativeNoteResult, DomRefs } from "./types";
 
-type RescanWorkspaceFn = (options?: { silent?: boolean }) => Promise<void>;
+type RescanWorkspaceFn = (options?: {
+  silent?: boolean;
+  throwOnError?: boolean;
+  showProgress?: boolean;
+}) => Promise<boolean>;
 
 export function bootstrapInkApp(): void {
   const app = createAppController(getDomRefs());
@@ -37,7 +41,8 @@ export function createAppController(els: DomRefs) {
     tagFilter: "",
     sortMode: "name",
     collapsedDirs: new Set<string>(),
-    autoRefreshMs: 10000,
+    autoRefreshMs: 60000,
+    lastWorkspaceInteractionAt: Date.now(),
     autoRefreshTimer: null,
     isSidebarCollapsed: false,
     isTemporarySession: false,
@@ -61,7 +66,7 @@ export function createAppController(els: DomRefs) {
   });
 
   const rescanWorkspaceRef: { current: RescanWorkspaceFn } = {
-    current: async () => {},
+    current: async () => false,
   };
 
   const autoRefresh = createAutoRefresh({
@@ -129,43 +134,33 @@ export function createAppController(els: DomRefs) {
     documentLinterController.handleEditorChanged(value);
   }
 
-  function openCogitoPanel(): void {
-    documentLinterController.closePanel();
-    state.isCogitoModeEnabled = true;
-    cogitoController.setPanelOpen(true);
-  }
+  let cogitoController: ReturnType<typeof createCogitoController>;
+  const documentLinterController = createDocumentLinterController({
+    els,
+    getEditorText: () => els.editor.value,
+    onEditorContentReplaced: (text) => handleEditorInput(text),
+    showToast,
+    setStatus: (message, kind) => setStatus(els, message, kind),
+    onAnalysisUpdated: (_analysis, revision) => {
+      cogitoController?.markAnalysisChanged(revision);
+    },
+  });
 
-  function closeCogitoPanel(): void {
-    state.isCogitoModeEnabled = false;
-    cogitoController.closePanel();
-  }
+  cogitoController = createCogitoController({
+    els,
+    getEditorText: () => els.editor.value,
+    onEditorContentReplaced: (text) => handleEditorInput(text),
+    showToast,
+    setStatus: (message, kind) => setStatus(els, message, kind),
+    getDocumentAnalysis: () => documentLinterController.getLatestAnalysis(),
+    getAnalysisRevision: () => documentLinterController.getAnalysisRevision(),
+  });
 
-  function openDocumentLinterPanel(): void {
-    if (cogitoController.isPanelOpen()) {
-      closeCogitoPanel();
-    }
-    documentLinterController.setPanelOpen(true);
+  function setCogitoPanelOpen(isOpen: boolean): void {
+    state.isCogitoModeEnabled = isOpen;
+    cogitoController.setPanelOpen(isOpen);
+    documentLinterController.setActive(isOpen);
   }
-
-  function closeDocumentLinterPanel(): void {
-    documentLinterController.closePanel();
-  }
-
-   const cogitoController = createCogitoController({
-     els,
-     getEditorText: () => els.editor.value,
-     onEditorContentReplaced: (text) => handleEditorInput(text),
-     showToast,
-     setStatus: (message, kind) => setStatus(els, message, kind),
-   });
-   
-   const documentLinterController = createDocumentLinterController({
-     els,
-     getEditorText: () => els.editor.value,
-     onEditorContentReplaced: (text) => handleEditorInput(text),
-     showToast,
-     setStatus: (message, kind) => setStatus(els, message, kind),
-   });
 
   function initialize(): void {
     marked.use({ breaks: true });
@@ -188,26 +183,15 @@ export function createAppController(els: DomRefs) {
          createNoteFromTool: (input: DeclarativeNoteInput): Promise<DeclarativeNoteResult> =>
            workspaceActions.createNoteFromTool(input),
          openWorkspace: workspaceActions.openWorkspace,
-         exportAsJson: workspaceActions.exportAsJson,
+        exportAsJson: workspaceActions.exportAsJson,
         exportAsMarkdown: workspaceActions.exportAsMarkdown,
         toggleCogitoPanel: () => {
-           if (cogitoController.isPanelOpen()) {
-             closeCogitoPanel();
-             return;
-           }
-           openCogitoPanel();
+          setCogitoPanelOpen(!cogitoController.isPanelOpen());
          },
          selectCogitoModel: (model) => cogitoController.selectModel(model),
          generateCogitoQuestions: () => cogitoController.generateQuestions(),
          insertCogitoQuestion: (index) => cogitoController.insertQuestionAtIndex(index),
          setEditorViewMode: (mode) => setEditorViewMode(els, state, mode),
-         toggleDocumentLinterPanel: () => {
-           if (documentLinterController.isPanelOpen()) {
-             closeDocumentLinterPanel();
-             return;
-           }
-           openDocumentLinterPanel();
-         },
          analyzeDocument: () => documentLinterController.analyzeDocument(),
          exportDocumentLinterSuggestions: () => documentLinterController.exportSuggestions(),
          hideToast,

@@ -51,8 +51,6 @@ export function getDomRefs(): DomRefs {
     cogitoGenerateBtn: requiredElement<HTMLButtonElement>("cogitoGenerateBtn"),
     cogitoStatus: requiredElement<HTMLElement>("cogitoStatus"),
     cogitoQuestionList: requiredElement<HTMLElement>("cogitoQuestionList"),
-    documentLinterToggleBtn: requiredElement<HTMLButtonElement>("documentLinterToggleBtn"),
-    documentLinterPanel: requiredElement<HTMLElement>("documentLinterPanel"),
     documentLinterAnalyzeBtn: requiredElement<HTMLButtonElement>("documentLinterAnalyzeBtn"),
     documentLinterExportBtn: requiredElement<HTMLButtonElement>("documentLinterExportBtn"),
     documentLinterAutoRunToggle: requiredElement<HTMLInputElement>("documentLinterAutoRunToggle"),

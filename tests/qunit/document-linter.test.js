@@ -112,16 +112,11 @@ class FakeElement {
 }
 
 function createControllerDomRefs() {
-  const split = new FakeElement("div");
-  const panel = new FakeElement("aside");
-  panel.closestMap.set(".split", split);
   const editor = new FakeElement("textarea");
   editor.value = "";
 
   return {
     editor,
-    documentLinterPanel: panel,
-    documentLinterToggleBtn: new FakeElement("button"),
     documentLinterAnalyzeBtn: new FakeElement("button"),
     documentLinterExportBtn: new FakeElement("button"),
     documentLinterAutoRunToggle: new FakeElement("input"),
@@ -148,6 +143,7 @@ QUnit.module("document-linter", (hooks) => {
     global.document = fakeDocument;
     global.window = {
       setTimeout,
+      clearTimeout,
       getComputedStyle() {
         return { lineHeight: "20" };
       },
@@ -375,6 +371,7 @@ Why not bannarpo?`;
     const els = createControllerDomRefs();
     const toasts = [];
     const statuses = [];
+    const analysisUpdates = [];
     let currentText = "";
 
     const controller = createDocumentLinterController({
@@ -387,11 +384,12 @@ Why not bannarpo?`;
       setStatus: (message, kind) => {
         statuses.push({ message, kind });
       },
+      onAnalysisUpdated: (analysis, revision) => {
+        analysisUpdates.push({ analysis, revision });
+      },
     });
 
-    controller.setPanelOpen(true);
-    assert.strictEqual(els.documentLinterPanel.hidden, false, "panel should open");
-    assert.ok(els.documentLinterToggleBtn.getAttribute("aria-expanded") === "true", "toggle should reflect panel visibility");
+    controller.setActive(true);
 
     await controller.analyzeDocument();
 
@@ -418,15 +416,22 @@ Why not bannarpo?`;
       "summary markup should include the overall score block",
     );
     assert.deepEqual(statuses.at(-1), { message: "Analysis complete", kind: "ok" }, "successful analysis should report ok status");
+    assert.strictEqual(controller.getLatestAnalysis().overallScore > 0, true, "latest analysis should be available to Cogito");
+    assert.strictEqual(controller.getAnalysisRevision(), 1, "analysis revision should advance");
+    assert.strictEqual(analysisUpdates.length, 1, "analysis updates should be published to the unified panel orchestrator");
 
     els.documentLinterAutoRunToggle.checked = true;
     els.documentLinterAutoRunToggle.dispatchEvent({ type: "change" });
     currentText = `${currentText}\n- Start with the market tolls`;
     els.editor.value = currentText;
-
-    await controller.handleEditorChanged(currentText);
+    const firstScheduledAnalysis = controller.handleEditorChanged(currentText);
+    currentText = `${currentText}\n- Finish with the harbor records`;
+    els.editor.value = currentText;
+    const secondScheduledAnalysis = controller.handleEditorChanged(currentText);
+    await Promise.all([firstScheduledAnalysis, secondScheduledAnalysis]);
 
     assert.strictEqual(els.documentLinterStatus.textContent, "Analysis complete", "rerun on change should trigger a fresh analysis");
+    assert.strictEqual(controller.getAnalysisRevision(), 2, "rapid edits should coalesce into one new analysis revision");
 
     currentText = "## Summary\nUpdated text";
     els.editor.value = currentText;

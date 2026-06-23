@@ -71,6 +71,15 @@ The webapp is released as a single HTML file (`ink-app.html`).
 
 Canonical build entrypoint: `build/compile-and-assemble.js` (used by `npm run build`).
 
+## Cogito Writing Assistance
+
+Cogito is the single writing-assistance entrypoint in the top-right menu bar. Its side panel combines:
+
+- **Document strength**: deterministic analysis of clarity, structure, readability, engagement, and section-level priorities. Analysis can be run manually, rerun after edits, navigated by line, and exported as Markdown.
+- **Improve with Cogito**: exactly three question-only coaching prompts grounded in the latest sentence. When document analysis is available, Cogito uses a compact summary of its priorities and strengths to focus those questions.
+
+Document analysis does not require the language model. Cogito's local WebLLM model is loaded only when coaching questions are generated, and generated questions are never inserted without an explicit user action.
+
 ## Branding Assets
 
 - Canonical logo source: `assets/branding/logo.svg`

@@ -185,25 +185,13 @@
          id="cogitoToggleBtn"
          class="menu-action-btn ghost"
          type="button"
-         title="Toggle Cogito Mode"
-         aria-label="Toggle Cogito Mode"
+         title="Toggle document strength and Cogito coaching"
+         aria-label="Toggle document strength and Cogito coaching"
          aria-expanded="false"
          aria-controls="cogitoPanel"
        >
          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-brain-icon lucide-brain"><path d="M12 18V5"></path><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"></path><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"></path><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"></path><path d="M18 18a4 4 0 0 0 2-7.464"></path><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"></path><path d="M6 18a4 4 0 0 1-2-7.464"></path><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"></path></svg>
          <span class="menu-action-label">Cogito</span>
-       </button>
-       <button
-         id="documentLinterToggleBtn"
-         class="menu-action-btn ghost"
-         type="button"
-         title="Toggle Document Linter"
-         aria-label="Toggle Document Linter"
-         aria-expanded="false"
-         aria-controls="documentLinterPanel"
-       >
-         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-         <span class="menu-action-label">Linter</span>
        </button>
     </nav>
 
@@ -243,7 +231,7 @@
             <button id="sortBtn" class="ghost" title="Toggle sort mode">Sort: Name</button>
             <button id="refreshBtn" class="ghost" title="Rescan folder">Refresh</button>
           </div>
-          <div class="small" id="refreshHint" title="Auto-refresh rescans periodically">Auto-refresh: On</div>
+          <div class="small" id="refreshHint" title="Auto-refresh runs after an idle period">Auto-refresh: Idle</div>
         </div>
 
         <div class="tagrow" id="tagRow" aria-label="Tags"></div>
@@ -287,9 +275,41 @@
         <div id="previewPane" class="previewPane" aria-label="Markdown preview">
           <div class="preview" id="preview"></div>
         </div>
-        <aside id="cogitoPanel" class="cogitoPanel" aria-label="Cogito Mode panel" hidden>
-          <header class="cogitoHeader">
-            <strong>Cogito Mode</strong>
+        <aside id="cogitoPanel" class="cogitoPanel" aria-label="Document strength and Cogito coaching panel" hidden>
+          <header class="cogitoPanelHeader">
+            <div>
+              <strong>Cogito</strong>
+              <p class="small">Understand your document, then improve it through focused questions.</p>
+            </div>
+          </header>
+
+          <section class="cogitoSection" aria-labelledby="documentStrengthTitle">
+            <header class="cogitoSectionHeader">
+              <div>
+                <h2 id="documentStrengthTitle">Document strength</h2>
+                <p class="small">Deterministic feedback about clarity, structure, and engagement.</p>
+              </div>
+              <div class="cogitoSectionActions">
+                <button id="documentLinterAnalyzeBtn" class="ghost" type="button" title="Analyze document">Analyze</button>
+                <button id="documentLinterExportBtn" class="ghost" type="button" title="Export suggestions">Export</button>
+              </div>
+            </header>
+            <label class="documentLinterAutoRun" for="documentLinterAutoRunToggle">
+              <input id="documentLinterAutoRunToggle" type="checkbox" />
+              <span>Rerun on change</span>
+            </label>
+            <p id="documentLinterStatus" class="small">Analyze your document to see its strengths and priorities.</p>
+            <div id="documentLinterResults" class="documentLinterResults"></div>
+          </section>
+
+          <section class="cogitoSection" aria-labelledby="cogitoCoachTitle">
+            <header class="cogitoSectionHeader">
+              <div>
+                <h2 id="cogitoCoachTitle">Improve with Cogito</h2>
+                <p class="small">Generate three questions grounded in your latest sentence and current analysis.</p>
+              </div>
+              <button id="cogitoGenerateBtn" class="ghost" type="button" title="Generate 3 questions">Generate</button>
+            </header>
             <div class="cogitoModelPicker" role="group" aria-label="Model selection">
               <button id="cogitoLiteBtn" class="cogitoModelBtn active" type="button" title="Lite — fast local model (Llama 1B)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -300,24 +320,10 @@
                 Deep
               </button>
             </div>
-            <button id="cogitoGenerateBtn" class="ghost" type="button" title="Generate 3 questions">Generate</button>
-          </header>
-          <p id="cogitoStatus" class="small">Enable Cogito Mode and generate questions from your last sentence.</p>
-          <ul id="cogitoQuestionList" class="cogitoQuestionList" aria-label="Cogito questions"></ul>
-         </aside>
-         <aside id="documentLinterPanel" class="documentLinterPanel" aria-label="Document Linter panel" hidden>
-           <header class="documentLinterHeader">
-             <strong>Document Linter</strong>
-             <button id="documentLinterAnalyzeBtn" class="ghost" type="button" title="Analyze document">Analyze</button>
-             <button id="documentLinterExportBtn" class="ghost" type="button" title="Export suggestions">Export</button>
-           </header>
-           <label class="documentLinterAutoRun" for="documentLinterAutoRunToggle">
-             <input id="documentLinterAutoRunToggle" type="checkbox" />
-             <span>Rerun on change</span>
-           </label>
-           <p id="documentLinterStatus" class="small">Enable Document Linter and analyze your document.</p>
-           <div id="documentLinterResults" class="documentLinterResults"></div>
-         </aside>
+            <p id="cogitoStatus" class="small">Analyze first for more focused coaching, or generate from your latest sentence now.</p>
+            <ul id="cogitoQuestionList" class="cogitoQuestionList" aria-label="Cogito questions"></ul>
+          </section>
+        </aside>
        </section>
      </main>
   </div>

@@ -109,7 +109,9 @@ describe("document linter export", () => {
     cy.get("[data-action=\"new-note\"]").click({ force: true });
     cy.get("#editor").clear().type(noteContent);
 
-    cy.get("#documentLinterToggleBtn").click();
+    cy.get("#documentLinterToggleBtn").should("not.exist");
+    cy.get("#cogitoToggleBtn").click();
+    cy.get("#cogitoPanel").should("be.visible");
     cy.get("#documentLinterAnalyzeBtn").click();
     cy.get("#statusBadge").should("contain", "Analysis complete");
 

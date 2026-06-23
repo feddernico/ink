@@ -1,53 +1,31 @@
-import type { AppState } from "./types";
-
-type ToastFn = (message: string, options?: { persist?: boolean }) => void;
-type StatusFn = (message: string | null, kind?: "neutral" | "ok" | "warn" | "err") => void;
-
-type EnsurePermission = (handle: NonNullable<AppState["workspaceHandle"]>, mode: "read" | "readwrite") => Promise<boolean>;
-const MINIMUM_IDLE_MS = 5000;
-
-type RescanWorkspace = (options?: {
-  silent?: boolean;
-  throwOnError?: boolean;
-  showProgress?: boolean;
-}) => Promise<boolean>;
-
-export function createAutoRefresh({
+// src/app/auto-refresh.ts
+var MINIMUM_IDLE_MS = 5e3;
+function createAutoRefresh({
   state,
   ensurePermission,
   rescanWorkspace,
   showToast,
-  setStatus,
-}: {
-  state: AppState;
-  ensurePermission: EnsurePermission;
-  rescanWorkspace: RescanWorkspace;
-  showToast: ToastFn;
-  setStatus: StatusFn;
+  setStatus
 }) {
-  function startAutoRefresh(): void {
+  function startAutoRefresh() {
     stopAutoRefresh();
     state.autoRefreshTimer = setInterval(() => {
-      runAutoRefresh().catch((error: unknown) => {
+      runAutoRefresh().catch((error) => {
         showToast(`Auto-refresh failed: ${String(error)}`, { persist: true });
         setStatus("Auto-refresh failed", "err");
       });
     }, state.autoRefreshMs);
   }
-
-  async function runAutoRefresh(): Promise<void> {
+  async function runAutoRefresh() {
     if (!state.workspaceHandle) {
       return;
     }
-
     if (state.isDirty) {
       return;
     }
-
     if (Date.now() - state.lastWorkspaceInteractionAt < MINIMUM_IDLE_MS) {
       return;
     }
-
     try {
       const permissionGranted = await ensurePermission(state.workspaceHandle, "read");
       if (!permissionGranted) {
@@ -59,20 +37,20 @@ export function createAutoRefresh({
       setStatus("Permission revoked", "err");
       return;
     }
-
     await rescanWorkspace({ silent: true });
   }
-
-  function stopAutoRefresh(): void {
+  function stopAutoRefresh() {
     if (state.autoRefreshTimer) {
       clearInterval(state.autoRefreshTimer);
       state.autoRefreshTimer = null;
     }
   }
-
   return {
     startAutoRefresh,
     stopAutoRefresh,
-    runAutoRefresh,
+    runAutoRefresh
   };
 }
+export {
+  createAutoRefresh
+};

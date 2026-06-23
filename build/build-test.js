@@ -15,6 +15,10 @@ const bundles = [
     outfile: "dist/test/fs-api.js",
   },
   {
+    entryPoints: ["src/app/auto-refresh.ts"],
+    outfile: "dist/test/auto-refresh.js",
+  },
+  {
     entryPoints: ["src/app/utils.ts"],
     outfile: "dist/test/utils.js",
   },

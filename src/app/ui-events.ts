@@ -21,7 +21,6 @@ export type UiActions = {
   generateCogitoQuestions: () => Promise<void>;
   insertCogitoQuestion: (index: number) => void;
   setEditorViewMode: (mode: EditorViewMode) => void;
-  toggleDocumentLinterPanel: () => void;
   analyzeDocument: () => Promise<void>;
   exportDocumentLinterSuggestions: () => Promise<void>;
   hideToast: () => void;
@@ -268,10 +267,6 @@ export function attachUiEvents({
     }
 
     actions.setEditorViewMode(mode);
-  });
-
-  els.documentLinterToggleBtn.addEventListener("click", () => {
-    actions.toggleDocumentLinterPanel();
   });
 
   els.documentLinterAnalyzeBtn.addEventListener("click", () => {

@@ -51,7 +51,7 @@ type LinterCategoryResult = {
 
 type LinterResults = Record<LinterCategoryId, LinterCategoryResult>;
 
-type LinterAnalysis = {
+export type LinterAnalysis = {
   scores: LinterResults;
   overallScore: number;
   overview: {
@@ -74,13 +74,12 @@ type LinterAnalysis = {
 };
 
 type DocumentLinterController = {
-  togglePanel: () => void;
-  setPanelOpen: (isOpen: boolean) => void;
-  isPanelOpen: () => boolean;
-  closePanel: () => void;
+  setActive: (isActive: boolean) => void;
   handleEditorChanged: (textSnapshot?: string) => Promise<void>;
   analyzeDocument: () => Promise<void>;
   exportSuggestions: () => Promise<void>;
+  getLatestAnalysis: () => LinterAnalysis | null;
+  getAnalysisRevision: () => number;
 };
 
 type MarkdownBlock =
@@ -114,6 +113,8 @@ const CATEGORY_META: Array<{ id: LinterCategoryId; title: string; color: string 
   { id: "style", title: "Style", color: "#9C27B0" },
   { id: "structure", title: "Structure", color: "#607D8B" },
 ];
+
+const AUTO_RUN_DEBOUNCE_MS = 300;
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
@@ -1122,21 +1123,40 @@ export function createDocumentLinterController({
   onEditorContentReplaced: _onEditorContentReplaced,
   showToast,
   setStatus,
+  onAnalysisUpdated,
 }: {
   els: DomRefs;
   getEditorText: () => string;
   onEditorContentReplaced: (text: string) => void;
   showToast: ToastFn;
   setStatus: SetStatusFn;
+  onAnalysisUpdated?: (analysis: LinterAnalysis, revision: number) => void;
 }): DocumentLinterController {
-  let isPanelOpen = false;
+  let isActive = false;
   let isAnalyzing = false;
   let autoRunEnabled = false;
   let lastAnalysis: LinterAnalysis | null = null;
   let lastTextSnapshot = "";
+  let analysisRevision = 0;
+  let autoRunTimer: ReturnType<typeof setTimeout> | null = null;
+  let autoRunResolvers: Array<() => void> = [];
 
   async function runAnalysis(textSnapshot: string = getEditorText()): Promise<LinterAnalysis> {
     return Promise.resolve(analyzeDocumentText(textSnapshot));
+  }
+
+  function resolveScheduledAutoRun(): void {
+    const resolvers = autoRunResolvers;
+    autoRunResolvers = [];
+    resolvers.forEach((resolve) => resolve());
+  }
+
+  function cancelScheduledAutoRun(): void {
+    if (autoRunTimer !== null) {
+      clearTimeout(autoRunTimer);
+      autoRunTimer = null;
+    }
+    resolveScheduledAutoRun();
   }
 
   function scrollEditorToLine(lineNumber: number): void {
@@ -1153,17 +1173,6 @@ export function createDocumentLinterController({
       : Number.NaN;
     const lineHeight = Number.isFinite(computedLineHeight) ? computedLineHeight : 20;
     els.editor.scrollTop = Math.max(0, (clampedLine - 1) * lineHeight);
-  }
-
-  function setPanelVisibility(isOpen: boolean): void {
-    isPanelOpen = isOpen;
-    els.documentLinterPanel.hidden = !isOpen;
-    els.documentLinterToggleBtn.setAttribute("aria-expanded", String(isOpen));
-
-    const split = els.documentLinterPanel.closest(".split");
-    if (split) {
-      split.classList.toggle("with-document-linter", isOpen);
-    }
   }
 
   function updateResultsPanel(analysis: LinterAnalysis): void {
@@ -1291,8 +1300,10 @@ export function createDocumentLinterController({
     try {
       const analysis = await runAnalysis(text);
       lastAnalysis = analysis;
+      analysisRevision += 1;
       updateResultsPanel(analysis);
       els.documentLinterStatus.textContent = "Analysis complete";
+      onAnalysisUpdated?.(analysis, analysisRevision);
       showToast("Document analysis completed");
       setStatus("Analysis complete", "ok");
     } catch (error) {
@@ -1322,6 +1333,11 @@ export function createDocumentLinterController({
       const analysis = needsFreshAnalysis ? await runAnalysis(text) : lastAnalysis;
       lastAnalysis = analysis;
       lastTextSnapshot = text;
+      if (needsFreshAnalysis) {
+        analysisRevision += 1;
+        updateResultsPanel(analysis);
+        onAnalysisUpdated?.(analysis, analysisRevision);
+      }
       const report = buildDocumentLinterReport(text, analysis);
       downloadMarkdownReport(report);
       showToast("Exported linter review as Markdown.");
@@ -1333,8 +1349,9 @@ export function createDocumentLinterController({
   }
 
   async function handleEditorChanged(textSnapshot: string = getEditorText()): Promise<void> {
-    if (!isPanelOpen || !autoRunEnabled || isAnalyzing || !textSnapshot.trim()) {
-      if (!textSnapshot.trim() && autoRunEnabled && isPanelOpen) {
+    if (!isActive || !autoRunEnabled || isAnalyzing || !textSnapshot.trim()) {
+      cancelScheduledAutoRun();
+      if (!textSnapshot.trim() && autoRunEnabled && isActive) {
         lastAnalysis = null;
         lastTextSnapshot = textSnapshot;
         els.documentLinterStatus.textContent = "No content to analyze";
@@ -1344,12 +1361,29 @@ export function createDocumentLinterController({
     if (textSnapshot === lastTextSnapshot) {
       return Promise.resolve();
     }
-    return analyzeDocumentAction();
+
+    if (autoRunTimer !== null) {
+      clearTimeout(autoRunTimer);
+    }
+    els.documentLinterStatus.textContent = "Waiting for typing to pause...";
+
+    return new Promise((resolve) => {
+      autoRunResolvers.push(resolve);
+      autoRunTimer = setTimeout(() => {
+        autoRunTimer = null;
+        const shouldAnalyze = isActive && autoRunEnabled && textSnapshot !== lastTextSnapshot;
+        const analysisPromise = shouldAnalyze ? analyzeDocumentAction() : Promise.resolve();
+        analysisPromise.finally(resolveScheduledAutoRun);
+      }, AUTO_RUN_DEBOUNCE_MS);
+    });
   }
 
   els.documentLinterAutoRunToggle.checked = autoRunEnabled;
   els.documentLinterAutoRunToggle.addEventListener("change", () => {
     autoRunEnabled = els.documentLinterAutoRunToggle.checked;
+    if (!autoRunEnabled) {
+      cancelScheduledAutoRun();
+    }
     els.documentLinterStatus.textContent = autoRunEnabled
       ? "Rerun on change enabled"
       : "Rerun on change disabled";
@@ -1368,27 +1402,20 @@ export function createDocumentLinterController({
     scrollEditorToLine(lineNumber);
   });
 
-  setPanelVisibility(false);
-
   return {
-    togglePanel: () => {
-      setPanelVisibility(!isPanelOpen);
-      if (isPanelOpen) {
+    setActive: (nextIsActive: boolean) => {
+      isActive = nextIsActive;
+      if (!nextIsActive) {
+        cancelScheduledAutoRun();
+      }
+      if (nextIsActive && !lastAnalysis) {
         els.documentLinterStatus.textContent = "Ready to analyze document";
       }
-    },
-    setPanelOpen: (nextIsOpen: boolean) => {
-      setPanelVisibility(nextIsOpen);
-      if (nextIsOpen) {
-        els.documentLinterStatus.textContent = "Ready to analyze document";
-      }
-    },
-    isPanelOpen: () => isPanelOpen,
-    closePanel: () => {
-      setPanelVisibility(false);
     },
     handleEditorChanged,
     analyzeDocument: analyzeDocumentAction,
     exportSuggestions: exportSuggestionsAction,
+    getLatestAnalysis: () => lastAnalysis,
+    getAnalysisRevision: () => analysisRevision,
   };
 }

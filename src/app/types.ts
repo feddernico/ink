@@ -88,6 +88,7 @@ export interface AppState {
   sortMode: "name" | "modified";
   collapsedDirs: Set<string>;
   autoRefreshMs: number;
+  lastWorkspaceInteractionAt: number;
   autoRefreshTimer: ReturnType<typeof setInterval> | null;
   isSidebarCollapsed: boolean;
   isTemporarySession: boolean;
@@ -137,8 +138,6 @@ export interface DomRefs {
   cogitoGenerateBtn: HTMLButtonElement;
   cogitoStatus: HTMLElement;
   cogitoQuestionList: HTMLElement;
-  documentLinterToggleBtn: HTMLButtonElement;
-  documentLinterPanel: HTMLElement;
   documentLinterAnalyzeBtn: HTMLButtonElement;
   documentLinterExportBtn: HTMLButtonElement;
   documentLinterAutoRunToggle: HTMLInputElement;

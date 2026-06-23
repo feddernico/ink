@@ -36,8 +36,22 @@ type AutoRefreshFns = {
   stopAutoRefresh: () => void;
 };
 
+type RescanOptions = {
+  silent?: boolean;
+  throwOnError?: boolean;
+  showProgress?: boolean;
+};
+
+type DiscoveredNote = {
+  handle: FileHandleLike;
+  name: string;
+  relPath: string;
+  parentNode: DirectoryNode;
+};
+
 type TagParser = (text: string) => Set<string>;
 type TagNormalizer = (value: string) => string;
+const FILE_READ_CONCURRENCY = 4;
 
 export function createWorkspaceActions({
   state,
@@ -70,6 +84,21 @@ export function createWorkspaceActions({
   normalizeTag: TagNormalizer;
   autoRefresh: AutoRefreshFns;
 }) {
+  let isOpeningWorkspace = false;
+  let activeRescan: Promise<boolean> | null = null;
+  let activeRescanHandle: DirectoryHandleLike | null = null;
+  let scanGeneration = 0;
+
+  function recordWorkspaceInteraction(): void {
+    state.lastWorkspaceInteractionAt = Date.now();
+  }
+
+  function cancelActiveScan(): void {
+    scanGeneration += 1;
+    activeRescan = null;
+    activeRescanHandle = null;
+  }
+
   function activateTemporarySession(): void {
     const wasTemporarySession = state.isTemporarySession;
 
@@ -142,12 +171,24 @@ export function createWorkspaceActions({
       return;
     }
 
+    if (isOpeningWorkspace) {
+      setStatus("Folder picker already open", "warn");
+      return;
+    }
+
+    isOpeningWorkspace = true;
+    cancelActiveScan();
+    recordWorkspaceInteraction();
+    autoRefresh.stopAutoRefresh();
+    setStatus("Choose a workspace folder...");
+
     try {
       if (!window.showDirectoryPicker) {
         throw new Error("File System Access API not available");
       }
 
       const directory = await window.showDirectoryPicker({ id: "local-md-workspace", mode: "readwrite" });
+      setStatus("Checking folder access...");
       const permissionGranted = await fsApi.ensurePermission(directory, "readwrite");
       if (!permissionGranted) {
         showToast("Permission denied. Please allow access to the folder.", { persist: true });
@@ -167,7 +208,7 @@ export function createWorkspaceActions({
       els.tagRow.innerHTML = "";
 
       setStatus("Scanning folder...");
-      await rescanWorkspace();
+      await rescanWorkspace({ silent: true, throwOnError: true, showProgress: true });
       autoRefresh.startAutoRefresh();
 
       showToast("Workspace opened.");
@@ -181,30 +222,58 @@ export function createWorkspaceActions({
       const message = error instanceof Error ? error.message : String(error);
       showToast(`Failed to open folder: ${message}`, { persist: true });
       setStatus("Failed to open folder", "err");
+    } finally {
+      isOpeningWorkspace = false;
     }
   }
 
-  async function rescanWorkspace(options: { silent?: boolean } = {}): Promise<void> {
+  async function rescanWorkspace(options: RescanOptions = {}): Promise<boolean> {
     if (!state.workspaceHandle) {
-      return;
+      return false;
     }
 
-    try {
-      const permissionGranted = await fsApi.ensurePermission(state.workspaceHandle, "read");
+    if (activeRescan && activeRescanHandle === state.workspaceHandle) {
+      return activeRescan;
+    }
+
+    const workspaceHandle = state.workspaceHandle;
+    const workspaceName = state.workspaceName;
+    const currentScanGeneration = scanGeneration + 1;
+    scanGeneration = currentScanGeneration;
+
+    const scanPromise = (async () => {
+      const permissionGranted = await fsApi.ensurePermission(workspaceHandle, "read");
       if (!permissionGranted) {
         throw new Error("Folder permission not granted (read)");
       }
 
       const notes: NoteRecord[] = [];
+      const discoveredNotes: DiscoveredNote[] = [];
       const rootNode: DirectoryNode = {
         type: "dir",
-        name: state.workspaceName,
+        name: workspaceName,
         relPath: "",
         children: [],
       };
 
-      await walkDirectory(state.workspaceHandle, rootNode, "", notes);
-      await enrichNotesWithTags(notes);
+      await walkDirectory(workspaceHandle, rootNode, "", discoveredNotes);
+      if (scanGeneration !== currentScanGeneration) {
+        return false;
+      }
+      await hydrateDiscoveredNotes(
+        discoveredNotes,
+        notes,
+        options.showProgress === true,
+        currentScanGeneration,
+      );
+      sortDirectoryTree(rootNode);
+
+      if (
+        state.workspaceHandle !== workspaceHandle
+        || scanGeneration !== currentScanGeneration
+      ) {
+        return false;
+      }
 
       state.notes = notes;
       state.fileTree = rootNode;
@@ -218,18 +287,34 @@ export function createWorkspaceActions({
         showToast("Workspace refreshed.");
         setStatus("Refreshed", "ok");
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(`Refresh failed: ${message}`, { persist: true });
-      setStatus("Refresh failed", "err");
-    }
+      return true;
+    })().catch((error: unknown) => {
+        if (options.throwOnError) {
+          throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        showToast(`Refresh failed: ${message}`, { persist: true });
+        setStatus("Refresh failed", "err");
+        return false;
+      });
+
+    activeRescanHandle = workspaceHandle;
+    const trackedScanPromise = scanPromise.finally(() => {
+      if (activeRescan === trackedScanPromise) {
+        activeRescan = null;
+        activeRescanHandle = null;
+      }
+    });
+    activeRescan = trackedScanPromise;
+
+    return activeRescan;
   }
 
   async function walkDirectory(
     dirHandle: DirectoryHandleLike,
     parentNode: DirectoryNode,
     relPathBase: string,
-    notes: NoteRecord[],
+    discoveredNotes: DiscoveredNote[],
   ): Promise<void> {
     for await (const [name, handle] of dirHandle.entries()) {
       if (name.startsWith(".")) {
@@ -246,7 +331,7 @@ export function createWorkspaceActions({
         };
 
         parentNode.children.push(directoryNode);
-        await walkDirectory(handle, directoryNode, relPath, notes);
+        await walkDirectory(handle, directoryNode, relPath, discoveredNotes);
         continue;
       }
 
@@ -255,60 +340,91 @@ export function createWorkspaceActions({
       }
 
       const relPath = relPathBase ? `${relPathBase}/${name}` : name;
-      let lastModified = 0;
-      let size = 0;
+      discoveredNotes.push({
+        handle: handle as FileHandleLike,
+        name,
+        relPath,
+        parentNode,
+      });
+    }
+  }
 
-      try {
-        const file = await handle.getFile();
-        lastModified = file.lastModified || 0;
-        size = file.size || 0;
-      } catch {
-        showToast(`Skipped a file that couldn't be read: ${relPath}`);
-        continue;
+  async function hydrateDiscoveredNotes(
+    discoveredNotes: DiscoveredNote[],
+    notes: NoteRecord[],
+    showProgress: boolean,
+    currentScanGeneration: number,
+  ): Promise<void> {
+    const MAX_BYTES = 256 * 1024;
+    let nextIndex = 0;
+    let completedCount = 0;
+
+    async function hydrateNext(): Promise<void> {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= discoveredNotes.length) {
+        return;
+      }
+      if (scanGeneration !== currentScanGeneration) {
+        return;
       }
 
-      const note: NoteRecord = {
-        handle,
-        name,
-        relPath,
-        lastModified,
-        size,
-        tags: new Set<string>(),
-      };
+      const discovered = discoveredNotes[index];
+      try {
+        const file = await discovered.handle.getFile();
+        const blob = file.size > MAX_BYTES ? file.slice(0, MAX_BYTES) : file;
+        const text = await blob.text();
+        const note: NoteRecord = {
+          handle: discovered.handle,
+          name: discovered.name,
+          relPath: discovered.relPath,
+          lastModified: file.lastModified || 0,
+          size: file.size || 0,
+          tags: parseTags(text),
+        };
+        notes.push(note);
+        const fileNode: FileNode = {
+          type: "file",
+          name: discovered.name,
+          relPath: discovered.relPath,
+          handle: discovered.handle,
+          noteRef: note,
+        };
+        discovered.parentNode.children.push(fileNode);
+      } catch {
+        showToast(`Skipped a file that couldn't be read: ${discovered.relPath}`);
+      } finally {
+        completedCount += 1;
+        if (
+          showProgress
+          && (completedCount === discoveredNotes.length || completedCount % 25 === 0)
+        ) {
+          setStatus(`Loading notes ${completedCount}/${discoveredNotes.length}...`);
+        }
+      }
 
-      notes.push(note);
-      const fileNode: FileNode = {
-        type: "file",
-        name,
-        relPath,
-        handle,
-        noteRef: note,
-      };
-
-      parentNode.children.push(fileNode);
+      if (scanGeneration === currentScanGeneration) {
+        await hydrateNext();
+      }
     }
 
-    parentNode.children.sort((a: TreeNode, b: TreeNode) => {
+    const workerCount = Math.min(FILE_READ_CONCURRENCY, discoveredNotes.length);
+    await Promise.all(Array.from({ length: workerCount }, () => hydrateNext()));
+  }
+
+  function sortDirectoryTree(directory: DirectoryNode): void {
+    for (const child of directory.children) {
+      if (child.type === "dir") {
+        sortDirectoryTree(child);
+      }
+    }
+
+    directory.children.sort((a: TreeNode, b: TreeNode) => {
       if (a.type !== b.type) {
         return a.type === "dir" ? -1 : 1;
       }
       return a.name.localeCompare(b.name);
     });
-  }
-
-  async function enrichNotesWithTags(notes: NoteRecord[]): Promise<void> {
-    const MAX_BYTES = 256 * 1024;
-
-    for (const note of notes) {
-      try {
-        const file = await note.handle.getFile();
-        const blob = file.size > MAX_BYTES ? file.slice(0, MAX_BYTES) : file;
-        const text = await blob.text();
-        note.tags = parseTags(text);
-      } catch {
-        note.tags = new Set<string>();
-      }
-    }
   }
 
   async function openNoteByRelPath(relPath: string, handleHint: FileHandleLike | null = null): Promise<void> {
@@ -318,6 +434,9 @@ export function createWorkspaceActions({
         return;
       }
     }
+
+    cancelActiveScan();
+    recordWorkspaceInteraction();
 
     try {
       const handle = handleHint || state.notes.find((note) => note.relPath === relPath)?.handle;
@@ -354,6 +473,9 @@ export function createWorkspaceActions({
     if (!state.currentFileHandle) {
       return;
     }
+
+    cancelActiveScan();
+    recordWorkspaceInteraction();
 
     try {
       const writable = await state.currentFileHandle.createWritable();
@@ -780,6 +902,8 @@ export function createWorkspaceActions({
       return;
     }
 
+    cancelActiveScan();
+    recordWorkspaceInteraction();
     rescanWorkspace().catch((error: unknown) => {
       showToast(`Refresh failed: ${String(error)}`, { persist: true });
       setStatus("Refresh failed", "err");
@@ -788,6 +912,8 @@ export function createWorkspaceActions({
 
   function closeWorkspace(): void {
     autoRefresh.stopAutoRefresh();
+    cancelActiveScan();
+    recordWorkspaceInteraction();
     state.workspaceHandle = null;
     state.workspaceName = "";
     state.fileTree = null;
