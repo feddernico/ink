@@ -146,8 +146,109 @@ describe("workspace actions regression", () => {
     cy.get("#workspaceName").should("contain", workspaceName);
 
     cy.get("body").click("topLeft");
-    cy.get("#refreshBtn").click();
+    cy.get("body").click("bottomRight");
+    cy.get("#refreshBtn").click({ force: true });
     cy.get("#statusBadge").should("contain", "Refreshed");
+  });
+
+  it("opens the folder picker immediately and ignores overlapping open requests", () => {
+    cy.window().then((win) => {
+      win.__pickerCalls = 0;
+      win.showDirectoryPicker = () => {
+        win.__pickerCalls += 1;
+        return new Promise((resolve) => {
+          win.__resolveWorkspacePicker = () => resolve(win.__fakeWorkspace);
+        });
+      };
+    });
+
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("#statusBadge").should("contain", "Choose a workspace folder");
+    cy.window().its("__pickerCalls").should("eq", 1);
+
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.window().its("__pickerCalls").should("eq", 1);
+    cy.get("#statusBadge").should("contain", "Folder picker already open");
+
+    cy.window().then((win) => {
+      win.__resolveWorkspacePicker();
+    });
+    cy.get("#statusBadge").should("contain", "Workspace ready");
+  });
+
+  it("loads workspace files concurrently and reads each file once", () => {
+    cy.window().then((win) => {
+      const tracker = { active: 0, maximum: 0, calls: 0 };
+      win.__workspaceReadTracker = tracker;
+
+      for (let index = 0; index < 32; index += 1) {
+        const name = `note-${index}.md`;
+        win.__fakeWorkspace.__entries.set(name, {
+          kind: "file",
+          name,
+          async getFile() {
+            tracker.calls += 1;
+            tracker.active += 1;
+            tracker.maximum = Math.max(tracker.maximum, tracker.active);
+            await new Promise((resolve) => win.setTimeout(resolve, 20));
+            tracker.active -= 1;
+            return new File([`---\ntags: [batch]\n---\n# Note ${index}`], name, {
+              type: "text/markdown",
+              lastModified: index,
+            });
+          },
+        });
+      }
+    });
+
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("#statusBadge").should("contain", "Workspace ready");
+    cy.get("#countsPill").should("contain", "32 notes");
+    cy.window().then((win) => {
+      expect(win.__workspaceReadTracker.calls).to.eq(32);
+      expect(win.__workspaceReadTracker.maximum).to.be.greaterThan(1);
+      expect(win.__workspaceReadTracker.maximum).to.be.at.most(4);
+    });
+  });
+
+  it("prioritizes opening a note over an in-progress background scan", () => {
+    cy.window().then((win) => {
+      win.__fakeWorkspace.__entries.set(
+        "priority.md",
+        createFakeFileHandle("priority.md", "# Priority\n\nOpen me immediately."),
+      );
+    });
+
+    cy.get("[data-action=\"open-workspace\"]").click({ force: true });
+    cy.get("#workspaceName").should("contain", workspaceName);
+    cy.get("#tree .node").contains("priority.md").should("be.visible");
+
+    cy.window().then((win) => {
+      const tracker = { calls: 0 };
+      win.__slowRefreshTracker = tracker;
+      for (let index = 0; index < 40; index += 1) {
+        const name = `slow-${index}.md`;
+        win.__fakeWorkspace.__entries.set(name, {
+          kind: "file",
+          name,
+          async getFile() {
+            tracker.calls += 1;
+            await new Promise((resolve) => win.setTimeout(resolve, 250));
+            return new File([`# Slow ${index}`], name, { type: "text/markdown" });
+          },
+        });
+      }
+    });
+
+    cy.get("#refreshBtn").click({ force: true });
+    cy.get("#tree .node").contains("priority.md").click();
+    cy.get("#currentFilename").should("contain", "priority.md");
+    cy.get("#editor").should("contain.value", "Open me immediately");
+
+    cy.wait(350);
+    cy.window().then((win) => {
+      expect(win.__slowRefreshTracker.calls).to.be.at.most(4);
+    });
   });
 
   it("close workspace resets UI state", () => {

@@ -478,15 +478,12 @@
     }
 
     .split.view-source.with-cogito,
-    .split.view-source.with-document-linter,
-    .split.view-preview.with-cogito,
-    .split.view-preview.with-document-linter{
-      grid-template-columns: 1fr 320px;
+    .split.view-preview.with-cogito{
+      grid-template-columns: 1fr minmax(320px, 380px);
     }
 
-    .split.view-split.with-cogito,
-    .split.view-split.with-document-linter{
-      grid-template-columns: 1fr 1fr 320px;
+    .split.view-split.with-cogito{
+      grid-template-columns: 1fr 1fr minmax(320px, 380px);
     }
 
     .editorPane, .previewPane{
@@ -511,8 +508,7 @@
 
     .editorPane[hidden],
     .previewPane[hidden],
-    .cogitoPanel[hidden],
-    .documentLinterPanel[hidden]{
+    .cogitoPanel[hidden]{
       display: none !important;
     }
 
@@ -548,39 +544,54 @@
       padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       overflow: auto;
     }
 
-     .cogitoPanel[hidden]{
-       display: none;
-     }
-     
-     .documentLinterPanel{
-       min-height: 0;
-       border-left: 1px solid var(--border);
-       background: var(--panel2);
-       padding: 12px;
-       display: flex;
-       flex-direction: column;
-       gap: 10px;
-       overflow: auto;
-     }
-     
-     .documentLinterPanel[hidden]{
-       display: none;
-     }
-     
-     .documentLinterHeader{
-       display: flex;
-       align-items: center;
-       justify-content: space-between;
-       gap: 10px;
-       margin: 0;
-       padding: 0;
-       border: 0;
-       min-height: 0;
-     }
+    .cogitoPanel[hidden]{
+      display: none;
+    }
+
+    .cogitoPanelHeader p,
+    .cogitoSectionHeader p{
+      margin: 4px 0 0;
+    }
+
+    .cogitoSection{
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .cogitoSection + .cogitoSection{
+      margin-top: 2px;
+    }
+
+    .cogitoSectionHeader{
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .cogitoSectionHeader h2{
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .cogitoSectionActions{
+      display: flex;
+      gap: 6px;
+    }
+
+    .cogitoSectionActions button,
+    .cogitoSectionHeader > button{
+      padding: 7px 9px;
+      font-size: 12px;
+    }
 
      .documentLinterAutoRun{
        display: inline-flex;
@@ -595,9 +606,7 @@
        margin: 0;
      }
      
-     .documentLinterResults{
-       flex: 1 1 auto;
-       overflow-y: auto;
+    .documentLinterResults{
        display: flex;
        flex-direction: column;
        gap: 12px;
@@ -740,17 +749,6 @@
     .documentLinterSectionNotes{
       display: grid;
       gap: 4px;
-    }
-
-    .cogitoHeader{
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin: 0;
-      padding: 0;
-      border: 0;
-      min-height: 0;
     }
 
     .cogitoModelPicker{
@@ -1144,11 +1142,8 @@
       .split.view-source,
       .split.view-preview,
       .split.view-split.with-cogito,
-      .split.view-split.with-document-linter,
       .split.view-source.with-cogito,
-      .split.view-source.with-document-linter,
-      .split.view-preview.with-cogito,
-      .split.view-preview.with-document-linter{ grid-template-columns: 1fr; }
+      .split.view-preview.with-cogito{ grid-template-columns: 1fr; }
       .editorPane{
         border-right: none;
         border-bottom: 1px solid var(--border);
@@ -1156,11 +1151,6 @@
       }
       .previewPane{ min-height: 40vh; }
       .cogitoPanel{
-        border-left: none;
-        border-top: 1px solid var(--border);
-        min-height: 30vh;
-      }
-      .documentLinterPanel{
         border-left: none;
         border-top: 1px solid var(--border);
         min-height: 30vh;

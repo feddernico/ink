@@ -108,6 +108,7 @@ var CATEGORY_META = [
   { id: "style", title: "Style", color: "#9C27B0" },
   { id: "structure", title: "Structure", color: "#607D8B" }
 ];
+var AUTO_RUN_DEBOUNCE_MS = 300;
 function clampScore(score) {
   return Math.max(0, Math.min(100, score));
 }
@@ -931,15 +932,31 @@ function createDocumentLinterController({
   getEditorText,
   onEditorContentReplaced: _onEditorContentReplaced,
   showToast,
-  setStatus
+  setStatus,
+  onAnalysisUpdated
 }) {
-  let isPanelOpen = false;
+  let isActive = false;
   let isAnalyzing = false;
   let autoRunEnabled = false;
   let lastAnalysis = null;
   let lastTextSnapshot = "";
+  let analysisRevision = 0;
+  let autoRunTimer = null;
+  let autoRunResolvers = [];
   async function runAnalysis(textSnapshot = getEditorText()) {
     return Promise.resolve(analyzeDocumentText(textSnapshot));
+  }
+  function resolveScheduledAutoRun() {
+    const resolvers = autoRunResolvers;
+    autoRunResolvers = [];
+    resolvers.forEach((resolve) => resolve());
+  }
+  function cancelScheduledAutoRun() {
+    if (autoRunTimer !== null) {
+      clearTimeout(autoRunTimer);
+      autoRunTimer = null;
+    }
+    resolveScheduledAutoRun();
   }
   function scrollEditorToLine(lineNumber) {
     const lines = els.editor.value.split("\n");
@@ -953,15 +970,6 @@ function createDocumentLinterController({
     const computedLineHeight = typeof window.getComputedStyle === "function" ? Number.parseFloat(window.getComputedStyle(els.editor).lineHeight) : Number.NaN;
     const lineHeight = Number.isFinite(computedLineHeight) ? computedLineHeight : 20;
     els.editor.scrollTop = Math.max(0, (clampedLine - 1) * lineHeight);
-  }
-  function setPanelVisibility(isOpen) {
-    isPanelOpen = isOpen;
-    els.documentLinterPanel.hidden = !isOpen;
-    els.documentLinterToggleBtn.setAttribute("aria-expanded", String(isOpen));
-    const split = els.documentLinterPanel.closest(".split");
-    if (split) {
-      split.classList.toggle("with-document-linter", isOpen);
-    }
   }
   function updateResultsPanel(analysis) {
     const resultsContainer = els.documentLinterResults;
@@ -1067,8 +1075,10 @@ function createDocumentLinterController({
     try {
       const analysis = await runAnalysis(text);
       lastAnalysis = analysis;
+      analysisRevision += 1;
       updateResultsPanel(analysis);
       els.documentLinterStatus.textContent = "Analysis complete";
+      onAnalysisUpdated?.(analysis, analysisRevision);
       showToast("Document analysis completed");
       setStatus("Analysis complete", "ok");
     } catch (error) {
@@ -1096,6 +1106,11 @@ function createDocumentLinterController({
       const analysis = needsFreshAnalysis ? await runAnalysis(text) : lastAnalysis;
       lastAnalysis = analysis;
       lastTextSnapshot = text;
+      if (needsFreshAnalysis) {
+        analysisRevision += 1;
+        updateResultsPanel(analysis);
+        onAnalysisUpdated?.(analysis, analysisRevision);
+      }
       const report = buildDocumentLinterReport(text, analysis);
       downloadMarkdownReport(report);
       showToast("Exported linter review as Markdown.");
@@ -1106,8 +1121,9 @@ function createDocumentLinterController({
     }
   }
   async function handleEditorChanged(textSnapshot = getEditorText()) {
-    if (!isPanelOpen || !autoRunEnabled || isAnalyzing || !textSnapshot.trim()) {
-      if (!textSnapshot.trim() && autoRunEnabled && isPanelOpen) {
+    if (!isActive || !autoRunEnabled || isAnalyzing || !textSnapshot.trim()) {
+      cancelScheduledAutoRun();
+      if (!textSnapshot.trim() && autoRunEnabled && isActive) {
         lastAnalysis = null;
         lastTextSnapshot = textSnapshot;
         els.documentLinterStatus.textContent = "No content to analyze";
@@ -1117,11 +1133,26 @@ function createDocumentLinterController({
     if (textSnapshot === lastTextSnapshot) {
       return Promise.resolve();
     }
-    return analyzeDocumentAction();
+    if (autoRunTimer !== null) {
+      clearTimeout(autoRunTimer);
+    }
+    els.documentLinterStatus.textContent = "Waiting for typing to pause...";
+    return new Promise((resolve) => {
+      autoRunResolvers.push(resolve);
+      autoRunTimer = setTimeout(() => {
+        autoRunTimer = null;
+        const shouldAnalyze = isActive && autoRunEnabled && textSnapshot !== lastTextSnapshot;
+        const analysisPromise = shouldAnalyze ? analyzeDocumentAction() : Promise.resolve();
+        analysisPromise.finally(resolveScheduledAutoRun);
+      }, AUTO_RUN_DEBOUNCE_MS);
+    });
   }
   els.documentLinterAutoRunToggle.checked = autoRunEnabled;
   els.documentLinterAutoRunToggle.addEventListener("change", () => {
     autoRunEnabled = els.documentLinterAutoRunToggle.checked;
+    if (!autoRunEnabled) {
+      cancelScheduledAutoRun();
+    }
     els.documentLinterStatus.textContent = autoRunEnabled ? "Rerun on change enabled" : "Rerun on change disabled";
   });
   els.documentLinterResults.addEventListener("click", (event) => {
@@ -1136,27 +1167,21 @@ function createDocumentLinterController({
     }
     scrollEditorToLine(lineNumber);
   });
-  setPanelVisibility(false);
   return {
-    togglePanel: () => {
-      setPanelVisibility(!isPanelOpen);
-      if (isPanelOpen) {
+    setActive: (nextIsActive) => {
+      isActive = nextIsActive;
+      if (!nextIsActive) {
+        cancelScheduledAutoRun();
+      }
+      if (nextIsActive && !lastAnalysis) {
         els.documentLinterStatus.textContent = "Ready to analyze document";
       }
-    },
-    setPanelOpen: (nextIsOpen) => {
-      setPanelVisibility(nextIsOpen);
-      if (nextIsOpen) {
-        els.documentLinterStatus.textContent = "Ready to analyze document";
-      }
-    },
-    isPanelOpen: () => isPanelOpen,
-    closePanel: () => {
-      setPanelVisibility(false);
     },
     handleEditorChanged,
     analyzeDocument: analyzeDocumentAction,
-    exportSuggestions: exportSuggestionsAction
+    exportSuggestions: exportSuggestionsAction,
+    getLatestAnalysis: () => lastAnalysis,
+    getAnalysisRevision: () => analysisRevision
   };
 }
 export {
