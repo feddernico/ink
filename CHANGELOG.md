@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/feddernico/ink/compare/ink-v1.4.0...ink-v1.5.0) (2026-06-23)
+
+
+### Features
+
+* unify Cogito feedback and improve workspace reliability ([22f1551](https://github.com/feddernico/ink/commit/22f1551672700d26c23f47a600db4c90e1b522c2))
+
 ## [1.4.0](https://github.com/feddernico/ink/compare/ink-v1.3.1...ink-v1.4.0) (2026-06-19)
 
 
